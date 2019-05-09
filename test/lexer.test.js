@@ -3,7 +3,7 @@ const fs = require('fs')
 const resolve = require('path').resolve
 const lexerPath = resolve(__dirname, "../src/config/parser.jison")
 const TextContent = fs.readFileSync(lexerPath, "utf8").split('\n')
-
+const lexer = require("../dist/parser.js").parser.lexer
 describe("lexer NUMBER",function(){
     var regOfNumber = '^'+ TextContent.find(x=>/return\s+'NUMBER'/.test(x)).split(/\s+/)[0] + '$'
     var reg = new RegExp(regOfNumber)
@@ -22,7 +22,8 @@ describe("lexer NUMBER",function(){
     })
 })
 describe("lexer 字符串长度为1的运算符", function () {
-    var regOfSingle = TextContent.find(x => /-\*\+/.test(x)).split(/\s+/)[0]
+    var regOfSingle = lexer.rules.find(x => /-\*\+/.test(x.source))
+    //console.log(regOfSingle)
     var reg = new RegExp(regOfSingle)
     "-*+/%&|~!.?:;,=#'\"()[]{}<>".split('').forEach(x=>{
         it(`输入运算符 ${x}`,()=>{
@@ -30,8 +31,9 @@ describe("lexer 字符串长度为1的运算符", function () {
         })
     })
 })
+
 describe("lexer 字符串长度大于1的运算符", function () {
-    var regOfDouble = TextContent.find(x => /##/.test(x)).split(/\s+/)[0]
+    var regOfDouble = lexer.rules.find(x => /##/.test(x.source))
     var reg = new RegExp(regOfDouble)
     "## ++ -- >> >> <= >= == != && || *= /= += -= <<= >>= &= ^= |=".split(' ').forEach(x => {
         it(`输入运算符 ${x}`, () => {

@@ -49,8 +49,9 @@ join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 
-[-*+/%&|~!()\[\]{}'"#,\.?:;=<>]                                     return yytext
-(##|\+\+|--|>>|>>|<=|>=|==|!=|&&|\|\||\*=|\/=|\+=|-=|<<=|>>=|&=|\^=|\|=) return yytext
+[-*+/%&|~!()\[\]{}'"#,\.?:;=<>]                             return yytext
+"##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"|"*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="    return yytext
+
 <<EOF>>               return 'EOF'
 .                     return 'INVALID'
 
