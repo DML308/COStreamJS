@@ -1,16 +1,13 @@
 
-/* description: Parses and executes mathematical expressions. */
-/* lexical grammar */
+/* lexer */
 %lex
 %%
 
-\s+                   /* skip whitespace */
-[0-9]+("."[0-9]+)?\b  return 'NUMBER'
-"*"                   return '*'
-"/"                   return '/'
-"-"                   return '-'
-"+"                   return '+'
-"^"                   return '^'
+\s+                                                         /* skip whitespace */
+[+-]?(0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b         return 'NUMBER'
+[A-z_][0-9A-z]*                                             return 'IDENTIFIER'
+
+[+-\\*\\/%&|~!()]     return yytext
 "!"                   return '!'
 "%"                   return '%'
 "("                   return '('
@@ -37,35 +34,20 @@
 
 expressions
     : e EOF
-        { typeof console !== 'undefined' ? console.log($1) : print($1);
-        return $1; }
+        { return $1; }
     ;
 
 e
     : e '+' e
-        { $$ = { value: $1.value+$3.value }; $$.left = $1; $$.op = '+'; $$.right = $3;}
+        { $$ = { value: $1.value+$3.value }; $$.left = $1; $$.op = '+'; $$.right = $3;console.log(@3)}
     | e '-' e
-        {$$ = $1-$3;}
-    | e '*' e
-        {$$ = $1*$3;}
-    | e '/' e
-        {$$ = $1/$3;}
-    | e '^' e
-        {$$ = Math.pow($1, $3);}
-    | e '!'
-        {{
-        $$ = (function fact (n) { return n==0 ? 1 : fact(n-1) * n })($1);
-        }}
-    | e '%'
-        {$$ = $1/100;}
-    | '-' e %prec UMINUS
-        {$$ = -$2;}
-    | '(' e ')'
-        {$$ = $2;}
-    | NUMBER
-        { $$ = { value : Number(yytext) } ; debug("hello",[1])}
-    | E
-        {$$ = { value : Math.E };}
-    | PI
-        {$$ = { value : Math.PI } }
+        { $$ = { value: $1.value-$3.value }; $$.left = $1; $$.op = '-'; $$.right = $3;console.log(@1)}
+    |e '*' e
+        { $$ = { value: $1.value*$3.value }; $$.left = $1; $$.op = '*'; $$.right = $3;console.log(@1)}
+    |e '/' e
+        { $$ = { value: $1.value/$3.value }; $$.left = $1; $$.op = '/'; $$.right = $3;console.log(@1)}
+    | NUMBER 
+        { $$ = { value: Number($1)}; line(@1,$1) }
+    | IDENTIFIER
+        { $$ = { value: String($1)}; line(@1,$1) }
     ;
