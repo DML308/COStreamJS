@@ -9,6 +9,7 @@
     "dev": "NODE_ENV=development rollup -w -c rollup.config.js",
     "build": "NODE_ENV=production rollup -c rollup.config.js",
     "bison": "jison src/config/parser.jison -o dist/parser.js",
+    "count":"find ./src -maxdepth 4  -name '*.j*'  | xargs cat |wc -l",
     "test": "mocha test/",
     "test:cover": "istanbul cover test/lexer.test.js"
   },

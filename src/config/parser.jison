@@ -88,4 +88,5 @@ e
         { $$ = { value: Number($1)}; line(@1,$1) }
     | IDENTIFIER
         { $$ = { value: String($1)}; line(@1,$1) }
+    | INT { $$ = { value: $1 }}
     ;
