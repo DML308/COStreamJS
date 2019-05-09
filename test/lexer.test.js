@@ -21,3 +21,21 @@ describe("lexer NUMBER",function(){
         })
     })
 })
+describe("lexer 字符串长度为1的运算符", function () {
+    var regOfSingle = TextContent.find(x => /-\*\+/.test(x)).split(/\s+/)[0]
+    var reg = new RegExp(regOfSingle)
+    "-*+/%&|~!.?:;,=#'\"()[]{}<>".split('').forEach(x=>{
+        it(`输入运算符 ${x}`,()=>{
+            assert(reg.test(x))
+        })
+    })
+})
+describe("lexer 字符串长度大于1的运算符", function () {
+    var regOfDouble = TextContent.find(x => /##/.test(x)).split(/\s+/)[0]
+    var reg = new RegExp(regOfDouble)
+    "## ++ -- >> >> <= >= == != && || *= /= += -= <<= >>= &= ^= |=".split(' ').forEach(x => {
+        it(`输入运算符 ${x}`, () => {
+            assert(reg.test(x))
+        })
+    })
+})

@@ -1,4 +1,6 @@
 # COStreamJS
+![](https://travis-ci.org/DML308/COStreamJS.svg?branch=master)
+
 COStream 工具在动态弱类型语言 js 上的部署, 目的是代码模块化 ; 易读 ; 易测试
 # 使用方法
 `git clone`后执行`npm install`或`cnpm install`或`yarn`
