@@ -11,6 +11,12 @@ export class Node {
 export class expNode extends Node {
     constructor(loc) {
         super(loc)
+        this._value = NaN
+        definePrivate(this, '_value')
+        //检查是否有常量传播插件提供的 getValue 函数
+        if (this.getValue) {
+            this.getValue()
+        }
     }
 }
 
@@ -19,6 +25,7 @@ export class unaryNode extends expNode {
         super(loc)
         Object.assign(this, { first, second })
     }
+
 };
 
 export class binopNode extends expNode {
@@ -52,6 +59,6 @@ export class idNode extends expNode {
 export class constantNode extends expNode {
     constructor(sourceStr, loc) {
         super(loc)
-        this.value = Number(sourceStr)
+        this._value = Number(sourceStr)
     }
 }
