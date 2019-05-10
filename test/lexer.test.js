@@ -25,7 +25,7 @@ describe("lexer 字符串长度为1的运算符", function () {
     var regOfSingle = lexer.rules.find(x => /-\*\+/.test(x.source))
     //console.log(regOfSingle)
     var reg = new RegExp(regOfSingle)
-    "-*+/%&|~!.?:;,=#'\"()[]{}<>".split('').forEach(x=>{
+    "-*+/%&|~!.?:;,#'\"()[]{}<>".split('').forEach(x=>{
         it(`输入运算符 ${x}`,()=>{
             assert(reg.test(x))
         })
@@ -35,7 +35,18 @@ describe("lexer 字符串长度为1的运算符", function () {
 describe("lexer 字符串长度大于1的运算符", function () {
     var regOfDouble = lexer.rules.find(x => /##/.test(x.source))
     var reg = new RegExp(regOfDouble)
-    "## ++ -- >> >> <= >= == != && || *= /= += -= <<= >>= &= ^= |=".split(' ').forEach(x => {
+    "## ++ -- >> >> <= >= == != && ||".split(' ').forEach(x => {
+        it(`输入运算符 ${x}`, () => {
+            assert(reg.test(x))
+        })
+    })
+})
+
+describe("lexer 赋值运算符", function () {
+    var regStr = lexer.rules.find(x => /-=/.test(x.source))
+    //console.log(regStr)
+    var reg = new RegExp(regStr)
+    "= *= /= += -= <<= >>= &= ^= |=".split(' ').forEach(x => {
         it(`输入运算符 ${x}`, () => {
             assert(reg.test(x))
         })

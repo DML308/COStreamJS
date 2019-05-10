@@ -49,44 +49,77 @@ join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 
-[-*+/%&|~!()\[\]{}'"#,\.?:;=<>]                             return yytext
-"##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"|"*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="    return yytext
+[-*+/%&|~!()\[\]{}'"#,\.?:;<>]                              return yytext
+"##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
+"="|"*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="          return 'ASSIGNMENT_OPERATOR'
 
 <<EOF>>               return 'EOF'
 .                     return 'INVALID'
 
 /lex
 
-/* operator associations and precedence */
+/* A. 下面是从词法分析器传进来的 token ,其中大部分都是换名字符串*/
+%token STRING     INT   DOUBLE  FLOAT       LONG    CONST   DEFINE
+%token WHILE      FOR   BREAK   CONTINUE    SWITCH  CASE DEFAULT IF ELSE DO RETURN
+%token POUNDPOUND ICR   DECR    ANDAND      OROR    LS  RS LE GE EQ NE
+%token MULTassign DIVassign     PLUSassign  MINUSassign MODassign
+%token LSassign   RSassign ANDassign ERassign ORassign
+    /* A.1 ----------------- COStream 特有关键字 ---------------*/
+%token COMPOSITE  INPUT OUTPUT  STREAM    FILEREADER  FILEWRITER  ADD
+%token PARAM      INIT  WORK    WINDOW    TUMBLING    SLIDING
+%token SPLITJOIN  PIPELINE      SPLIT     JOIN        DUPLICATE ROUNDROBIN
 
-%left '+' '-'
-%left '*' '/'
+/* 优先级标记,从上至下优先级从低到高排列 */
+
+%right ASSIGNMENT_OPERATOR
+%left "||" 
+%left "&&"
+%left '|'
 %left '^'
-%right '!'
-%right '%'
-%left UMINUS
+%left '&'
+%left "==" "!="
+%left '<' "<=" '>' ">="
+%left "<<" ">>"
+%left '+' '-'
+%left '*' '/' '%'
+%right '!' '~'
+%right plusOrMinus
+%right prefixIncOrDec
+%left  '.'
+%left  arrayIndex
+%left  functionCall 
+%left  suffixIncOrDec
 
 %start expressions
 
 %% /* language grammar */
-
+/************************************************************************/
+/*              1. 文法一级入口,由下面三种文法组成                           */
+/*                 1.1. declaration 声明                                 */
+/*                 1.2. function.definition 函数声明                      */
+/*                 1.3. composite.definition 数据流计算单元声明             */
+/*************************************************************************/
+/*************************************************************************/
+/*        4. exp 计算表达式头节点                        */
+/*************************************************************************/
 expressions
-    : e EOF
+    : exp EOF
         { return $1; }
     ;
 
-e
-    : e '+' e
+exp
+    : exp '+' exp
         { $$ = { value: $1.value+$3.value }; $$.left = $1; $$.op = '+'; $$.right = $3;console.log(@3)}
-    | e '-' e
+    | exp '-' exp
         { $$ = { value: $1.value-$3.value }; $$.left = $1; $$.op = '-'; $$.right = $3;console.log(@1)}
-    |e '*' e
+    |exp '*' exp
         { $$ = { value: $1.value*$3.value }; $$.left = $1; $$.op = '*'; $$.right = $3;console.log(@1)}
-    |e '/' e
+    |exp '/' exp
         { $$ = { value: $1.value/$3.value }; $$.left = $1; $$.op = '/'; $$.right = $3;console.log(@1)}
     | NUMBER 
         { $$ = { value: Number($1)}; line(@1,$1) }
     | IDENTIFIER
         { $$ = { value: String($1)}; line(@1,$1) }
     | INT { $$ = { value: $1 }}
+    | exp 'ASSIGNMENT_OPERATOR' e     {  console.log($2); $$ = {} }
     ;
