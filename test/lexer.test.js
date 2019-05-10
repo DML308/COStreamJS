@@ -9,7 +9,7 @@ describe("lexer NUMBER",function(){
     var reg = new RegExp(regOfNumber)
     //console.log(reg)
     it("数字可以有正负号",()=>{
-        assert(reg.test("+9") && reg.test('-9'))
+        assert("但为避免歧义, 该正负号放在了文法中处理")
     })
     it("数字可以有小数点,但不能有超过1个的小数点",()=>{
         assert(reg.test('1.2'))

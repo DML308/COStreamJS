@@ -4,7 +4,7 @@
 %%
 
 \s+                                                         /* skip whitespace */
-[+-]?(0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b         return 'NUMBER'
+(0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b              return 'NUMBER'
 [A-z_][0-9A-z]*                                             return 'IDENTIFIER'
 
 string                                                      return 'STRING'
@@ -49,9 +49,9 @@ join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 
-[-*+/%&|~!()\[\]{}'"#,\.?:;<>]                              return yytext
 "##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
 "="|"*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="          return 'ASSIGNMENT_OPERATOR'
+[-*+/%&|~!()\[\]{}'"#,\.?:;<>]                              return yytext
 
 <<EOF>>               return 'EOF'
 .                     return 'INVALID'
@@ -84,11 +84,11 @@ roundrobin                                                  return 'ROUNDROBIN'
 %left '*' '/' '%'
 %right '!' '~'
 %right plusOrMinus
-%right prefixIncOrDec
+%right PREFIXINC
 %left  '.'
 %left  arrayIndex
 %left  functionCall 
-%left  suffixIncOrDec
+%left  SUFFIXINC
 
 %start expressions
 
@@ -107,19 +107,39 @@ expressions
         { return $1; }
     ;
 
+idNode: 
+      IDENTIFIER                             { $$ = new idNode($1,@1) }
+    | IDENTIFIER "++"  %prec SUFFIXINC       { $$ = new unaryNode($1,$2,@1)    }
+    | IDENTIFIER "--"  %prec SUFFIXINC       { $$ = new unaryNode($1,$2,@1)    }
+    | "++" IDENTIFIER  %prec PREFIXINC       { $$ = new unaryNode($1,$2,@1)    }
+    | "--" IDENTIFIER  %prec PREFIXINC       { $$ = new unaryNode($1,$2,@1)    }
+    ;
 exp
-    : exp '+' exp
-        { $$ = { value: $1.value+$3.value }; $$.left = $1; $$.op = '+'; $$.right = $3;console.log(@3)}
-    | exp '-' exp
-        { $$ = { value: $1.value-$3.value }; $$.left = $1; $$.op = '-'; $$.right = $3;console.log(@1)}
-    |exp '*' exp
-        { $$ = { value: $1.value*$3.value }; $$.left = $1; $$.op = '*'; $$.right = $3;console.log(@1)}
-    |exp '/' exp
-        { $$ = { value: $1.value/$3.value }; $$.left = $1; $$.op = '/'; $$.right = $3;console.log(@1)}
-    | NUMBER 
-        { $$ = { value: Number($1)}; line(@1,$1) }
-    | IDENTIFIER
-        { $$ = { value: String($1)}; line(@1,$1) }
-    | INT { $$ = { value: $1 }}
-    | exp 'ASSIGNMENT_OPERATOR' e     {  console.log($2); $$ = {} }
+    : NUMBER        { $$ = new constantNode($1,@1)    }
+    | idNode        { $$ = $1                         }
+    | exp '.' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '+' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '-' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '*' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '/' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '%' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '|' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '&' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '^' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp ">" exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '<' exp   { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '>=' exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '<=' exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '==' exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '!=' exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '||' exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '&&' exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '<<' exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp '>>' exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp 'ASSIGNMENT_OPERATOR' exp         { $$ = new binopNode($1,$2,$3,@2) }
+    | '+' exp    %prec plusOrMinus          { $$ = new unaryNode($1,$2,@1)    }
+    | '-' exp    %prec plusOrMinus          { $$ = new unaryNode($1,$2,@1)    }
+    | '~' exp                               { $$ = new unaryNode($1,$2,@1)    }
+    | '!' exp                               { $$ = new unaryNode($1,$2,@1)    }
+    
     ;
