@@ -1,4 +1,4 @@
-import { expNode,unaryNode, binopNode, ternaryNode, parenNode, idNode, expNode } from "./node.js"
+import { expNode,unaryNode, binopNode, ternaryNode, parenNode, idNode } from "./node.js"
 import { error } from "../utils/color.js"
 
 /**
@@ -7,14 +7,13 @@ import { error } from "../utils/color.js"
 export function loadCVPPlugin() {
 
     expNode.prototype.getValue = function(){
-        this.value = NaN
         //异步计算 value 值, 为了常量传播保留这个接口
         Object.defineProperty(this, 'value', {
             enumerable: false,
             get: function () {
                 if (!Number.isNaN(this._value)) return this._value
                 else {
-                    return (this.getValue && (this.value = this.getValue())) || NaN
+                    return (this.getValue && (this._value = this.getValue())) || NaN
                 }
             },
             set: function () {
@@ -32,10 +31,10 @@ export function loadCVPPlugin() {
     * 目前只是简单计算值,后续常量传播时要修改此函数
     */
     unaryNode.prototype.getValue = function () {
-        if (first == "+") return this.second.value
-        if (first == "-") return -this.second.value
-        if (first == "~") return ~this.second.value
-        if (first == "!") return !this.second.value
+        if (this.first == "+") return this.second.value
+        if (this.first == "-") return -this.second.value
+        if (this.first == "~") return ~this.second.value
+        if (this.first == "!") return !this.second.value
         return NaN
     }
 
@@ -48,6 +47,10 @@ export function loadCVPPlugin() {
             '%': (a, b) => a.value % b.value,
             '|': (a, b) => a.value | b.value,
             '^': (a, b) => a.value ^ b.value,
+            '==': (a, b) => a.value == b.value,
+            '!=': (a, b) => a.value != b.value,
+            '<=': (a, b) => a.value <= b.value,
+            '>=': (a, b) => a.value >= b.value,
         }
         if (this.op in handlers) {
             return this._value = handlers[this.op](this.left, this.right)

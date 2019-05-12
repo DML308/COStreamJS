@@ -14,8 +14,8 @@ export class expNode extends Node {
         this._value = NaN
         definePrivate(this, '_value')
         //检查是否有常量传播插件提供的 getValue 函数
-        if (this.getValue) {
-            this.getValue()
+        if (expNode.prototype.getValue) {
+            expNode.prototype.getValue.call(this)
         }
     }
 }
