@@ -6,4 +6,4 @@ yarn-error.log
 .vscode
 dist/*.js
 test.js
-test.jison
+/*.jison

@@ -6,7 +6,7 @@
 \s+                                                         /* skip whitespace */
 (0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b              return 'NUMBER'
 [A-z_][0-9A-z]*                                             return 'IDENTIFIER'
-("'"[^']*"'"|"\""[^\"]*"\"")                                return 'stringConstant'
+("'"[^']*"'"|"\""[^\"]*"\"")                                return 'STRING_LITERAL'
 
 string                                                      return 'STRING'
 int                                                         return 'INT'
@@ -73,6 +73,8 @@ roundrobin                                                  return 'ROUNDROBIN'
 /* 优先级标记,从上至下优先级从低到高排列 */
 %nonassoc IF_WITHOUT_ELSE
 %nonassoc ELSE
+%nonassoc REDUCE
+%nonassoc SHIFT
 
 %left EOF
 %left ','
@@ -90,7 +92,7 @@ roundrobin                                                  return 'ROUNDROBIN'
 %left '*' '/' '%'
 %right '!' '~'
 %left  '.'
-
+%left '('
 %start translation_unit
 
 %% /* language grammar */
@@ -114,17 +116,32 @@ external_definition:
 /*              1.1 declaration 由下面2种文法+2个基础组件组成                */
 /*                      1.1.1 declaring_list                             */
 /*                      1.1.2 stream_declaring_list                      */
-/*                      1.1.3 array                                      */
-/*                      1.1.4 initializer                                */
+/*                      1.1.3 initializer                                */
 /*************************************************************************/
 declaration:
           declaring_list ';'        
         | stream_declaring_list ';' 
         ;
 declaring_list:
-          type_specifier      postfix_expression     initializer_opt  
-        | declaring_list 	',' postfix_expression     initializer_opt
+          type_specifier   init_declarator_list
         ;
+init_declarator_list
+        : init_declarator
+        | init_declarator_list ',' init_declarator
+        ;        
+init_declarator:
+          declarator
+        | declarator '=' initializer
+        ;       
+declarator
+        : IDENTIFIER
+        | '(' declarator ')'
+        | declarator '[' constant_expression ']'
+        | declarator '[' ']'
+        | declarator '(' parameter_type_list ')'
+        | declarator '(' identifier_list ')'
+        | declarator '(' ')'
+        ;         
 stream_declaring_list:
           stream_type_specifier IDENTIFIER    
         | stream_declaring_list ',' IDENTIFIER
@@ -137,25 +154,13 @@ stream_declaration_list:
         | stream_declaration_list ',' type_specifier postfix_expression 
         ;
 /*************************************************************************/
-/*                      1.1.3 array ( int a[] )                          */
+/*                      1.1.3 initializer                                */
 /*************************************************************************/
-array_declarator:
-          '[' ']'   
-        | '[' exp ']' 
-        | array_declarator '[' exp ']'  
-        | array_declarator '[' ']'  
-        ;
-/*************************************************************************/
-/*                      1.1.4 initializer                                */
-/*************************************************************************/
-initializer_opt:
-          /* nothing */         
-        | '=' initializer       
-        ;
+
 initializer:
           '{' initializer_list '}'      
         | '{' initializer_list ',' '}'  
-        | exp                           
+        | assignment_expression                           
         ;
 initializer_list:
           initializer   
@@ -281,8 +286,8 @@ join_statement:
           JOIN roundrobin_statement                         
         ;
 argument_expression_list:
-          exp                                               
-        | argument_expression_list ',' exp                  
+          assignment_expression                                               
+        | argument_expression_list ',' assignment_expression                  
         ;
 operator_default_call:
           IDENTIFIER  '(' ')' ';'                           
@@ -346,14 +351,14 @@ primary_expression
 postfix_expression
     : primary_expression
     | postfix_expression '[' expression ']'
-    | postfix_expression '(' ')'
-    | postfix_expression '(' argument_expression_list ')'
+    | postfix_expression '(' ')'                            %prec SHIFT
+    | postfix_expression '(' argument_expression_list ')'   %prec SHIFT
     | postfix_expression '.' IDENTIFIER
     | postfix_expression '++'
     | postfix_expression '--'
     ;    
 unary_expression
-    : postfix_expression
+    : postfix_expression                                    %prec REDUCE
     | '++' unary_expression
     | '--' unary_expression
     | '+' unary_expression
@@ -392,7 +397,7 @@ assignment_expression
     ;
 expression
     : assignment_expression
-    | expression ',' expression
+    | expression ',' assignment_expression
     ;
 
 /*************************************************************************/
