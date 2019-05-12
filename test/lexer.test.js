@@ -52,3 +52,17 @@ describe("lexer 赋值运算符", function () {
         })
     })
 })
+
+describe("lexer 字符串的识别", function () {
+    var regStr = lexer.rules.find(x => /\*'\|/.test(x.source))
+    var reg = new RegExp(regStr);
+    console.log(regStr,reg);
+    it("识别 stringConstant 的正则存在",()=>{
+        assert(typeof regStr == 'string')
+    });
+    `'123.dot' "456.1" "123'45" '789"10'`.split(' ').forEach(x => {
+        it(`输入字符串 ${x}`, () => {
+            assert(reg.test(x))
+        })
+    })
+})
