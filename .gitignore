@@ -7,5 +7,5 @@ yarn-error.log
 dist/*.js
 test.js
 /*.jison
-/.dot
-/.png
+/*.dot
+/*.png

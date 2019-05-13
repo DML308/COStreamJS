@@ -4,7 +4,7 @@ import { error } from "../utils";
 export class Node {
     constructor(loc) {
         this._loc = loc;
-        ['_loc'].forEach(key => {
+        ['_loc','getValue'].forEach(key => {
             definePrivate(this, key)
         })
     }
@@ -19,11 +19,7 @@ export class declareNode extends Node{
         this.init_declarator_list = init_declarator_list || []
     }
 }
-export class init_declarator extends Node{
-    constructor(loc){
-        super(loc)
-    }
-}
+
 export class declarator extends Node{
     constructor(identifier,loc,op1,op2,parameter){
         super(loc)
@@ -32,6 +28,8 @@ export class declarator extends Node{
         this.op1 = op1
         this.parameter = parameter
         this.op2 = op2
+        this.op = undefined
+        this.initializer = undefined
     }
 }
 /*************************************************************************/
@@ -90,6 +88,7 @@ export class constantNode extends expNode {
     constructor(sourceStr, loc) {
         super(loc)
         //判断这个常量是数字还是字符串
+        this.source = sourceStr
         if(!Number.isNaN(Number(sourceStr))){
             this._value = Number(sourceStr)
         }

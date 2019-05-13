@@ -120,8 +120,8 @@ init_declarator_list
     ;
 
 init_declarator
-    : declarator                                  { $$ = new init_declarator($1,@1)              }
-    | declarator '=' initializer                  { $$.initializer = $3; $$._loc=mergeLoc(@1,@3) }
+    : declarator                                  { $$ = $1      }
+    | declarator '=' initializer                  { $$.op = '='; $$.initializer = $3; $$._loc=mergeLoc(@1,@3) }
     ;
 
 declarator
