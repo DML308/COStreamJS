@@ -5,7 +5,6 @@
 
 \s+                                                         /* skip whitespace */
 (0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b              return 'NUMBER'
-[A-z_][0-9A-z]*                                             return 'IDENTIFIER'
 ("'"[^']*"'"|"\""[^\"]*"\"")                                return 'STRING_LITERAL'
 
 string                                                      return 'STRING'
@@ -50,354 +49,282 @@ join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 
+[A-z_][0-9A-z]*                                             return 'IDENTIFIER'
+
 "##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
-"="|"*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="          return 'ASSIGNMENT_OPERATOR'
-[-*+/%&|~!()\[\]{}'"#,\.?:;<>]                              return yytext
+"*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="              return 'ASSIGNMENT_OPERATOR'
+[-*+/%&|~!()\[\]{}'"#,\.?:;<>=]                             return yytext
 
 <<EOF>>               return 'EOF'
 .                     return 'INVALID'
 
 /lex
-
-/* A. 下面是从词法分析器传进来的 token ,其中大部分都是换名字符串*/
+/* A. 下面是从词法分析器传进来的 token */
+%token STRING_LITERAL   NUMBER  IDENTIFIER          
 %token STRING     INT   DOUBLE  FLOAT       LONG    CONST   DEFINE
 %token WHILE      FOR   BREAK   CONTINUE    SWITCH  CASE DEFAULT IF ELSE DO RETURN
-%token POUNDPOUND ICR   DECR    ANDAND      OROR    LS  RS LE GE EQ NE
-%token MULTassign DIVassign     PLUSassign  MINUSassign MODassign
-%token LSassign   RSassign ANDassign ERassign ORassign
+%token ASSIGNMENT_OPERATOR
     /* A.1 ----------------- COStream 特有关键字 ---------------*/
 %token COMPOSITE  INPUT OUTPUT  STREAM    FILEREADER  FILEWRITER  ADD
 %token PARAM      INIT  WORK    WINDOW    TUMBLING    SLIDING
 %token SPLITJOIN  PIPELINE      SPLIT     JOIN        DUPLICATE ROUNDROBIN
 
-/* 优先级标记,从上至下优先级从低到高排列 */
 %nonassoc IF_WITHOUT_ELSE
 %nonassoc ELSE
-%nonassoc REDUCE
-%nonassoc SHIFT
 
-%left EOF
-%left ','
-%right ASSIGNMENT_OPERATOR
-%left '?'
-%left "||" 
-%left "&&"
-%left '|'
-%left '^'
-%left '&'
-%left "==" "!="
-%left '<' "<=" '>' ">="
-%left "<<" ">>"
-%left '+' '-'
-%left '*' '/' '%'
-%right '!' '~'
-%left  '.'
-%left '('
-%start translation_unit
+%start prog_start
+%%
 
-%% /* language grammar */
+prog_start: translation_unit EOF;
 /************************************************************************/
 /*              1. 文法一级入口,由下面三种文法组成                           */
 /*                 1.1. declaration 声明                                 */
 /*                 1.2. function_definition 函数声明                      */
 /*                 1.3. composite_definition 数据流计算单元声明             */
 /*************************************************************************/
-prog_start: translation_unit ;
-translation_unit:
-          external_definition   
-        | translation_unit external_definition  
-        ;
-external_definition:
-          declaration           
-        | function_definition   
-        | composite_definition  
-        ;
+translation_unit
+    : external_declaration
+    | translation_unit external_declaration
+    ;
+
+external_declaration
+    : function_definition
+    | declaration
+    ;
 /*************************************************************************/
 /*              1.1 declaration 由下面2种文法+2个基础组件组成                */
 /*                      1.1.1 declaring_list                             */
 /*                      1.1.2 stream_declaring_list                      */
 /*                      1.1.3 initializer                                */
-/*************************************************************************/
-declaration:
-          declaring_list ';'        
-        | stream_declaring_list ';' 
-        ;
+/*************************************************************************/ 
+declaration
+    : declaring_list ';'
+    ;
 declaring_list:
-          type_specifier   init_declarator_list
-        ;
+    type_specifier   init_declarator_list
+    ;
 init_declarator_list
-        : init_declarator
-        | init_declarator_list ',' init_declarator
-        ;        
-init_declarator:
-          declarator
-        | declarator '=' initializer
-        ;       
+    : init_declarator
+    | init_declarator_list ',' init_declarator
+    ;
+
+init_declarator
+    : declarator
+    | declarator '=' initializer
+    ;
+
 declarator
-        : IDENTIFIER
-        | '(' declarator ')'
-        | declarator '[' constant_expression ']'
-        | declarator '[' ']'
-        | declarator '(' parameter_type_list ')'
-        | declarator '(' identifier_list ')'
-        | declarator '(' ')'
-        ;         
-stream_declaring_list:
-          stream_type_specifier IDENTIFIER    
-        | stream_declaring_list ',' IDENTIFIER
-        ;
-stream_type_specifier:
-          STREAM '<' stream_declaration_list '>'
-        ;
-stream_declaration_list:
-          type_specifier postfix_expression 
-        | stream_declaration_list ',' type_specifier postfix_expression 
-        ;
+    : IDENTIFIER
+    | '(' declarator ')'
+    | declarator '[' constant_expression ']'
+    | declarator '[' ']'
+    | declarator '(' parameter_type_list ')'
+    | declarator '(' identifier_list ')'
+    | declarator '(' ')'
+    ;
+identifier_list
+    : IDENTIFIER
+    | identifier_list ',' IDENTIFIER
+    ;    
 /*************************************************************************/
 /*                      1.1.3 initializer                                */
 /*************************************************************************/
+initializer
+    : assignment_expression
+    | '{' initializer_list '}'
+    | '{' initializer_list ',' '}'
+    ;
 
-initializer:
-          '{' initializer_list '}'      
-        | '{' initializer_list ',' '}'  
-        | assignment_expression                           
-        ;
-initializer_list:
-          initializer   
-        | initializer_list ',' initializer  
-        ;
+initializer_list
+    : initializer
+    | initializer_list ',' initializer
+    ;
 /*************************************************************************/
 /*              1.2 function_definition 函数声明                          */
 /*                      1.2.1 parameter_list                             */
-/*                      1.2.1 function_body                       */
+/*                      1.2.1 function_body                              */
 /*************************************************************************/
-function_definition:
-          type_specifier expression '(' ')' function_body 
-        | type_specifier expression '(' parameter_list ')' function_body  
-        ;
-parameter_list:
-          parameter_declaration   
-        | parameter_list ',' parameter_declaration 
-        | parameter_list '=' initializer 
-        | parameter_list ',' error
-        ;
-parameter_declaration:
-          type_specifier postfix_expression 
-        ;
-function_body:
-          lblock rblock                   
-        | lblock statement_list rblock    
-        ;
-statement_list:
-          statement                   
-        | statement_list statement    
-        ;
-/*************************************************************************/
-/*              1.3 composite_definition 数据流计算单元声明                */
-/*                      1.3.1 composite_head                             */
-/*                      1.3.2 composite_body                             */
-/*************************************************************************/
-composite_definition
-    : composite_head composite_body 
+function_definition
+    : type_specifier declarator compound_statement
     ;
-composite_head
-    : COMPOSITE IDENTIFIER '(' composite_head_inout ')'   
-    ;
-composite_head_inout:
-      /*empty*/                                                                           
-    | INPUT composite_head_inout_member_list                                              
-    | INPUT composite_head_inout_member_list ',' OUTPUT composite_head_inout_member_list  
-    | OUTPUT composite_head_inout_member_list                                             
-    | OUTPUT composite_head_inout_member_list ',' INPUT composite_head_inout_member_list  
-    ;
-composite_head_inout_member_list:
-      composite_head_inout_member                                                         
-    | composite_head_inout_member_list ',' composite_head_inout_member                    
-    ;
-composite_head_inout_member:
-    stream_type_specifier IDENTIFIER                                                    
-    ;
-/*************************************************************************/
-/*                      1.3.2 composite_body                             */
-/*                        1.3.2.1 composite_body_param_opt               */
-/*                        1.3.2.2 composite_body_declaration_list        */
-/*                        1.3.2.3 composite_body_statement_list          */
-/*************************************************************************/
-composite_body:
-          lblock composite_body_param_opt composite_body_statement_list rblock                              
-        ;
-composite_body_param_opt:
-          /*empty*/                 
-        | PARAM parameter_list ';'  
-        ;
-composite_body_statement_list:
-          costream_composite_statement                                
-        | composite_body_statement_list costream_composite_statement  
-        ;
-costream_composite_statement:
-          composite_body_operator   
-        | statement                 
-        ;
-/*****************************************************************************/
-/*        2. composite_body_operator  composite体内的init work window等组件   */
-/*             2.1   ADD operator_pipeline                                   */
-/*             2.2   ADD operator_splitjoin                                  */
-/*             2.3   ADD operator_default_call                               */
-/*****************************************************************************/
-composite_body_operator:
-          operator_file_writer      
-        | operator_add              
-        ;
-operator_file_writer:
-          FILEWRITER '(' IDENTIFIER ')' '(' stringConstant ')' ';' 
-        | FILEWRITER '(' IDENTIFIER ')' '(' ')' ';' 
-        ;
-operator_add:
-          ADD operator_pipeline     
-        | ADD operator_splitjoin    
-        | ADD operator_default_call 
-        ;
-operator_pipeline:
-          PIPELINE lblock  splitjoinPipeline_statement_list rblock     
-        ;
-splitjoinPipeline_statement_list:
-          statement                                       
-        | operator_add                                    
-        | splitjoinPipeline_statement_list statement      
-        | splitjoinPipeline_statement_list operator_add   
-        ;
-operator_splitjoin:
-          SPLITJOIN lblock split_statement  splitjoinPipeline_statement_list  join_statement rblock     
-        | SPLITJOIN lblock statement_list split_statement splitjoinPipeline_statement_list join_statement rblock  
-        ;
-split_statement:
-          SPLIT duplicate_statement                        
-        | SPLIT roundrobin_statement                       
-        ;
-roundrobin_statement:
-          ROUNDROBIN '(' ')' ';'                            
-        | ROUNDROBIN '(' argument_expression_list ')' ';'   
-        ;
-duplicate_statement:
-          DUPLICATE '('  ')' ';'                            
-        | DUPLICATE '(' exp ')'  ';'                        
-        ;
-join_statement:
-          JOIN roundrobin_statement                         
-        ;
-argument_expression_list:
-          assignment_expression                                               
-        | argument_expression_list ',' assignment_expression                  
-        ;
-operator_default_call:
-          IDENTIFIER  '(' ')' ';'                           
-        | IDENTIFIER  '(' argument_expression_list ')' ';'  
-        ;
-/*************************************************************************/
-/*        3. statement 花括号内以';'结尾的结构是statement                  */
-/*************************************************************************/
-statement:
-          labeled_statement
-        | compound_statement            /* 复合类型声明  */
-        | expression_statement
-        | selection_statement
-        | iteration_statement
-        | jump_statement
-        | declaration
-        | error ';' 
-        ;
-labeled_statement:
-          CASE expression ':' statement                    
-        | DEFAULT ':' statement                     
-        ;
-compound_statement:
-          lblock rblock                                     
-        | lblock composite_body_statement_list rblock       
-        ;
-expression_statement
-        : ';'
-        | expression ';'  
-        ;
-selection_statement:
-          IF '(' expression ')' costream_composite_statement   %prec IF_WITHOUT_ELSE
-        | IF '(' expression ')' costream_composite_statement 
-          ELSE costream_composite_statement             
-        | SWITCH '(' expression ')' statement                  
-        ;
-iteration_statement:
-          WHILE '(' expression ')' costream_composite_statement                          
-        | DO  statement WHILE '(' expression ')' ';'                  
-        | FOR '(' expression_statement expression_statement ')'  costream_composite_statement     
-        | FOR '(' expression_statement expression_statement expression_statement ')' costream_composite_statement  
-        | FOR '(' error ')' costream_composite_statement                          
-        ;
-jump_statement:
-          CONTINUE ';'        
-        | BREAK ';'           
-        | RETURN ';'
-        | RETURN expression ';'      
-        ;
-/*************************************************************************/
-/*        4. expression 计算表达式头节点                        */
-/*************************************************************************/
 
+parameter_type_list
+    : parameter_list
+    | parameter_list ',' ELLIPSIS
+    ;
+
+parameter_list
+    : parameter_declaration
+    | parameter_list ',' parameter_declaration
+    ;
+
+parameter_declaration
+    : type_specifier declarator
+    ;
+/*************************************************************************/
+/*        3. statement 花括号内以';'结尾的结构是statement                    */
+/*************************************************************************/    
+statement
+    : labeled_statement
+    | compound_statement
+    | expression_statement
+    | selection_statement
+    | iteration_statement
+    | jump_statement
+    | declaration
+    ;
+labeled_statement
+    : CASE constant_expression ':' statement
+    | DEFAULT ':' statement
+    ;
+compound_statement
+    : '{' '}'
+    | '{' statement_list '}'
+    ;
+statement_list
+    : statement
+    | statement_list statement
+    ;
+expression_statement
+    : ';'
+    | expression ';'
+    ;
+selection_statement
+    : IF '(' expression ')' statement %prec IF_WITHOUT_ELSE
+    | IF '(' expression ')' statement ELSE statement
+    | SWITCH '(' expression ')' statement
+    ;
+iteration_statement
+    : WHILE '(' expression ')' statement
+    | DO statement WHILE '(' expression ')' ';'
+    | FOR '(' expression_statement expression_statement ')' statement
+    | FOR '(' expression_statement expression_statement expression ')' statement
+    ;
+jump_statement
+    : CONTINUE ';'
+    | BREAK ';'
+    | RETURN ';'
+    | RETURN expression ';'
+    ;    
+
+/*************************************************************************/
+/*        4. expression 计算表达式头节点                                    */
+/*************************************************************************/
 primary_expression
     : IDENTIFIER
-    | NUMBER
-    | stringConstant
+    | 'NUMBER'
+    | STRING_LITERAL
     | '(' expression ')'
     ;
 
 postfix_expression
     : primary_expression
     | postfix_expression '[' expression ']'
-    | postfix_expression '(' ')'                            %prec SHIFT
-    | postfix_expression '(' argument_expression_list ')'   %prec SHIFT
+    | postfix_expression '(' ')'
+    | postfix_expression '(' argument_expression_list ')'
     | postfix_expression '.' IDENTIFIER
     | postfix_expression '++'
     | postfix_expression '--'
-    ;    
+    ;
+
+argument_expression_list
+    : assignment_expression
+    | argument_expression_list ',' assignment_expression
+    ;
+
 unary_expression
-    : postfix_expression                                    %prec REDUCE
+    : postfix_expression
     | '++' unary_expression
     | '--' unary_expression
-    | '+' unary_expression
-    | '-' unary_expression
-    | '~' unary_expression
-    | '!' unary_expression
     ;
-exp
-    : unary_expression        
-    | exp '+' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '-' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '*' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '/' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '%' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '|' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '&' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '^' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp ">" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '<' exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '>=' exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '<=' exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '==' exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '!=' exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '||' exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '&&' exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '<<' exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp '>>' exp  { $$ = new binopNode($1,$2,$3,@2) }
+
+unary_operator
+    : '&'
+    | '*'
+    | '+'
+    | '-'
+    | '~'
+    | '!'
     ;
+
+multiplicative_expression
+    : unary_expression
+    | multiplicative_expression '*' unary_expression
+    | multiplicative_expression '/' unary_expression
+    | multiplicative_expression '%' unary_expression
+    ;
+
+additive_expression
+    : multiplicative_expression
+    | additive_expression '+' multiplicative_expression
+    | additive_expression '-' multiplicative_expression
+    ;
+
+shift_expression
+    : additive_expression
+    | shift_expression "<<" additive_expression
+    | shift_expression ">>" additive_expression
+    ;
+
+relational_expression
+    : shift_expression
+    | relational_expression '<' shift_expression
+    | relational_expression '>' shift_expression
+    | relational_expression "<=" shift_expression
+    | relational_expression ">=" shift_expression
+    ;
+
+equality_expression
+    : relational_expression
+    | equality_expression "==" relational_expression
+    | equality_expression "!=" relational_expression
+    ;
+
+and_expression
+    : equality_expression
+    | and_expression '&' equality_expression
+    ;
+
+exclusive_or_expression
+    : and_expression
+    | exclusive_or_expression '^' and_expression
+    ;
+
+inclusive_or_expression
+    : exclusive_or_expression
+    | inclusive_or_expression '|' exclusive_or_expression
+    ;
+
+logical_and_expression
+    : inclusive_or_expression
+    | logical_and_expression "&&" inclusive_or_expression
+    ;
+
+logical_or_expression
+    : logical_and_expression
+    | logical_or_expression "||" logical_and_expression
+    ;
+
 conditional_expression
-    : exp
-    | exp '?' expression ':' conditional_expression
-    ;    
+    : logical_or_expression
+    | logical_or_expression '?' expression ':' conditional_expression
+    ;
+
 assignment_expression
     : conditional_expression
-    | unary_expression 'ASSIGNMENT_OPERATOR' assignment_expression
+    | unary_expression assignment_operator assignment_expression
+    ;
+assignment_operator:
+      '='
+    | 'ASSIGNMENT_OPERATOR'
     ;
 expression
     : assignment_expression
     | expression ',' assignment_expression
+    ;
+
+constant_expression
+    : conditional_expression
     ;
 
 /*************************************************************************/
@@ -418,4 +345,3 @@ basic_type_name
         | DOUBLE
         | STRING
         ;
-

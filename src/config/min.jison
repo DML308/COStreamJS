@@ -5,7 +5,6 @@
 
 \s+                                                         /* skip whitespace */
 (0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b              return 'NUMBER'
-[A-z_][0-9A-z]*                                             return 'IDENTIFIER'
 ("'"[^']*"'"|"\""[^\"]*"\"")                                return 'STRING_LITERAL'
 
 string                                                      return 'STRING'
@@ -50,15 +49,17 @@ join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 
+[A-z_][0-9A-z]*                                             return 'IDENTIFIER'
+
 "##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
-"="|"*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="          return 'ASSIGNMENT_OPERATOR'
-[-*+/%&|~!()\[\]{}'"#,\.?:;<>]                              return yytext
+"*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="              return 'ASSIGNMENT_OPERATOR'
+[-*+/%&|~!()\[\]{}'"#,\.?:;<>=]                             return yytext
 
 <<EOF>>               return 'EOF'
 .                     return 'INVALID'
 
 /lex
-/* A. 下面是从词法分析器传进来的 token ,其中大部分都是换名字符串*/
+/* A. 下面是从词法分析器传进来的 token */
 %token STRING_LITERAL   NUMBER  IDENTIFIER          
 %token STRING     INT   DOUBLE  FLOAT       LONG    CONST   DEFINE
 %token WHILE      FOR   BREAK   CONTINUE    SWITCH  CASE DEFAULT IF ELSE DO RETURN
@@ -67,11 +68,14 @@ roundrobin                                                  return 'ROUNDROBIN'
 %token COMPOSITE  INPUT OUTPUT  STREAM    FILEREADER  FILEWRITER  ADD
 %token PARAM      INIT  WORK    WINDOW    TUMBLING    SLIDING
 %token SPLITJOIN  PIPELINE      SPLIT     JOIN        DUPLICATE ROUNDROBIN
+
 %nonassoc IF_WITHOUT_ELSE
 %nonassoc ELSE
 
-%start translation_unit
+%start prog_start
 %%
+
+prog_start: translation_unit EOF;
 /************************************************************************/
 /*              1. 文法一级入口,由下面三种文法组成                           */
 /*                 1.1. declaration 声明                                 */
@@ -97,7 +101,7 @@ declaration
     : declaring_list ';'
     ;
 declaring_list:
-      type_specifier   init_declarator_list
+    type_specifier   init_declarator_list
     ;
 init_declarator_list
     : init_declarator
@@ -112,11 +116,11 @@ init_declarator
 declarator
     : IDENTIFIER
     | '(' declarator ')'
-    | direct_declarator '[' constant_expression ']'
-    | direct_declarator '[' ']'
-    | direct_declarator '(' parameter_type_list ')'
-    | direct_declarator '(' identifier_list ')'
-    | direct_declarator '(' ')'
+    | declarator '[' constant_expression ']'
+    | declarator '[' ']'
+    | declarator '(' parameter_type_list ')'
+    | declarator '(' identifier_list ')'
+    | declarator '(' ')'
     ;
 identifier_list
     : IDENTIFIER
@@ -245,9 +249,9 @@ unary_operator
 
 multiplicative_expression
     : unary_expression
-    | multiplicative_expression '*' cast_expression
-    | multiplicative_expression '/' cast_expression
-    | multiplicative_expression '%' cast_expression
+    | multiplicative_expression '*' unary_expression
+    | multiplicative_expression '/' unary_expression
+    | multiplicative_expression '%' unary_expression
     ;
 
 additive_expression
@@ -308,9 +312,12 @@ conditional_expression
 
 assignment_expression
     : conditional_expression
-    | unary_expression 'ASSIGNMENT_OPERATOR' assignment_expression
+    | unary_expression assignment_operator assignment_expression
     ;
-
+assignment_operator:
+    '='
+    | 'ASSIGNMENT_OPERATOR'
+    ;
 expression
     : assignment_expression
     | expression ',' assignment_expression
