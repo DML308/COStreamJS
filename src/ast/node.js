@@ -1,13 +1,43 @@
-import { definePrivate } from "../utils/js-hacker.js"
+import { definePrivate } from "./js-hacker.js"
+import { error } from "../utils";
 
 export class Node {
     constructor(loc) {
         this._loc = loc;
-        ['_source', '_loc'].forEach(key => {
+        ['_loc'].forEach(key => {
             definePrivate(this, key)
         })
     }
 }
+/*************************************************************************/
+/*              1.1 declaration                                         */
+/*************************************************************************/
+export class declareNode extends Node{
+    constructor(type, init_declarator_list,loc){
+        super(loc)
+        this.type = type
+        this.init_declarator_list = init_declarator_list || []
+    }
+}
+export class init_declarator extends Node{
+    constructor(loc){
+        super(loc)
+    }
+}
+export class declarator extends Node{
+    constructor(identifier,loc,op1,op2,parameter){
+        super(loc)
+        if(identifier instanceof declarator) error("暂时不支持 declarator 的嵌套")
+        this.identifier = identifier
+        this.op1 = op1
+        this.parameter = parameter
+        this.op2 = op2
+    }
+}
+/*************************************************************************/
+/*        4. expression 计算表达式头节点                                    */
+/*************************************************************************/
+
 export class expNode extends Node {
     constructor(loc) {
         super(loc)
@@ -49,16 +79,20 @@ export class parenNode extends expNode {
     }
 }
 
-export class idNode extends expNode {
-    constructor(name, loc) {
-        super(loc)
-        this.name = name
-    }
-}
+// export class idNode extends expNode {
+//     constructor(name, loc) {
+//         super(loc)
+//         this.name = name
+//     }
+// }
 
 export class constantNode extends expNode {
     constructor(sourceStr, loc) {
         super(loc)
-        this._value = Number(sourceStr)
+        //判断这个常量是数字还是字符串
+        if(!Number.isNaN(Number(sourceStr))){
+            this._value = Number(sourceStr)
+        }
+        this._value = sourceStr
     }
 }

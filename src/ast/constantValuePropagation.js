@@ -1,5 +1,5 @@
-import { expNode,unaryNode, binopNode, ternaryNode, parenNode, idNode } from "./node.js"
-import { error } from "../utils/color.js"
+import { expNode,unaryNode, binopNode, ternaryNode, parenNode } from "./node.js"
+import { error } from "../utils"
 
 /**
  * 加载常量传播插件,加载该插件后,表达式 node 可以计算数值
@@ -11,7 +11,7 @@ export function loadCVPPlugin() {
         Object.defineProperty(this, 'value', {
             enumerable: false,
             get: function () {
-                if (!Number.isNaN(this._value)) return this._value
+                if (!Number.isNaN(this._value)) return Number(this._value)
                 else {
                     return (this.getValue && (this._value = this.getValue())) || NaN
                 }
@@ -63,7 +63,7 @@ export function loadCVPPlugin() {
     /**
      * 获得 idNode 的值, 完善符号表后即可求得该值
      */
-    idNode.prototype.getValue = function(){
-        return NaN
-    }
+    // idNode.prototype.getValue = function(){
+    //     return NaN
+    // }
 }
