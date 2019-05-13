@@ -25,7 +25,7 @@ describe("lexer 字符串长度为1的运算符", function () {
     var regOfSingle = lexer.rules.find(x => /-\*\+/.test(x.source))
     //console.log(regOfSingle)
     var reg = new RegExp(regOfSingle)
-    "-*+/%&|~!.?:;,#'\"()[]{}<>".split('').forEach(x => {
+    "-*+/%&|~!.?:;,#'\"()[]{}<>=".split('').forEach(x => {
         it(`输入运算符 ${x}`, () => {
             assert(reg.test(x))
         })
@@ -42,11 +42,11 @@ describe("lexer 字符串长度大于1的运算符", function () {
     })
 })
 
-describe("lexer 赋值运算符", function () {
+describe("lexer '='以外的赋值运算符", function () {
     var regStr = lexer.rules.find(x => /-=/.test(x.source))
     //console.log(regStr)
     var reg = new RegExp(regStr)
-    "= *= /= += -= <<= >>= &= ^= |=".split(' ').forEach(x => {
+    "*= /= += -= <<= >>= &= ^= |=".split(' ').forEach(x => {
         it(`输入运算符 ${x}`, () => {
             assert(reg.test(x))
         })
@@ -56,13 +56,15 @@ describe("lexer 赋值运算符", function () {
 describe("lexer 字符串的识别", function () {
     var regStr = lexer.rules.find(x => /\*'\|/.test(x.source))
     var reg = new RegExp(regStr);
-    console.log(regStr, reg);
+    //console.log(regStr, reg);
     it("识别 stringConstant 的正则存在", () => {
-        assert(typeof regStr == 'string');
+        assert(regStr instanceof RegExp);
+    });
+    if (regStr instanceof RegExp){
         `'123.dot' "456.1" "123'45" '789"10'`.split(' ').forEach(x => {
             it(`输入字符串 ${x}`, () => {
                 assert(reg.test(x))
             })
         })
-    });
+    }
 })
