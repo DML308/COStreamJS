@@ -13,7 +13,7 @@ export function loadCVPPlugin() {
             get: function () {
                 if (!Number.isNaN(this._value)) return Number(this._value)
                 else {
-                    return (this.getValue && (this._value = this.getValue())) || NaN
+                    return (this.getValue && (this._value = this.getValue()))
                 }
             },
             set: function () {
@@ -46,11 +46,17 @@ export function loadCVPPlugin() {
             '/': (a, b) => a.value / b.value,
             '%': (a, b) => a.value % b.value,
             '|': (a, b) => a.value | b.value,
+            '&': (a, b) => a.value & b.value,
             '^': (a, b) => a.value ^ b.value,
             '==': (a, b) => a.value == b.value,
             '!=': (a, b) => a.value != b.value,
             '<=': (a, b) => a.value <= b.value,
             '>=': (a, b) => a.value >= b.value,
+            '>>': (a, b) => a.value >> b.value,
+            '<<': (a, b) => a.value << b.value,
+            //c++ 与 js 不同, c++的条件表达式返回 bool 值,而 js 是动态值
+            '||': (a, b) => !!(a.value || b.value),
+            '&&': (a, b) => !!(a.value && b.value),
         }
         if (this.op in handlers) {
             return this._value = handlers[this.op](this.left, this.right)

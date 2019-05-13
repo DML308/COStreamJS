@@ -1,4 +1,4 @@
-import { definePrivate } from '../src/utils/js-hacker.js'
+import { definePrivate } from '../src/ast/js-hacker.js'
 const assert = require('assert')
 
 describe("utils/js-hackers definePrivate - 为target定义私有属性(不可枚举)",()=>{
