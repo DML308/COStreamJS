@@ -121,21 +121,21 @@ init_declarator_list
 
 init_declarator
     : declarator                                  { $$ = $1      }
-    | declarator '=' initializer                  { $$.op = '='; $$.initializer = $3; $$._loc=mergeLoc(@1,@3) }
+    | declarator '=' initializer                  { $$ = new declarator($1,mergeLoc(@1,@3),$2,$3)   }
     ;
 
 declarator
-    : IDENTIFIER                                  { $$ = new declarator($1,@1)                  }
-    | '(' declarator ')'                          { error("暂未支持该种declarator的写法")          }
-    | declarator '[' constant_expression ']'      { $$ = new declarator($1,@1,$2,$3)            }
+    : IDENTIFIER                                  { $$ = $1                                         }
+    | '(' declarator ')'                          { error("暂未支持该种declarator的写法")              }
+    | declarator '[' constant_expression ']'      { $$ = new declarator($1,mergeLoc(@1,@4),$2,$3,$4)}
     | declarator '[' ']'
-    | declarator '(' parameter_type_list ')'
-    | declarator '(' identifier_list ')'
-    | declarator '(' ')'
+    | declarator '(' parameter_type_list ')'      { $$ = new declarator($1,mergeLoc(@1,@4),$2,$3,$4)}
+    | declarator '(' identifier_list ')'          { $$ = new declarator($1,mergeLoc(@1,@4),$2,$3,$4)}
+    | declarator '(' ')'                          { $$ = new declarator($1,@1,$2,undefined,$3)      }
     ;
 identifier_list
-    : IDENTIFIER
-    | identifier_list ',' IDENTIFIER
+    : IDENTIFIER                                  { $$ = $1 }
+    | identifier_list ',' IDENTIFIER              { $$ = $1 instanceof Array ? $1.concat($3) : [$1,$3] }
     ;    
 /*************************************************************************/
 /*                      1.1.3 initializer                                */
@@ -152,25 +152,20 @@ initializer_list
     ;
 /*************************************************************************/
 /*              1.2 function_definition 函数声明                          */
-/*                      1.2.1 parameter_list                             */
+/*                      1.2.1 parameter_type_list                        */
 /*                      1.2.1 function_body                              */
 /*************************************************************************/
 function_definition
-    : type_specifier declarator compound_statement
+    : type_specifier declarator compound_statement { $$ = new function_definition($1,$2,$3,mergeLoc(@1,@3)) }
     ;
 
 parameter_type_list
-    : parameter_list
-    | parameter_list ',' ELLIPSIS
-    ;
-
-parameter_list
-    : parameter_declaration
-    | parameter_list ',' parameter_declaration
+    : parameter_declaration                         { $$ = [$1]   }
+    | parameter_type_list ',' parameter_declaration { $$.push($3) }
     ;
 
 parameter_declaration
-    : type_specifier declarator
+    : type_specifier declarator         { $$ = new parameter_declaration($1,$2,mergeLoc(@1,@2)) }
     ;
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
@@ -189,12 +184,12 @@ labeled_statement
     | DEFAULT ':' statement
     ;
 compound_statement
-    : '{' '}'
-    | '{' statement_list '}'
+    : '{' '}'                  { $$ = new blockNode($1,undefined,$2,mergeLoc(@1,@2)) } 
+    | '{' statement_list '}'   { $$ = new blockNode($1,$2,$3,mergeLoc(@1,@3)) }
     ;
 statement_list
-    : statement
-    | statement_list statement
+    : statement                { $$= [$1]   }
+    | statement_list statement { $$.push($2)}
     ;
 expression_statement
     : ';'
