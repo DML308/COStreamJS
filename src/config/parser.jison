@@ -112,7 +112,7 @@ declaration
     : declaring_list ';'                          { $$ = $1 }
     ;
 declaring_list:
-      type_specifier   init_declarator_list       { $$ = new declareNode($1,$2,mergeLoc(@1,@2)) }
+      type_specifier   init_declarator_list       { $$ = new declareNode(mergeLoc(@1,@2),$1,$2) }
     ;
 init_declarator_list
     : init_declarator                             { $$ = [$1] }
@@ -121,17 +121,17 @@ init_declarator_list
 
 init_declarator
     : declarator                                  { $$ = $1      }
-    | declarator '=' initializer                  { $$ = new declarator($1,mergeLoc(@1,@3),$2,$3)   }
+    | declarator '=' initializer                  { $$ = new declarator(mergeLoc(@1,@3),$1,$2);$$.initializer = $3 }
     ;
 
 declarator
-    : IDENTIFIER                                  { $$ = $1                                         }
-    | '(' declarator ')'                          { error("暂未支持该种declarator的写法")              }
-    | declarator '[' constant_expression ']'      { $$ = new declarator($1,mergeLoc(@1,@4),$2,$3,$4)}
-    | declarator '[' ']'
-    | declarator '(' parameter_type_list ')'      { $$ = new declarator($1,mergeLoc(@1,@4),$2,$3,$4)}
-    | declarator '(' identifier_list ')'          { $$ = new declarator($1,mergeLoc(@1,@4),$2,$3,$4)}
-    | declarator '(' ')'                          { $$ = new declarator($1,@1,$2,undefined,$3)      }
+    : IDENTIFIER                                  { $$ = $1                                                 }
+    | '(' declarator ')'                          { error("暂未支持该种declarator的写法")                      }
+    | declarator '[' constant_expression ']'      { $$ = new declarator(mergeLoc(@1,@4),$1,$2,$3,$4)        }
+    | declarator '[' ']'                          { $$ = new declarator(mergeLoc(@1,@3),$1,$2,undefined,$3) }
+    | declarator '(' parameter_type_list ')'      { $$ = new declarator(mergeLoc(@1,@4),$1,$2,$3,$4)        }
+    | declarator '(' identifier_list ')'          { $$ = new declarator(mergeLoc(@1,@4),$1,$2,$3,$4)        }
+    | declarator '(' ')'                          { $$ = new declarator(mergeLoc(@1,@3),$1,$2,undefined,$3) }
     ;
 identifier_list
     : IDENTIFIER                                  { $$ = $1 }
@@ -156,7 +156,7 @@ initializer_list
 /*                      1.2.1 function_body                              */
 /*************************************************************************/
 function_definition
-    : type_specifier declarator compound_statement { $$ = new function_definition($1,$2,$3,mergeLoc(@1,@3)) }
+    : type_specifier declarator compound_statement { $$ = new function_definition(mergeLoc(@1,@3),$1,$2,$3) }
     ;
 
 parameter_type_list
@@ -165,7 +165,7 @@ parameter_type_list
     ;
 
 parameter_declaration
-    : type_specifier declarator         { $$ = new parameter_declaration($1,$2,mergeLoc(@1,@2)) }
+    : type_specifier declarator         { $$ = new parameter_declaration(mergeLoc(@1,@2),$1,$2) }
     ;
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
@@ -180,12 +180,12 @@ statement
     | declaration
     ;
 labeled_statement
-    : CASE constant_expression ':' statement    { $$ = new labeled_statement($1,$2,$3,$4,mergeLoc(@1,@4))}
-    | DEFAULT ':' statement                     { $$ = new labeled_statement($1,undefined,$2,$3,mergeLoc(@1,@3))}
+    : CASE constant_expression ':' statement    { $$ = new labeled_statement(mergeLoc(@1,@4),$1,$2,$3,$4)}
+    | DEFAULT ':' statement                     { $$ = new labeled_statement(mergeLoc(@1,@3),$1,undefined,$2,$3)}
     ;
 compound_statement
-    : '{' '}'                  { $$ = new blockNode($1,undefined,$2,mergeLoc(@1,@2)) } 
-    | '{' statement_list '}'   { $$ = new blockNode($1,$2,$3,mergeLoc(@1,@3)) }
+    : '{' '}'                  { $$ = new blockNode(mergeLoc(@1,@2),$1,undefined,$2) } 
+    | '{' statement_list '}'   { $$ = new blockNode(mergeLoc(@1,@3),$1,$2,$3) }
     ;
 statement_list
     : statement                { if($1!==';') $$= [$1]   }
@@ -196,7 +196,7 @@ expression_statement
     | expression ';'            { $$ = $1 }
     ;
 selection_statement
-    : IF '(' expression ')' statement %prec IF_WITHOUT_ELSE
+    : IF '(' expression ')' statement %prec IF_WITHOUT_ELSE { $$ = new selection_statement($1,$2,$3,$5)}
     | IF '(' expression ')' statement ELSE statement
     | SWITCH '(' expression ')' statement
     ;
@@ -207,10 +207,10 @@ iteration_statement
     | FOR '(' expression_statement expression_statement expression ')' statement
     ;
 jump_statement
-    : CONTINUE ';'          { $$ = new jump_statement($1,undefined,@1) }
-    | BREAK ';'             { $$ = new jump_statement($1,undefined,@1) }
-    | RETURN ';'            { $$ = new jump_statement($1,undefined,@1) }
-    | RETURN expression ';' { $$ = new jump_statement($1,$2,@1) }
+    : CONTINUE ';'          { $$ = new jump_statement(@1,$1) }
+    | BREAK ';'             { $$ = new jump_statement(@1,$1) }
+    | RETURN ';'            { $$ = new jump_statement(@1,$1) }
+    | RETURN expression ';' { $$ = new jump_statement(@1,$1,$2) }
     ;    
 
 /*************************************************************************/
@@ -218,9 +218,9 @@ jump_statement
 /*************************************************************************/
 primary_expression
     : IDENTIFIER            
-    | 'NUMBER'              { $$ = new constantNode($1,@1) }
-    | STRING_LITERAL        { $$ = new constantNode($1,@1) }
-    | '(' expression ')'    { $$ = new parenNode($2,@1)    }
+    | 'NUMBER'              { $$ = new constantNode(@1,$1) }
+    | STRING_LITERAL        { $$ = new constantNode(@1,$1) }
+    | '(' expression ')'    { $$ = new parenNode(@1,$2)    }
     ;
 
 postfix_expression
@@ -229,8 +229,8 @@ postfix_expression
     | postfix_expression '(' ')'
     | postfix_expression '(' argument_expression_list ')'
     | postfix_expression '.' IDENTIFIER
-    | postfix_expression '++'                               { $$ = new unaryNode($1,$2,@1) }
-    | postfix_expression '--'                               { $$ = new unaryNode($1,$2,@1) }
+    | postfix_expression '++'                               { $$ = new unaryNode(@1,$1,$2) }
+    | postfix_expression '--'                               { $$ = new unaryNode(@1,$1,$2) }
     ;
 
 argument_expression_list
@@ -240,9 +240,9 @@ argument_expression_list
 
 unary_expression
     : postfix_expression                
-    | '++' unary_expression             { $$ = new unaryNode($1,$2,@1) }
-    | '--' unary_expression             { $$ = new unaryNode($1,$2,@1) }
-    | unary_operator unary_expression   { $$ = new unaryNode($1,$2,@1) }
+    | '++' unary_expression             { $$ = new unaryNode(@1,$1,$2) }
+    | '--' unary_expression             { $$ = new unaryNode(@1,$1,$2) }
+    | unary_operator unary_expression   { $$ = new unaryNode(@1,$1,$2) }
     ;
 
 unary_operator
@@ -254,34 +254,34 @@ unary_operator
 
 exp
     : unary_expression
-    | exp "*" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "/" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "+" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "-" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "%" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "^" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "|" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "&" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "<" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp ">" exp   { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "<=" exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp ">=" exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "==" exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "!=" exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "<<" exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp ">>" exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "||" exp  { $$ = new binopNode($1,$2,$3,@2) }
-    | exp "&&" exp  { $$ = new binopNode($1,$2,$3,@2) }
+    | exp "*" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "/" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "+" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "-" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "%" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "^" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "|" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "&" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "<" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp ">" exp   { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "<=" exp  { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp ">=" exp  { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "==" exp  { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "!=" exp  { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "<<" exp  { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp ">>" exp  { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "||" exp  { $$ = new binopNode(@2,$1,$2,$3) }
+    | exp "&&" exp  { $$ = new binopNode(@2,$1,$2,$3) }
     ;
 
 conditional_expression
     : exp
-    | exp '?' expression ':' conditional_expression { $$ = new ternaryNode($1,$3,$5,mergeLoc(@1,@5)) }
+    | exp '?' expression ':' conditional_expression { $$ = new ternaryNode(mergeLoc(@1,@5),$1,$3,$5) }
     ;
 
 assignment_expression
     : conditional_expression
-    | unary_expression assignment_operator assignment_expression    { $$ = new binopNode($1,$2,$3,mergeLoc(@1,@3)) }
+    | unary_expression assignment_operator assignment_expression    { $$ = new binopNode(mergeLoc(@1,@3),$1,$2,$3) }
     ;
 assignment_operator:
       '='
