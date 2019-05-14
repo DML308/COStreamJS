@@ -68,3 +68,19 @@ describe("lexer 字符串的识别", function () {
         })
     }
 })
+
+describe("lexer 注释的识别", function () {
+    it("识别 单行注释 //", () => {
+        var regStr = lexer.rules.find(x => /\\\/\\\//.test(x.source))
+        var reg = new RegExp(regStr);
+        //console.log(regStr, reg);
+        assert(regStr.test('//12345'));
+    });
+    it("识别 多行注释 /* */", () => {
+        var regStr = lexer.rules.find(x => /\\\/\\\*/.test(x.source))
+        var reg = new RegExp(regStr);
+        //console.log(regStr, reg);
+        assert(regStr.test('/* \n */'));
+    });
+ 
+})

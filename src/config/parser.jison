@@ -4,6 +4,8 @@
 %%
 
 \s+                                                         /* skip whitespace */
+"/*"([^\*]|(\*)*[^\*/])*(\*)*"*/"                           /* skip Annotation */
+"//".*                                                      /* ignore comment */
 (0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b              return 'NUMBER'
 ("'"[^']*"'"|"\""[^\"]*"\"")                                return 'STRING_LITERAL'
 
