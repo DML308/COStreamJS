@@ -9,9 +9,9 @@
 </head>
 
 <body>
-    <div class="container" style="display:flex;flex-direction:row;">
-        <div id="app" style="width:100vh">
-            <h6>请输入测试字符串内容:</h6>
+    <h6>请输入测试字符串内容:</h6>
+    <div class="container" style="display:flex;justify-content:space-center">
+        <div id="app" style="margin-right:40px">
             <textarea v-model="text" @change="updateSVG" cols=40 rows=30></textarea>
         </div>
         <div id="ast-svg"></div>
@@ -45,7 +45,7 @@
                     var dotStr = ast2dot(ast)
                     var astSvg = await window.renderDot(dotStr)
                     astSvg.id ="ast-svg"
-                    console.log(astSvg)
+                    debug("构建的语法树为:",ast)
                     //debugger
                     document.querySelector(".container").replaceChild(astSvg,document.getElementById("ast-svg"))
                 }

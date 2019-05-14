@@ -6,10 +6,11 @@ export function ast2dot(node){
     var header = `digraph { \n    node [shape = record];\n`
     var body = ''
     dumpdot(node)
-    //应 dot 文件格式的要求, 对中间部分的 [] {} "" 这些特殊符号进行转义
+    //应 dot 文件格式的要求, 对中间部分的 [] {} "" < > 这些特殊符号进行转义
     body = body.replace(/\[(?!label|shape)/g, "\\[").replace(/](?!;)/g, "\\]")
     body = body.replace(/(\{|\})/, "\\$1")
     body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`)
+    body = body.replace(/<(?!\d+>)/,"\\<").replace(/(?<!<\d+|-)>/,"\\>")
     header += body + `}`
     return header 
 
