@@ -42,7 +42,7 @@
         body = body.replace(/\[(?!label|shape)/g, "\\[").replace(/](?!;)/g, "\\]");
         body = body.replace(/(\{|\})/g, "\\$1");
         body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`);
-        body = body.replace(/<(?!\d+>)/,"\\<").replace(/(?<!<\d+|-)>/,"\\>");
+        body = body.replace(/<(?!\d+>)/g,"\\<").replace(/(?<!<\d+|-)>/g,"\\>");
         body = body.replace(/\|(?!<)/g,"\\|");
         header += body + `}`;
         return header 
@@ -155,11 +155,11 @@
             });
         }
     }
-    /*************************************************************************/
-    /*              1.1 declaration                                         */
-    /*************************************************************************/
+    /********************************************************/
+    /*              1.1 declaration                         */
+    /********************************************************/
     class declareNode extends Node {
-        constructor(type, init_declarator_list, loc) {
+        constructor(loc,type, init_declarator_list) {
             super(loc);
             this.type = type;
             this.init_declarator_list = init_declarator_list || [];
@@ -167,22 +167,22 @@
     }
 
     class declarator extends Node {
-        constructor(identifier, loc, op1, parameter, op2) {
+        constructor(loc,identifier, op1, parameter, op2,initializer) {
             super(loc);
             if (identifier instanceof declarator) error("暂时不支持 declarator 的嵌套");
-            this.identifier = identifier;
-            this.op1 = op1;
-            this.parameter = parameter;
-            this.op2 = op2;
-            this.op = undefined;
-            this.initializer = undefined;
+            Object.assign(this,{
+                identifier,
+                op1,parameter,
+                op2,
+                initializer
+            });
         }
     }
-    /*************************************************************************/
-    /*              1.2 function.definition 函数声明                          */
-    /*************************************************************************/
+    /********************************************************/
+    /*              1.2 function.definition 函数声明          */
+    /********************************************************/
     class function_definition extends Node {
-        constructor(type, declarator, compound, loc) {
+        constructor(loc,type, declarator, compound) {
             super(loc);
             this.type = type;
             this.name = declarator.identifier;
@@ -193,24 +193,82 @@
         }
     }
     class parameter_declaration extends Node {
-        constructor(type, declarator, loc) {
+        constructor(loc,type, declarator) {
             super(loc);
             this.type = type;
             this.declarator = declarator;
         }
     }
-    /*************************************************************************/
-    /*        3. statement 花括号内以';'结尾的结构是statement                   */
-    /*************************************************************************/
+    /********************************************************/
+    /*        3. statement 花括号内以';'结尾的结构是statement   */
+    /********************************************************/
     class blockNode extends Node {
-        constructor(op1, stmt_list, op2, loc) {
+        constructor(loc,op1, stmt_list, op2) {
             super(loc);
-            Object.assign({op1,stmt_list,op2});
+            Object.assign(this, { op1, stmt_list, op2 });
         }
     }
-    /*************************************************************************/
-    /*        4. expression 计算表达式头节点                                    */
-    /*************************************************************************/
+    class jump_statement extends Node{
+        constructor(loc,op1,op2){
+            super(loc);
+            Object.assign(this, { op1, op2 });
+        }
+    }
+    class labeled_statement extends Node {
+        constructor(loc,op1,op2,op3,statement) {
+            super(loc);
+            Object.assign(this, { op1, op2,op3,statement });
+        }
+    }
+    class selection_statement extends Node{
+        constructor(loc,op1,op2,exp,op3,statement,op4,else_statement){
+            super(loc);
+            Object.assign(this,{
+                op1,op2,exp,op3,
+                statement, op4, else_statement
+            });
+        }
+    }
+    class whileNode extends Node{
+        constructor(loc,exp,statement){
+            super(loc);
+            Object.assign(this,{
+                type:'while',
+                op1:'(',
+                exp,
+                op2:')',
+                statement
+            });
+        }
+    }
+    class doNode extends Node {
+        constructor(loc, exp,statement) {
+            super(loc);
+            Object.assign(this, {
+                type:'do',
+                op1:'(',
+                statement,
+                op2:')',
+                op3:'while',
+                exp
+            });
+        }
+    }
+    class forNode extends Node {
+        constructor(loc,init,cond,next,statement) {
+            super(loc);
+            Object.assign(this,{
+                type:'for',
+                op1:'(',
+                init,cond,next,
+                op2:')',
+                statement
+            });
+        }
+    }
+    /********************************************************/
+    /*        4. expression 计算表达式头节点                   */
+    /********************************************************/
 
     class expNode extends Node {
         constructor(loc) {
@@ -225,42 +283,55 @@
     }
 
     class unaryNode extends expNode {
-        constructor(first, second, loc) {
+        constructor(loc,first, second) {
             super(loc);
             Object.assign(this, { first, second });
         }
 
     }
     class binopNode extends expNode {
-        constructor(left, op, right, loc) {
+        constructor(loc,left, op, right) {
             super(loc);
             Object.assign(this, { left, op, right });
         }
     }
 
     class ternaryNode extends expNode {
-        constructor(first, second, third, loc) {
+        constructor(loc,first, second, third) {
             super(loc);
             Object.assign(this, { first, op1: '?', second, op2: ':', third });
         }
     }
 
     class parenNode extends expNode {
-        constructor(exp, loc) {
+        constructor(loc,exp) {
             super(loc);
-            this.exp = exp;
+            Object.assign(this, { op1: '(', exp, op2: ')' });
         }
     }
-
-    // export class idNode extends expNode {
-    //     constructor(name, loc) {
-    //         super(loc)
-    //         this.name = name
-    //     }
-    // }
-
+    class arrayNode extends expNode{
+        constructor(loc,exp,arg){
+            super(loc);
+            if(exp instanceof arrayNode){
+                this.exp = exp.exp;
+                this.arg_list = exp.arg_list.slice().concat(arg);
+            }else{
+                this.exp = exp;
+                this.arg_list = [arg];
+            }
+        }
+    }
+    class callNode extends expNode{
+        constructor(loc,name,arg_list){
+            super(loc);
+            this.name = name;
+            this.op1 = '(';
+            this.arg_list = arg_list;
+            this.op2 = ')';
+        }
+    }
     class constantNode extends expNode {
-        constructor(sourceStr, loc) {
+        constructor(loc,sourceStr) {
             super(loc);
             //判断这个常量是数字还是字符串
             this.source = sourceStr;
@@ -278,11 +349,19 @@
         function_definition: function_definition,
         parameter_declaration: parameter_declaration,
         blockNode: blockNode,
+        jump_statement: jump_statement,
+        labeled_statement: labeled_statement,
+        selection_statement: selection_statement,
+        whileNode: whileNode,
+        doNode: doNode,
+        forNode: forNode,
         expNode: expNode,
         unaryNode: unaryNode,
         binopNode: binopNode,
         ternaryNode: ternaryNode,
         parenNode: parenNode,
+        arrayNode: arrayNode,
+        callNode: callNode,
         constantNode: constantNode
     });
 
@@ -351,15 +430,56 @@
             }
         };
         
-        /**
-         * 获得 idNode 的值, 完善符号表后即可求得该值
-         */
-        // idNode.prototype.getValue = function(){
-        //     return NaN
-        // }
+        arrayNode.prototype.getValue = function(){
+            return NaN
+        };
+        callNode.prototype.getValue = function(){
+            return NaN
+        };
+    }
+
+    /**
+    * 加载toString插件,加载该插件后, statement 类型的节点可以执行 toString 用于代码生成
+    */
+    function loadToStringPlugin() {
+        //将每一行 statement 的';'上提至 blockNode 处理
+        blockNode.prototype.toString = function () {
+            var str = '{';
+            this.stmt_list && this.stmt_list.forEach((node) => {
+                str += node.toString();
+                if ([expNode].some(x => node instanceof x)) {
+                    str += ';';
+                }
+                str += '\n';
+            });
+            return str + '}\n'
+        };
+        jump_statement.prototype.toString = function () {
+            var str = this.op1 + ' ';
+            str += this.op2 ? this.op2 + ' ' : '';
+            return str
+        };
+        labeled_statement.prototype.toString = function () {
+            var str = this.op1 + ' ';
+            str += this.op2 ? this.op2 : '';
+            return str + ' ' + this.op3 + this.statement.toString()
+        };
+        //TODO:未完成,待填充
+        expNode.prototype.toString = function () {
+            return this.value
+        };
+        forNode.prototype.toString = function () {
+            var str = 'for(';
+            str += this.init ? this.init.toString() + ';' : ';';
+            str += this.cond ? this.cond.toString() + ';' : ';';
+            str += this.next ? this.next.toString() : '';
+            str += ')' + this.statement.toString();
+            return str
+        };
     }
 
     loadCVPPlugin();
+    loadToStringPlugin();
 
     var COStreamJS = {};
     COStreamJS.global = typeof window === "object" ? window : global;
