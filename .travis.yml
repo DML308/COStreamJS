@@ -3,6 +3,7 @@ node_js:
   - "10"
 before_deploy:
   - npm run build
+  - echo "demo.costream.org" >> dist/CNAME
 deploy:
   provider: pages
   local_dir: dist
