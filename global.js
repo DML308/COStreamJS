@@ -38,11 +38,12 @@
         var header = `digraph { \n    node [shape = record];\n`;
         var body = '';
         dumpdot(node);
-        //应 dot 文件格式的要求, 对中间部分的 [] {} "" < > 这些特殊符号进行转义
+        //应 dot 文件格式的要求, 对中间部分的 [] {} "" < > |这些特殊符号进行转义
         body = body.replace(/\[(?!label|shape)/g, "\\[").replace(/](?!;)/g, "\\]");
-        body = body.replace(/(\{|\})/, "\\$1");
+        body = body.replace(/(\{|\})/g, "\\$1");
         body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`);
         body = body.replace(/<(?!\d+>)/,"\\<").replace(/(?<!<\d+|-)>/,"\\>");
+        body = body.replace(/\|(?!<)/g,"\\|");
         header += body + `}`;
         return header 
 
@@ -105,7 +106,10 @@
                 }else if(typeof node[i] == 'string'){
                     line+= node[i];
                 }else if (node[i] instanceof Array) {
-                    if(node[i].length > 0)  line+= `[${node[i].length} ${node[i][0].constructor.name}]`; 
+                    var types = [...new Set(node[i].map(x => x.constructor.name))];
+                    if(types.length>=3) types= types.slice(0,2).concat("other");
+                    types = types.join(" or ");
+                    if (node[i].length > 0) line += `[${node[i].length} ${types}]`; 
                     else line += `[ ]`;
                 }else{
                     line+= ' ';
@@ -154,24 +158,54 @@
     /*************************************************************************/
     /*              1.1 declaration                                         */
     /*************************************************************************/
-    class declareNode extends Node{
-        constructor(type, init_declarator_list,loc){
+    class declareNode extends Node {
+        constructor(type, init_declarator_list, loc) {
             super(loc);
             this.type = type;
             this.init_declarator_list = init_declarator_list || [];
         }
     }
 
-    class declarator extends Node{
-        constructor(identifier,loc,op1,op2,parameter){
+    class declarator extends Node {
+        constructor(identifier, loc, op1, parameter, op2) {
             super(loc);
-            if(identifier instanceof declarator) error("暂时不支持 declarator 的嵌套");
+            if (identifier instanceof declarator) error("暂时不支持 declarator 的嵌套");
             this.identifier = identifier;
             this.op1 = op1;
             this.parameter = parameter;
             this.op2 = op2;
             this.op = undefined;
             this.initializer = undefined;
+        }
+    }
+    /*************************************************************************/
+    /*              1.2 function.definition 函数声明                          */
+    /*************************************************************************/
+    class function_definition extends Node {
+        constructor(type, declarator, compound, loc) {
+            super(loc);
+            this.type = type;
+            this.name = declarator.identifier;
+            this.op1 = '(';
+            this.param_list = declarator.parameter;
+            this.op2 = ')';
+            this.funcBody = compound;
+        }
+    }
+    class parameter_declaration extends Node {
+        constructor(type, declarator, loc) {
+            super(loc);
+            this.type = type;
+            this.declarator = declarator;
+        }
+    }
+    /*************************************************************************/
+    /*        3. statement 花括号内以';'结尾的结构是statement                   */
+    /*************************************************************************/
+    class blockNode extends Node {
+        constructor(op1, stmt_list, op2, loc) {
+            super(loc);
+            Object.assign({op1,stmt_list,op2});
         }
     }
     /*************************************************************************/
@@ -207,7 +241,7 @@
     class ternaryNode extends expNode {
         constructor(first, second, third, loc) {
             super(loc);
-            Object.assign(this, { first, second, third });
+            Object.assign(this, { first, op1: '?', second, op2: ':', third });
         }
     }
 
@@ -230,7 +264,7 @@
             super(loc);
             //判断这个常量是数字还是字符串
             this.source = sourceStr;
-            if(!Number.isNaN(Number(sourceStr))){
+            if (!Number.isNaN(Number(sourceStr))) {
                 this._value = Number(sourceStr);
             }
             this._value = sourceStr;
@@ -241,6 +275,9 @@
         Node: Node,
         declareNode: declareNode,
         declarator: declarator,
+        function_definition: function_definition,
+        parameter_declaration: parameter_declaration,
+        blockNode: blockNode,
         expNode: expNode,
         unaryNode: unaryNode,
         binopNode: binopNode,
