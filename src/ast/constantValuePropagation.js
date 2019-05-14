@@ -1,4 +1,4 @@
-import { expNode,unaryNode, binopNode, ternaryNode, parenNode } from "./node.js"
+import { expNode,unaryNode, binopNode, ternaryNode, parenNode,callNode,arrayNode } from "./node.js"
 import { error } from "../utils"
 
 /**
@@ -66,10 +66,10 @@ export function loadCVPPlugin() {
         }
     }
     
-    /**
-     * 获得 idNode 的值, 完善符号表后即可求得该值
-     */
-    // idNode.prototype.getValue = function(){
-    //     return NaN
-    // }
+    arrayNode.prototype.getValue = function(){
+        return NaN
+    }
+    callNode.prototype.getValue = function(){
+        return NaN
+    }
 }

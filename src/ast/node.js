@@ -164,7 +164,27 @@ export class parenNode extends expNode {
         Object.assign(this, { op1: '(', exp, op2: ')' })
     }
 }
-
+export class arrayNode extends expNode{
+    constructor(loc,exp,arg){
+        super(loc)
+        if(exp instanceof arrayNode){
+            this.exp = exp.exp
+            this.arg_list = exp.arg_list.slice().concat(arg)
+        }else{
+            this.exp = exp
+            this.arg_list = [arg]
+        }
+    }
+}
+export class callNode extends expNode{
+    constructor(loc,name,arg_list){
+        super(loc)
+        this.name = name
+        this.op1 = '('
+        this.arg_list = arg_list
+        this.op2 = ')'
+    }
+}
 export class constantNode extends expNode {
     constructor(loc,sourceStr) {
         super(loc)

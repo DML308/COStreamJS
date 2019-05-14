@@ -49,7 +49,7 @@ join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 
-[A-z_][0-9A-z]*                                             return 'IDENTIFIER'
+[a-zA-Z_][a-zA-Z0-9_]*                                      return 'IDENTIFIER'
 
 "##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
 "*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="              return 'ASSIGNMENT_OPERATOR'
@@ -142,13 +142,13 @@ identifier_list
 /*************************************************************************/
 initializer
     : assignment_expression
-    | '{' initializer_list '}'
-    | '{' initializer_list ',' '}'
+    | '{' initializer_list '}'                    { $$ = $2 }
+    | '{' initializer_list ',' '}'                { $$ = $2 }
     ;
 
 initializer_list
-    : initializer
-    | initializer_list ',' initializer
+    : initializer                                 { $$ = $1 }
+    | initializer_list ',' initializer            { $$ = $1 instanceof Array ? $1.concat($3) : [$1,$3]}
     ;
 /*************************************************************************/
 /*              1.2 function_definition 函数声明                          */
@@ -188,11 +188,11 @@ compound_statement
     | '{' statement_list '}'   { $$ = new blockNode(mergeLoc(@1,@3),$1,$2,$3) }
     ;
 statement_list
-    : statement                { if($1!==';') $$= [$1]   }
-    | statement_list statement { if($2!==';') $$.push($2)}
+    : statement                { $$ = $1 ? [$1] : []   }
+    | statement_list statement { if($2) $$.push($2)    }
     ;
 expression_statement
-    : ';'                       { $$ = ';' }
+    : ';'                       { $$ = undefined }
     | expression ';'            { $$ = $1 }
     ;
 selection_statement
@@ -232,17 +232,17 @@ primary_expression
 
 postfix_expression
     : primary_expression                          
-    | postfix_expression '[' expression ']'
+    | postfix_expression '[' expression ']'                 { $$ = new arrayNode(@1,$1,$3)    }
     | postfix_expression '(' ')'
-    | postfix_expression '(' argument_expression_list ')'
+    | postfix_expression '(' argument_expression_list ')'   { $$ = new callNode(@1,$1,$3)     }
     | postfix_expression '.' IDENTIFIER                     { $$ = new binopNode(@1,$1,$2,$3) }
     | postfix_expression '++'                               { $$ = new unaryNode(@1,$1,$2)    }
     | postfix_expression '--'                               { $$ = new unaryNode(@1,$1,$2)    }
     ;
 
 argument_expression_list
-    : assignment_expression
-    | argument_expression_list ',' assignment_expression
+    : assignment_expression                                 { $$ = [$1]   }
+    | argument_expression_list ',' assignment_expression    { $$.push($3) }
     ;
 
 unary_expression
@@ -292,7 +292,7 @@ assignment_expression
     ;
 assignment_operator:
       '='
-    | 'ASSIGNMENT_OPERATOR'
+    | ASSIGNMENT_OPERATOR
     ;
 expression
     : assignment_expression
