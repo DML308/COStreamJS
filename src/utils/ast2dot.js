@@ -10,7 +10,7 @@ export function ast2dot(node){
     body = body.replace(/\[(?!label|shape)/g, "\\[").replace(/](?!;)/g, "\\]")
     body = body.replace(/(\{|\})/g, "\\$1")
     body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`)
-    body = body.replace(/<(?!\d+>)/,"\\<").replace(/(?<!<\d+|-)>/,"\\>")
+    body = body.replace(/<(?!\d+>)/g,"\\<").replace(/(?<!<\d+|-)>/g,"\\>")
     body = body.replace(/\|(?!<)/g,"\\|")
     header += body + `}`
     return header 

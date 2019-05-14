@@ -22,6 +22,12 @@ describe("测试能否正确识别函数定义 functino_definition 和它的 函
     it("if else ", () => {
         var node = parser.parse("int main(){ if(i) return; else return 1; }")[0]
     })
+    it("if if else 优先级测试", () => {
+        var node = parser.parse("int main(){ if(1) if(2){} else { i++; } }")[0]
+        var statements = node.funcBody.stmt_list
+        var flag = statements[0].op4 !== "else" && statements[0].statement.op4 === "else"
+        assert(flag)
+    })
     it("for(i=0,j=2;i<10;i++){}", () => {
         var node = parser.parse("int main(){ for(i=0,j=2;i<10;i++){} }")[0]
     })
@@ -30,6 +36,9 @@ describe("测试能否正确识别函数定义 functino_definition 和它的 函
     })
     it("while(0){ continue ;}", () => {
         var node = parser.parse("int main(){ while(0){ continue ;} }")[0]
+    })
+    it("do{i++;}while(1)", () => {
+        var node = parser.parse("int main(){ do{i++;}while(1); }")[0]
     })
 })
 

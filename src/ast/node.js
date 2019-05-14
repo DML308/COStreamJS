@@ -25,7 +25,6 @@ export class declarator extends Node {
         super(loc)
         if (identifier instanceof declarator) error("暂时不支持 declarator 的嵌套")
         Object.assign(this,{
-            loc,
             identifier,
             op1,parameter,
             op2,
@@ -73,6 +72,52 @@ export class labeled_statement extends Node {
     constructor(loc,op1,op2,op3,statement) {
         super(loc)
         Object.assign(this, { op1, op2,op3,statement })
+    }
+}
+export class selection_statement extends Node{
+    constructor(loc,op1,op2,exp,op3,statement,op4,else_statement){
+        super(loc)
+        Object.assign(this,{
+            op1,op2,exp,op3,
+            statement, op4, else_statement
+        })
+    }
+}
+export class whileNode extends Node{
+    constructor(loc,exp,statement){
+        super(loc)
+        Object.assign(this,{
+            type:'while',
+            op1:'(',
+            exp,
+            op2:')',
+            statement
+        })
+    }
+}
+export class doNode extends Node {
+    constructor(loc, exp,statement) {
+        super(loc)
+        Object.assign(this, {
+            type:'do',
+            op1:'(',
+            statement,
+            op2:')',
+            op3:'while',
+            exp
+        })
+    }
+}
+export class forNode extends Node {
+    constructor(loc,init,cond,next,statement) {
+        super(loc)
+        Object.assign(this,{
+            type:'for',
+            op1:'(',
+            init,cond,next,
+            op2:')',
+            statement
+        })
     }
 }
 /********************************************************/

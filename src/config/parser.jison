@@ -196,15 +196,22 @@ expression_statement
     | expression ';'            { $$ = $1 }
     ;
 selection_statement
-    : IF '(' expression ')' statement %prec IF_WITHOUT_ELSE { $$ = new selection_statement($1,$2,$3,$5)}
+    : IF '(' expression ')' statement %prec IF_WITHOUT_ELSE 
+      { $$ = new selection_statement(mergeLoc(@1,@5),$1,$2,$3,$4,$5)        }
     | IF '(' expression ')' statement ELSE statement
+      { $$ = new selection_statement(mergeLoc(@1,@5),$1,$2,$3,$4,$5,$6,$7)  }
     | SWITCH '(' expression ')' statement
+      { $$ = new selection_statement(mergeLoc(@1,@5),$1,$2,$3,$4,$5)        }
     ;
 iteration_statement
-    : WHILE '(' expression ')' statement
-    | DO statement WHILE '(' expression ')' ';'
+    : WHILE '(' expression ')' statement 
+      { $$ = new whileNode(mergeLoc(@1,@5),$3,$5) }
+    | DO statement WHILE '(' expression ')' ';' 
+      { $$ = new doNode(mergeLoc(@1,@7),$5,$2)    }
     | FOR '(' expression_statement expression_statement ')' statement
+      { $$ = new forNode(mergeLoc(@1,@6),$3,$4,undefined,$6)    }
     | FOR '(' expression_statement expression_statement expression ')' statement
+      { $$ = new forNode(mergeLoc(@1,@6),$3,$4,$5,$7) }
     ;
 jump_statement
     : CONTINUE ';'          { $$ = new jump_statement(@1,$1) }
@@ -228,9 +235,9 @@ postfix_expression
     | postfix_expression '[' expression ']'
     | postfix_expression '(' ')'
     | postfix_expression '(' argument_expression_list ')'
-    | postfix_expression '.' IDENTIFIER
-    | postfix_expression '++'                               { $$ = new unaryNode(@1,$1,$2) }
-    | postfix_expression '--'                               { $$ = new unaryNode(@1,$1,$2) }
+    | postfix_expression '.' IDENTIFIER                     { $$ = new binopNode(@1,$1,$2,$3) }
+    | postfix_expression '++'                               { $$ = new unaryNode(@1,$1,$2)    }
+    | postfix_expression '--'                               { $$ = new unaryNode(@1,$1,$2)    }
     ;
 
 argument_expression_list
