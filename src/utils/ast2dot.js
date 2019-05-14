@@ -6,11 +6,12 @@ export function ast2dot(node){
     var header = `digraph { \n    node [shape = record];\n`
     var body = ''
     dumpdot(node)
-    //应 dot 文件格式的要求, 对中间部分的 [] {} "" < > 这些特殊符号进行转义
+    //应 dot 文件格式的要求, 对中间部分的 [] {} "" < > |这些特殊符号进行转义
     body = body.replace(/\[(?!label|shape)/g, "\\[").replace(/](?!;)/g, "\\]")
-    body = body.replace(/(\{|\})/, "\\$1")
+    body = body.replace(/(\{|\})/g, "\\$1")
     body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`)
     body = body.replace(/<(?!\d+>)/,"\\<").replace(/(?<!<\d+|-)>/,"\\>")
+    body = body.replace(/\|(?!<)/g,"\\|")
     header += body + `}`
     return header 
 
@@ -74,7 +75,10 @@ export function ast2dot(node){
             }else if(typeof node[i] == 'string'){
                 line+= node[i]
             }else if (node[i] instanceof Array) {
-                if(node[i].length > 0)  line+= `[${node[i].length} ${node[i][0].constructor.name}]` 
+                var types = [...new Set(node[i].map(x => x.constructor.name))]
+                if(types.length>=3) types= types.slice(0,2).concat("other")
+                types = types.join(" or ")
+                if (node[i].length > 0) line += `[${node[i].length} ${types}]` 
                 else line += `[ ]`
             }else{
                 line+= ' '
