@@ -9,9 +9,9 @@ export class Node {
         })
     }
 }
-/*************************************************************************/
-/*              1.1 declaration                                         */
-/*************************************************************************/
+/********************************************************/
+/*              1.1 declaration                         */
+/********************************************************/
 export class declareNode extends Node {
     constructor(type, init_declarator_list, loc) {
         super(loc)
@@ -32,9 +32,9 @@ export class declarator extends Node {
         this.initializer = undefined
     }
 }
-/*************************************************************************/
-/*              1.2 function.definition 函数声明                          */
-/*************************************************************************/
+/********************************************************/
+/*              1.2 function.definition 函数声明          */
+/********************************************************/
 export class function_definition extends Node {
     constructor(type, declarator, compound, loc) {
         super(loc)
@@ -53,18 +53,30 @@ export class parameter_declaration extends Node {
         this.declarator = declarator
     }
 }
-/*************************************************************************/
-/*        3. statement 花括号内以';'结尾的结构是statement                   */
-/*************************************************************************/
+/********************************************************/
+/*        3. statement 花括号内以';'结尾的结构是statement   */
+/********************************************************/
 export class blockNode extends Node {
     constructor(op1, stmt_list, op2, loc) {
         super(loc)
-        Object.assign({op1,stmt_list,op2})
+        Object.assign(this, { op1, stmt_list, op2 })
     }
 }
-/*************************************************************************/
-/*        4. expression 计算表达式头节点                                    */
-/*************************************************************************/
+export class jump_statement extends Node{
+    constructor(op1,op2,loc){
+        super(loc)
+        Object.assign(this, { op1, op2 })
+    }
+}
+export class labeled_statement extends Node {
+    constructor(op1,op2,op3,statement, loc) {
+        super(loc)
+        Object.assign(this, { op1, op2,op3,statement })
+    }
+}
+/********************************************************/
+/*        4. expression 计算表达式头节点                   */
+/********************************************************/
 
 export class expNode extends Node {
     constructor(loc) {
@@ -103,16 +115,9 @@ export class ternaryNode extends expNode {
 export class parenNode extends expNode {
     constructor(exp, loc) {
         super(loc)
-        this.exp = exp
+        Object.assign(this, { op1: '(', exp, op2: ')' })
     }
 }
-
-// export class idNode extends expNode {
-//     constructor(name, loc) {
-//         super(loc)
-//         this.name = name
-//     }
-// }
 
 export class constantNode extends expNode {
     constructor(sourceStr, loc) {

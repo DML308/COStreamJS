@@ -180,20 +180,20 @@ statement
     | declaration
     ;
 labeled_statement
-    : CASE constant_expression ':' statement
-    | DEFAULT ':' statement
+    : CASE constant_expression ':' statement    { $$ = new labeled_statement($1,$2,$3,$4,mergeLoc(@1,@4))}
+    | DEFAULT ':' statement                     { $$ = new labeled_statement($1,undefined,$2,$3,mergeLoc(@1,@3))}
     ;
 compound_statement
     : '{' '}'                  { $$ = new blockNode($1,undefined,$2,mergeLoc(@1,@2)) } 
     | '{' statement_list '}'   { $$ = new blockNode($1,$2,$3,mergeLoc(@1,@3)) }
     ;
 statement_list
-    : statement                { $$= [$1]   }
-    | statement_list statement { $$.push($2)}
+    : statement                { if($1!==';') $$= [$1]   }
+    | statement_list statement { if($2!==';') $$.push($2)}
     ;
 expression_statement
-    : ';'
-    | expression ';'
+    : ';'                       { $$ = ';' }
+    | expression ';'            { $$ = $1 }
     ;
 selection_statement
     : IF '(' expression ')' statement %prec IF_WITHOUT_ELSE
@@ -207,10 +207,10 @@ iteration_statement
     | FOR '(' expression_statement expression_statement expression ')' statement
     ;
 jump_statement
-    : CONTINUE ';'
-    | BREAK ';'
-    | RETURN ';'
-    | RETURN expression ';'
+    : CONTINUE ';'          { $$ = new jump_statement($1,undefined,@1) }
+    | BREAK ';'             { $$ = new jump_statement($1,undefined,@1) }
+    | RETURN ';'            { $$ = new jump_statement($1,undefined,@1) }
+    | RETURN expression ';' { $$ = new jump_statement($1,$2,@1) }
     ;    
 
 /*************************************************************************/
@@ -301,11 +301,8 @@ constant_expression
     ;
 
 /*************************************************************************/
-/*        5. basic 从词法TOKEN直接归约得到的节点,自底向上接入头部文法结构    */
+/*        5. basic 从词法TOKEN直接归约得到的节点,自底向上接入头部文法结构        */
 /*************************************************************************/
-/* 设置变量作用域相关 */
-lblock: '{'  ;
-rblock: '}'  ;
 type_specifier
         : basic_type_name       
         | CONST basic_type_name 
