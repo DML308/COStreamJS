@@ -247,10 +247,10 @@ operator_pipeline:
           PIPELINE '{'  splitjoinPipeline_statement_list '}'     
         ;
 splitjoinPipeline_statement_list:
-          statement                                       
-        | operator_add                                    
-        | splitjoinPipeline_statement_list statement      
-        | splitjoinPipeline_statement_list operator_add   
+          statement                                         { $$ = [$1]   }    
+        | operator_add                                      { $$ = [$1]   }
+        | splitjoinPipeline_statement_list statement        { $$.push($2) }
+        | splitjoinPipeline_statement_list operator_add     { $$.push($2) }
         ;
 operator_splitjoin:
           SPLITJOIN '{' split_statement  splitjoinPipeline_statement_list  join_statement '}'     
@@ -292,8 +292,8 @@ labeled_statement
     | DEFAULT ':' statement                     { $$ = new labeled_statement(@$,$1,undefined,$2,$3)}
     ;
 compound_statement
-    : '{' '}'                  { $$ = new blockNode(@$,$1,undefined,$2) } 
-    | '{' statement_list '}'   { $$ = new blockNode(@$,$1,$2,$3) }
+    : '{' '}'                                   { $$ = new blockNode(@$,$1,undefined,$2) } 
+    | '{' composite_body_statement_list '}'     { $$ = new blockNode(@$,$1,$2,$3) }
     ;
 statement_list
     : statement                { $$ = $1 ? [$1] : []   }
@@ -363,6 +363,7 @@ postfix_expression
     |  SPLITJOIN '(' argument_expression_list ')'  '{' split_statement splitjoinPipeline_statement_list  join_statement '}'  
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
+                                                                    compName: 'pipeline',
                                                                     inputs: $3,
                                                                     stmt_list: undefined,
                                                                     split: $6,
@@ -373,6 +374,7 @@ postfix_expression
     |  SPLITJOIN '(' argument_expression_list ')'  '{' statement_list split_statement splitjoinPipeline_statement_list  join_statement '}'
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
+                                                                    compName: 'splitjoin',
                                                                     inputs: $3,
                                                                     stmt_list: $6,
                                                                     split: $7,
@@ -383,6 +385,7 @@ postfix_expression
     |   PIPELINE '(' argument_expression_list ')'  '{' splitjoinPipeline_statement_list '}'
                                                             {
                                                                 $$ = new pipelineNode(@$,{
+                                                                    compName: 'pipeline',
                                                                     inputs: $3,
                                                                     body_stmts: $6
                                                                 })
