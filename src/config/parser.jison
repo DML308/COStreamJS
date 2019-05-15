@@ -466,31 +466,37 @@ constant_expression
 /*************************************************************************/
 operator_selfdefine_body:
        '{' operator_selfdefine_body_init operator_selfdefine_body_work operator_selfdefine_body_window_list '}'
+       {
+           $$ = new operBodyNode(@$,undefined,$2,$3,$4)
+       }
      | '{' statement_list operator_selfdefine_body_init  operator_selfdefine_body_work operator_selfdefine_body_window_list '}'
+       {
+           $$ = new operBodyNode(@$,$2,$3,$4,$5)
+       }
      ;    
 operator_selfdefine_body_init:
       /*empty*/
-    | INIT compound_statement 
+    | INIT compound_statement { $$ = $2 }
     ;
 operator_selfdefine_body_work:
-      WORK compound_statement 
+      WORK compound_statement { $$ = $2 }
     ;
 operator_selfdefine_body_window_list:
       /*empty*/                                         
-    | WINDOW '{' operator_selfdefine_window_list '}'  
+    | WINDOW '{' operator_selfdefine_window_list '}'  { $$ = $3 }
     ;
 operator_selfdefine_window_list:
-      operator_selfdefine_window                
-    | operator_selfdefine_window_list operator_selfdefine_window
+      operator_selfdefine_window                                    { $$ = [$1]   }
+    | operator_selfdefine_window_list operator_selfdefine_window    { $$.push($2) }
     ;
 operator_selfdefine_window:
-      IDENTIFIER window_type ';'                
+      IDENTIFIER window_type ';'                       { $$ = new winStmtNode(@$,$1,$2) }
     ;
 window_type:
-      SLIDING '('  ')'                          
-    | TUMBLING '('  ')'                         
-    | SLIDING '(' argument_expression_list ')'  
-    | TUMBLING '(' argument_expression_list ')' 
+      SLIDING '('  ')'                                 { $$ = { type:$1 } }
+    | TUMBLING '('  ')'                                { $$ = { type:$1 } }       
+    | SLIDING '(' argument_expression_list ')'         { $$ = { type:$1, arg_list: $3} }
+    | TUMBLING '(' argument_expression_list ')'        { $$ = { type:$1, arg_list: $3} } 
     ;     
 /*************************************************************************/
 /*        5. basic 从词法TOKEN直接归约得到的节点,自底向上接入头部文法结构        */

@@ -13,7 +13,7 @@ export class Node {
 /*              1.1 declaration                         */
 /********************************************************/
 export class declareNode extends Node {
-    constructor(loc,type, init_declarator_list) {
+    constructor(loc, type, init_declarator_list) {
         super(loc)
         this.type = type
         this.init_declarator_list = [].concat(init_declarator_list)
@@ -21,11 +21,11 @@ export class declareNode extends Node {
 }
 
 export class declarator extends Node {
-    constructor(loc,identifier, op1, parameter, op2,initializer) {
+    constructor(loc, identifier, op1, parameter, op2, initializer) {
         super(loc)
-        Object.assign(this,{
+        Object.assign(this, {
             identifier,
-            op1,parameter,
+            op1, parameter,
             op2,
             initializer
         })
@@ -35,7 +35,7 @@ export class declarator extends Node {
 /*              1.2 function.definition 函数声明          */
 /********************************************************/
 export class function_definition extends Node {
-    constructor(loc,type, declarator, compound) {
+    constructor(loc, type, declarator, compound) {
         super(loc)
         this.type = type
         this.name = declarator.identifier
@@ -46,7 +46,7 @@ export class function_definition extends Node {
     }
 }
 export class parameter_declaration extends Node {
-    constructor(loc,type, declarator) {
+    constructor(loc, type, declarator) {
         super(loc)
         this.type = type
         this.declarator = declarator
@@ -58,13 +58,18 @@ export class parameter_declaration extends Node {
 export class compositeNode extends Node {
     constructor(loc, head, body) {
         super(loc)
-        Object.assign(this,{ head,body })
+        Object.assign(this, { 
+            op:'composite',
+            compName:head.compName,
+            inout:head.inout,
+            body 
+        })
     }
 }
 export class compHeadNode extends Node {
     constructor(loc, compName, inout) {
         super(loc)
-        Object.assign(this, { op:'composite',compName, inout })
+        Object.assign(this, { op: 'composite', compName, inout })
     }
 }
 export class ComInOutNode extends Node {
@@ -74,9 +79,9 @@ export class ComInOutNode extends Node {
     }
 }
 export class inOutdeclNode extends Node {
-    constructor(loc, strType,id) {
+    constructor(loc, strType, id) {
         super(loc)
-        Object.assign(this, {strType,id})
+        Object.assign(this, { strType, id })
     }
 }
 export class strdclNode extends Node {
@@ -84,94 +89,115 @@ export class strdclNode extends Node {
         super(loc)
         this.op = 'stream<'
         this.id_list = [
-            { type, identifier}
+            { type, identifier }
         ]
         this.op2 = '>'
     }
 }
-export class compBodyNode extends Node{
-    constructor(loc,param,stmt_list){
+export class compBodyNode extends Node {
+    constructor(loc, param, stmt_list) {
         super(loc)
-        Object.assign(this,{
-            op1:'{',
+        Object.assign(this, {
+            op1: '{',
             param,
             stmt_list,
-            op2:'}'
+            op2: '}'
         })
     }
 }
-export class paramNode extends Node{
-    constructor(loc,param_list){
+export class paramNode extends Node {
+    constructor(loc, param_list) {
         super(loc)
-        if(param_list){
+        if (param_list) {
             this.op = 'param'
         }
         this.param_list = param_list
+    }
+}
+export class operBodyNode extends Node {
+    constructor(loc, stmt_list, init, work, win) {
+        super(loc)
+        Object.assign(this, {
+            stmt_list,
+            op1: 'init', init,
+            op2: 'work', work,
+            op3: 'window', win
+        })
+    }
+}
+export class winStmtNode extends Node{
+    constructor(loc,winName,{type,arg_list}){
+        super(loc)
+        Object.assign(this,{
+            winName,
+            type,
+            arg_list
+        })
     }
 }
 /********************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement   */
 /********************************************************/
 export class blockNode extends Node {
-    constructor(loc,op1, stmt_list, op2) {
+    constructor(loc, op1, stmt_list, op2) {
         super(loc)
         Object.assign(this, { op1, stmt_list, op2 })
     }
 }
-export class jump_statement extends Node{
-    constructor(loc,op1,op2){
+export class jump_statement extends Node {
+    constructor(loc, op1, op2) {
         super(loc)
         Object.assign(this, { op1, op2 })
     }
 }
 export class labeled_statement extends Node {
-    constructor(loc,op1,op2,op3,statement) {
+    constructor(loc, op1, op2, op3, statement) {
         super(loc)
-        Object.assign(this, { op1, op2,op3,statement })
+        Object.assign(this, { op1, op2, op3, statement })
     }
 }
-export class selection_statement extends Node{
-    constructor(loc,op1,op2,exp,op3,statement,op4,else_statement){
+export class selection_statement extends Node {
+    constructor(loc, op1, op2, exp, op3, statement, op4, else_statement) {
         super(loc)
-        Object.assign(this,{
-            op1,op2,exp,op3,
+        Object.assign(this, {
+            op1, op2, exp, op3,
             statement, op4, else_statement
         })
     }
 }
-export class whileNode extends Node{
-    constructor(loc,exp,statement){
+export class whileNode extends Node {
+    constructor(loc, exp, statement) {
         super(loc)
-        Object.assign(this,{
-            type:'while',
-            op1:'(',
+        Object.assign(this, {
+            type: 'while',
+            op1: '(',
             exp,
-            op2:')',
+            op2: ')',
             statement
         })
     }
 }
 export class doNode extends Node {
-    constructor(loc, exp,statement) {
+    constructor(loc, exp, statement) {
         super(loc)
         Object.assign(this, {
-            type:'do',
-            op1:'(',
+            type: 'do',
+            op1: '(',
             statement,
-            op2:')',
-            op3:'while',
+            op2: ')',
+            op3: 'while',
             exp
         })
     }
 }
 export class forNode extends Node {
-    constructor(loc,init,cond,next,statement) {
+    constructor(loc, init, cond, next, statement) {
         super(loc)
-        Object.assign(this,{
-            type:'for',
-            op1:'(',
-            init,cond,next,
-            op2:')',
+        Object.assign(this, {
+            type: 'for',
+            op1: '(',
+            init, cond, next,
+            op2: ')',
             statement
         })
     }
@@ -193,7 +219,7 @@ export class expNode extends Node {
 }
 
 export class unaryNode extends expNode {
-    constructor(loc,first, second) {
+    constructor(loc, first, second) {
         super(loc)
         Object.assign(this, { first, second })
     }
@@ -201,39 +227,39 @@ export class unaryNode extends expNode {
 };
 
 export class binopNode extends expNode {
-    constructor(loc,left, op, right) {
+    constructor(loc, left, op, right) {
         super(loc)
         Object.assign(this, { left, op, right })
     }
 }
 
 export class ternaryNode extends expNode {
-    constructor(loc,first, second, third) {
+    constructor(loc, first, second, third) {
         super(loc)
         Object.assign(this, { first, op1: '?', second, op2: ':', third })
     }
 }
 
 export class parenNode extends expNode {
-    constructor(loc,exp) {
+    constructor(loc, exp) {
         super(loc)
         Object.assign(this, { op1: '(', exp, op2: ')' })
     }
 }
-export class arrayNode extends expNode{
-    constructor(loc,exp,arg){
+export class arrayNode extends expNode {
+    constructor(loc, exp, arg) {
         super(loc)
-        if(exp instanceof arrayNode){
+        if (exp instanceof arrayNode) {
             this.exp = exp.exp
             this.arg_list = exp.arg_list.slice().concat(arg)
-        }else{
+        } else {
             this.exp = exp
             this.arg_list = [arg]
         }
     }
 }
-export class callNode extends expNode{
-    constructor(loc,name,arg_list){
+export class callNode extends expNode {
+    constructor(loc, name, arg_list) {
         super(loc)
         this.name = name
         this.op1 = '('
@@ -242,7 +268,7 @@ export class callNode extends expNode{
     }
 }
 export class constantNode extends expNode {
-    constructor(loc,sourceStr) {
+    constructor(loc, sourceStr) {
         super(loc)
         //判断这个常量是数字还是字符串
         this.source = sourceStr
@@ -253,49 +279,49 @@ export class constantNode extends expNode {
     }
 }
 /********************************************************/
-/* operNode */
+/* operNode in expression's right                       */
 /********************************************************/
-export class operNode extends Node{
-    constructor(loc){
+export class operNode extends Node {
+    constructor(loc) {
         super(loc)
-        definePrivate(this,'outputs')
+        definePrivate(this, 'outputs')
     }
 }
-export class compositeCallNode extends operNode{
-    constructor(loc, compName, inputs, params){
+export class compositeCallNode extends operNode {
+    constructor(loc, compName, inputs, params) {
         super(loc)
-        Object.assign(this,{
+        Object.assign(this, {
             compName,
-            op1:'(',
+            op1: '(',
             inputs,
-            op2:')'        
+            op2: ')'
         })
-        if(params){
-            Object.assign(this,{
-                op3:'(',
+        if (params) {
+            Object.assign(this, {
+                op3: '(',
                 params,
-                op4:')'
+                op4: ')'
             })
         }
     }
 }
-export class operatorNode extends operNode{
-    constructor(loc,operName,inputs,operBody){
+export class operatorNode extends operNode {
+    constructor(loc, operName, inputs, operBody) {
         super(loc)
-        Object.assign(this, { operName, inputs, operBody})
+        Object.assign(this, { operName, inputs, operBody })
     }
 }
-export class splitjoinNode extends operNode{
-    constructor(loc,options){
+export class splitjoinNode extends operNode {
+    constructor(loc, options) {
         super(loc)
-        Object.assign(this,options)
-        definePrivate(this,'replace_composite')
+        Object.assign(this, options)
+        definePrivate(this, 'replace_composite')
     }
 }
 export class pipelineNode extends operNode {
-    constructor(loc,options){
+    constructor(loc, options) {
         super(loc)
-        Object.assign(this,options)
+        Object.assign(this, options)
         definePrivate(this, 'replace_composite')
     }
 }
