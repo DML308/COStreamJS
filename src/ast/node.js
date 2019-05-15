@@ -16,7 +16,7 @@ export class declareNode extends Node {
     constructor(loc,type, init_declarator_list) {
         super(loc)
         this.type = type
-        this.init_declarator_list = init_declarator_list || []
+        this.init_declarator_list = [].concat(init_declarator_list)
     }
 }
 
@@ -82,9 +82,11 @@ export class inOutdeclNode extends Node {
 export class strdclNode extends Node {
     constructor(loc, type, identifier) {
         super(loc)
+        this.op = 'stream<'
         this.id_list = [
             { type, identifier}
         ]
+        this.op2 = '>'
     }
 }
 export class compBodyNode extends Node{
@@ -96,6 +98,15 @@ export class compBodyNode extends Node{
             stmt_list,
             op2:'}'
         })
+    }
+}
+export class paramNode extends Node{
+    constructor(loc,param_list){
+        super(loc)
+        if(param_list){
+            this.op = 'param'
+        }
+        this.param_list = param_list
     }
 }
 /********************************************************/
@@ -244,10 +255,15 @@ export class constantNode extends expNode {
 /********************************************************/
 /* operNode */
 /********************************************************/
-export class compositeCallNode extends Node{
+export class operNode extends Node{
+    constructor(loc){
+        super(loc)
+        definePrivate(this,'outputs')
+    }
+}
+export class compositeCallNode extends operNode{
     constructor(loc, compName, inputs, params){
         super(loc)
-        this.outputs = undefined
         Object.assign(this,{
             compName,
             op1:'(',
@@ -263,28 +279,24 @@ export class compositeCallNode extends Node{
         }
     }
 }
-export class operatorNode extends Node{
+export class operatorNode extends operNode{
     constructor(loc,operName,inputs,operBody){
         super(loc)
         Object.assign(this, { operName, inputs, operBody})
     }
 }
-export class splitjoinNode extends Node{
+export class splitjoinNode extends operNode{
     constructor(loc,options){
         super(loc)
-        this.outputs = undefined
         Object.assign(this,options)
-        this.replace_composite = undefined
+        definePrivate(this,'replace_composite')
     }
 }
-export class pipelineNode extends Node {
+export class pipelineNode extends operNode {
     constructor(loc,options){
         super(loc)
-        Object.assign(this,{
-            outputs: undefined,
-            ...options,
-            replace_composite: undefined
-        })
+        Object.assign(this,options)
+        definePrivate(this, 'replace_composite')
     }
 }
 export class splitNode extends Node {

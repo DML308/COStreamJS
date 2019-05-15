@@ -111,8 +111,8 @@ external_declaration
 /*                      1.1.2 stream_declaring_list                      */
 /*                      1.1.3 initializer                                */
 /*************************************************************************/ 
-declaration
-    : declaring_list ';'                          { $$ = $1 }
+declaration:
+      declaring_list ';'                          { $$ = $1 }
     | stream_declaring_list ';'                   { $$ = $1 }
     ;
 declaring_list:
@@ -145,8 +145,8 @@ identifier_list
 /*                      1.1.2 stream_declaring_list                      */
 /*************************************************************************/    
 stream_declaring_list:
-      stream_type_specifier IDENTIFIER    
-    | stream_declaring_list ',' IDENTIFIER
+      stream_type_specifier IDENTIFIER            { $$ = new declareNode(@$,$1,$2)  }
+    | stream_declaring_list ',' IDENTIFIER        { $$.init_declarator_list.push($3)}
     ;
 /*************************************************************************/
 /*                      1.1.3 initializer                                */
@@ -217,8 +217,8 @@ composite_body:
       '{' composite_body_param_opt composite_body_statement_list '}'    { $$ = new compBodyNode(@$,$2,$3) }                     
     ;
 composite_body_param_opt:
-      /*empty*/                 
-    | PARAM parameter_type_list ';'  
+      /*empty*/                                                         { $$ = undefined }
+    | PARAM parameter_type_list ';'                                     { $$ = new paramNode(@$,$2)       }
     ;
 composite_body_statement_list:
       costream_composite_statement                                      { $$ = [$1]   }
@@ -441,9 +441,8 @@ assignment_expression
       {
           if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode].some(x=> $3 instanceof x)){
               $3.outputs = $1
-          }else{
-              $$ = new binopNode(@$,$1,$2,$3) 
           }
+          $$ = new binopNode(@$,$1,$2,$3) 
       }
     ;
 assignment_operator:
@@ -498,12 +497,12 @@ window_type:
 /*************************************************************************/
 type_specifier
         : basic_type_name       
-        | CONST basic_type_name 
+        | CONST basic_type_name  { $$ = "const "+$2 }
         ;
 basic_type_name
         : INT   
         | LONG  
-        | LONG LONG 
+        | LONG LONG  { $$ = "long long" }
         | FLOAT 
         | DOUBLE
         | STRING
