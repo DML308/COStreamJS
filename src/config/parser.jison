@@ -297,11 +297,11 @@ assignment_operator:
     | ASSIGNMENT_OPERATOR
     ;
 expression
-    : assignment_expression
+    : assignment_expression { $$ = $1 }
     | expression ',' assignment_expression {
          if($1 instanceof Array) $$.push($3)
-         else if($1 instanceof expNode) $$ = [$1,$3]
-         else error("error at `expression ','` ") 
+         else if($1 !== undefined) $$ = [$1,$3]
+         else error("error at `expression ','` ",$1,$3) 
       }
     ;
 
