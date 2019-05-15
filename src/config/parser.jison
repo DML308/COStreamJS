@@ -113,6 +113,7 @@ external_declaration
 /*************************************************************************/ 
 declaration
     : declaring_list ';'                          { $$ = $1 }
+    | stream_declaring_list ';'                   { $$ = $1 }
     ;
 declaring_list:
       type_specifier   init_declarator_list       { $$ = new declareNode(@$,$1,$2) }
@@ -140,6 +141,13 @@ identifier_list
     : IDENTIFIER                                  { $$ = $1 }
     | identifier_list ',' IDENTIFIER              { $$ = $1 instanceof Array ? $1.concat($3) : [$1,$3] }
     ;    
+/*************************************************************************/
+/*                      1.1.2 stream_declaring_list                      */
+/*************************************************************************/    
+stream_declaring_list:
+      stream_type_specifier IDENTIFIER    
+    | stream_declaring_list ',' IDENTIFIER
+    ;
 /*************************************************************************/
 /*                      1.1.3 initializer                                */
 /*************************************************************************/
@@ -170,7 +178,62 @@ parameter_type_list
 parameter_declaration
     : type_specifier declarator         { $$ = new parameter_declaration(@$,$1,$2) }
     ;
-
+/*************************************************************************/
+/*              1.3 composite.definition 数据流计算单元声明                */
+/*                      1.3.1 composite.head                             */
+/*                      1.3.2 composite.body                             */
+/*************************************************************************/
+composite_definition:
+      composite_head composite_body                         { $$ = new compositeNode(@$,$1,$2) }
+    ;
+composite_head:
+      COMPOSITE IDENTIFIER '(' composite_head_inout ')'     { $$ = new compHeadNode(@$,$2,$4)  }
+    ;
+composite_head_inout:
+      /*empty*/                                                                           { $$ = undefined }
+    | INPUT composite_head_inout_member_list                                              { $$ = new ComInOutNode(@$,$2)          }
+    | INPUT composite_head_inout_member_list ',' OUTPUT composite_head_inout_member_list  { $$ = new ComInOutNode(@$,$2,$5)       }
+    | OUTPUT composite_head_inout_member_list                                             { $$ = new ComInOutNode(@$,undefined,$2)}
+    | OUTPUT composite_head_inout_member_list ',' INPUT composite_head_inout_member_list  { $$ = new ComInOutNode(@$,$5,$2)       }
+    ;
+composite_head_inout_member_list:
+      composite_head_inout_member                                       { $$ = [$1]   }                                    
+    | composite_head_inout_member_list ',' composite_head_inout_member  { $$.push($3) }                    
+    ;
+composite_head_inout_member:
+      stream_type_specifier IDENTIFIER                                  { $$ = new inOutdeclNode(@$,$1,$2) }                      
+    ;
+stream_type_specifier:
+      STREAM '<' stream_declaration_list '>'                            { $$ = $3 }
+    ;    
+stream_declaration_list:
+      type_specifier IDENTIFIER                                         { $$ = new strdclNode(@$,$1,$2)              }
+    | stream_declaration_list ',' type_specifier IDENTIFIER             { $$.id_list.push({ type:$3,identifier:$4 }) }
+    ;
+/*************************************************************************/
+/*                      1.3.2 composite_body                             */
+/*************************************************************************/
+composite_body:
+      '{' composite_body_param_opt composite_body_statement_list '}'                              
+    ;
+composite_body_param_opt:
+      /*empty*/                 
+    | PARAM parameter_list ';'  
+    ;
+composite_body_statement_list:
+      costream_composite_statement                                
+    | composite_body_statement_list costream_composite_statement  
+    ;
+costream_composite_statement:
+      'BODY' /* composite_body_operator   */
+    | statement                 
+    ;
+/*****************************************************************************/
+/*        2. composite_body_operator  composite体内的init work window等组件   */
+/*****************************************************************************/
+/*             2_1   ADD operator_pipeline                                   */
+/*             2_2   ADD operator_splitjoin                                  */
+/*             2_3   ADD operator_default_call                               */
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
 /*************************************************************************/    

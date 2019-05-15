@@ -54,6 +54,41 @@ export class parameter_declaration extends Node {
     }
 }
 /********************************************************/
+/*        2. composite                                  */
+/********************************************************/
+export class compositeNode extends Node {
+    constructor(loc, head, body) {
+        super(loc)
+        Object.assign(this,{ head,body })
+    }
+}
+export class compHeadNode extends Node {
+    constructor(loc, compName, inout) {
+        super(loc)
+        Object.assign(this, { op:'composite',compName, inout })
+    }
+}
+export class ComInOutNode extends Node {
+    constructor(loc, input_list, output_list) {
+        super(loc)
+        Object.assign(this, { op1: 'input', input_list, op2: 'output', output_list })
+    }
+}
+export class inOutdeclNode extends Node {
+    constructor(loc, strType,id) {
+        super(loc)
+        Object.assign(this, {strType,id})
+    }
+}
+export class strdclNode extends Node {
+    constructor(loc, type, identifier) {
+        super(loc)
+        this.id_list = [
+            { type, identifier}
+        ]
+    }
+}
+/********************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement   */
 /********************************************************/
 export class blockNode extends Node {
