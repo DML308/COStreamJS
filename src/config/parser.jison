@@ -53,8 +53,8 @@ roundrobin                                                  return 'ROUNDROBIN'
 
 [a-zA-Z_][a-zA-Z0-9_]*                                      return 'IDENTIFIER'
 
-"##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
 "*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="              return 'ASSIGNMENT_OPERATOR'
+"##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
 [-*+/%&|~!()\[\]{}'"#,\.?:;<>=]                             return yytext
 
 <<EOF>>               return 'EOF'
@@ -214,26 +214,67 @@ stream_declaration_list:
 /*                      1.3.2 composite_body                             */
 /*************************************************************************/
 composite_body:
-      '{' composite_body_param_opt composite_body_statement_list '}'                              
+      '{' composite_body_param_opt composite_body_statement_list '}'    { $$ = new compBodyNode(@$,$2,$3) }                     
     ;
 composite_body_param_opt:
       /*empty*/                 
-    | PARAM parameter_list ';'  
+    | PARAM parameter_type_list ';'  
     ;
 composite_body_statement_list:
-      costream_composite_statement                                
-    | composite_body_statement_list costream_composite_statement  
+      costream_composite_statement                                      { $$ = [$1]   }
+    | composite_body_statement_list costream_composite_statement        { $$.push($2) }
     ;
 costream_composite_statement:
-      'BODY' /* composite_body_operator   */
+      composite_body_operator
     | statement                 
     ;
 /*****************************************************************************/
 /*        2. composite_body_operator  composite体内的init work window等组件   */
-/*****************************************************************************/
 /*             2_1   ADD operator_pipeline                                   */
 /*             2_2   ADD operator_splitjoin                                  */
 /*             2_3   ADD operator_default_call                               */
+/*****************************************************************************/
+composite_body_operator:
+         operator_add              
+        ;
+operator_add:
+          ADD operator_pipeline     
+        | ADD operator_splitjoin    
+        | ADD operator_default_call 
+        ;  
+
+operator_pipeline:
+          PIPELINE '{'  splitjoinPipeline_statement_list '}'     
+        ;
+splitjoinPipeline_statement_list:
+          statement                                       
+        | operator_add                                    
+        | splitjoinPipeline_statement_list statement      
+        | splitjoinPipeline_statement_list operator_add   
+        ;
+operator_splitjoin:
+          SPLITJOIN '{' split_statement  splitjoinPipeline_statement_list  join_statement '}'     
+        | SPLITJOIN '{' statement_list split_statement splitjoinPipeline_statement_list join_statement '}'  
+        ;
+split_statement:
+          SPLIT duplicate_statement                        
+        | SPLIT roundrobin_statement                       
+        ;
+roundrobin_statement:
+          ROUNDROBIN '(' ')' ';'                            
+        | ROUNDROBIN '(' argument_expression_list ')' ';'   
+        ;
+duplicate_statement:
+          DUPLICATE '('  ')' ';'                            
+        | DUPLICATE '(' exp ')'  ';'                        
+        ;
+join_statement:
+          JOIN roundrobin_statement                         
+        ;
+operator_default_call:
+          IDENTIFIER  '(' ')' ';'                           
+        | IDENTIFIER  '(' argument_expression_list ')' ';'  
+        ;                 
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
 /*************************************************************************/    
@@ -296,15 +337,56 @@ primary_expression
     | STRING_LITERAL        { $$ = new constantNode(@$,$1) }
     | '(' expression ')'    { $$ = new parenNode(@$,$2)    }
     ;
-
+operator_arguments:
+      '(' ')'               { $$ = undefined }
+    | '(' argument_expression_list ')' { $$ = $2 }
+    ;
 postfix_expression
-    : primary_expression                          
+    : primary_expression         
     | postfix_expression '[' expression ']'                 { $$ = new arrayNode(@$,$1,$3)    }
-    | postfix_expression '(' ')'
-    | postfix_expression '(' argument_expression_list ')'   { $$ = new callNode(@$,$1,$3)     }
+    | postfix_expression operator_arguments                 { 
+                                                                if($$ instanceof callNode){
+                                                                    $$ = new compositeCallNode(@$,$1.name,$1.arg_list,$2)
+                                                                }         
+                                                                else{
+                                                                    $$ = new callNode(@$,$1,$2)
+                                                                }
+                                                            }
     | postfix_expression '.' IDENTIFIER                     { $$ = new binopNode(@$,$1,$2,$3) }
     | postfix_expression '++'                               { $$ = new unaryNode(@$,$1,$2)    }
     | postfix_expression '--'                               { $$ = new unaryNode(@$,$1,$2)    }
+    | FILEREADER '(' ')' '(' stringConstant ')'             { error("暂不支持FILEREADER")      }
+    | postfix_expression operator_arguments operator_selfdefine_body       
+                                                            {
+                                                                $$ = new operatorNode(@$,$1,$2,$3)
+                                                            } 
+    |  SPLITJOIN '(' argument_expression_list ')'  '{' split_statement splitjoinPipeline_statement_list  join_statement '}'  
+                                                            {
+                                                                $$ = new splitjoinNode(@$,{
+                                                                    inputs: $3,
+                                                                    stmt_list: undefined,
+                                                                    split: $6,
+                                                                    body_stmts: $7,
+                                                                    join: $8
+                                                                })
+                                                            }
+    |  SPLITJOIN '(' argument_expression_list ')'  '{' statement_list split_statement splitjoinPipeline_statement_list  join_statement '}'
+                                                            {
+                                                                $$ = new splitjoinNode(@$,{
+                                                                    inputs: $3,
+                                                                    stmt_list: $6,
+                                                                    split: $7,
+                                                                    body_stmts: $8,
+                                                                    join: $9
+                                                                })
+                                                            }
+    |   PIPELINE '(' argument_expression_list ')'  '{' splitjoinPipeline_statement_list '}'
+                                                            {
+                                                                $$ = new pipelineNode(@$,{
+                                                                    inputs: $3,
+                                                                    body_stmts: $6
+                                                                })
+                                                            }
     ;
 
 argument_expression_list
@@ -355,7 +437,14 @@ conditional_expression
 
 assignment_expression
     : conditional_expression
-    | unary_expression assignment_operator assignment_expression    { $$ = new binopNode(@$,$1,$2,$3) }
+    | unary_expression assignment_operator assignment_expression    
+      {
+          if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode].some(x=> $3 instanceof x)){
+              $3.outputs = $1
+          }else{
+              $$ = new binopNode(@$,$1,$2,$3) 
+          }
+      }
     ;
 assignment_operator:
       '='
@@ -373,7 +462,37 @@ expression
 constant_expression
     : conditional_expression
     ;
-
+/*************************************************************************/
+/*        4.1 postfix_operator COStream 的 operator 表达式                */
+/*************************************************************************/
+operator_selfdefine_body:
+       '{' operator_selfdefine_body_init operator_selfdefine_body_work operator_selfdefine_body_window_list '}'
+     | '{' statement_list operator_selfdefine_body_init  operator_selfdefine_body_work operator_selfdefine_body_window_list '}'
+     ;    
+operator_selfdefine_body_init:
+      /*empty*/
+    | INIT compound_statement 
+    ;
+operator_selfdefine_body_work:
+      WORK compound_statement 
+    ;
+operator_selfdefine_body_window_list:
+      /*empty*/                                         
+    | WINDOW '{' operator_selfdefine_window_list '}'  
+    ;
+operator_selfdefine_window_list:
+      operator_selfdefine_window                
+    | operator_selfdefine_window_list operator_selfdefine_window
+    ;
+operator_selfdefine_window:
+      IDENTIFIER window_type ';'                
+    ;
+window_type:
+      SLIDING '('  ')'                          
+    | TUMBLING '('  ')'                         
+    | SLIDING '(' argument_expression_list ')'  
+    | TUMBLING '(' argument_expression_list ')' 
+    ;     
 /*************************************************************************/
 /*        5. basic 从词法TOKEN直接归约得到的节点,自底向上接入头部文法结构        */
 /*************************************************************************/

@@ -1,4 +1,4 @@
-import { expNode,unaryNode, binopNode, ternaryNode, parenNode,callNode,arrayNode } from "./node.js"
+import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, arrayNode } from "./node.js"
 import { error } from "../utils"
 
 /**

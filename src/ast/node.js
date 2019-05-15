@@ -23,7 +23,6 @@ export class declareNode extends Node {
 export class declarator extends Node {
     constructor(loc,identifier, op1, parameter, op2,initializer) {
         super(loc)
-        if (identifier instanceof declarator) error("暂时不支持 declarator 的嵌套")
         Object.assign(this,{
             identifier,
             op1,parameter,
@@ -86,6 +85,17 @@ export class strdclNode extends Node {
         this.id_list = [
             { type, identifier}
         ]
+    }
+}
+export class compBodyNode extends Node{
+    constructor(loc,param,stmt_list){
+        super(loc)
+        Object.assign(this,{
+            op1:'{',
+            param,
+            stmt_list,
+            op2:'}'
+        })
     }
 }
 /********************************************************/
@@ -230,4 +240,56 @@ export class constantNode extends expNode {
         }
         this._value = sourceStr
     }
+}
+/********************************************************/
+/* operNode */
+/********************************************************/
+export class compositeCallNode extends Node{
+    constructor(loc, compName, inputs, params){
+        super(loc)
+        this.outputs = undefined
+        Object.assign(this,{
+            compName,
+            op1:'(',
+            inputs,
+            op2:')'        
+        })
+        if(params){
+            Object.assign(this,{
+                op3:'(',
+                params,
+                op4:')'
+            })
+        }
+    }
+}
+export class operatorNode extends Node{
+    constructor(loc,operName,inputs,operBody){
+        super(loc)
+        Object.assign(this, { operName, inputs, operBody})
+    }
+}
+export class splitjoinNode extends Node{
+    constructor(loc,options){
+        super(loc)
+        this.outputs = undefined
+        Object.assign(this,options)
+        this.replace_composite = undefined
+    }
+}
+export class pipelineNode extends Node {
+    constructor(loc,options){
+        super(loc)
+        Object.assign(this,{
+            outputs: undefined,
+            ...options,
+            replace_composite: undefined
+        })
+    }
+}
+export class splitNode extends Node {
+
+}
+export class joinNode extends Node {
+
 }
