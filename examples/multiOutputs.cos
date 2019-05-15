@@ -1,0 +1,49 @@
+composite Test(input stream<int x>In1, output stream<int x>Out1, stream<int x>Out2) {
+	(Out1, Out2)  = test(In1) {
+		work {
+			Out1[0].x = In1[0].x + 1;
+			Out2[0].x = In1[0].x + 2;
+		}
+		window {
+			In1  sliding(1, 1);
+			Out1 tumbling(1);
+			Out2  tumbling(1);
+		}
+	};
+}
+composite Fun(input stream<int x>In1, output stream<int x>Out1) {
+	Out1 = fun(In1) {
+		work {
+			Out1[0].x = In1[0].x * 2;
+		}
+		window {
+			In1  sliding(1, 1);
+			Out1 tumbling(1);
+		}
+	};
+}
+composite Main() {
+	stream<int x> Data, Out1, Out2, Out3, Out4;
+	Data = start() {
+		work {
+			Data[0].x = 1;
+		}
+		window  {
+			Data tumbling(1);
+		}
+	};
+	(Out1, Out2) = Test(Data)();
+	Out3 = Fun(Out1)();
+	Out4 = Fun(Out2)();
+	sink(Out3, Out4){
+		work {
+			print(Out3[0].x);
+			print(" ");
+			print(Out4[0].x);
+		}
+		window {
+			Out3 sliding(1, 1);
+			Out4 sliding(1, 1);
+		}
+	};
+}
