@@ -170,38 +170,7 @@ parameter_type_list
 parameter_declaration
     : type_specifier declarator         { $$ = new parameter_declaration(@$,$1,$2) }
     ;
-/*************************************************************************/
-/*              1.3 composite.definition 数据流计算单元声明                */
-/*                      1.3.1 composite.head                             */
-/*                      1.3.2 composite.body                             */
-/*************************************************************************/
-composite_definition:
-      composite_head composite_body { console.log(@$) }
-    ;
-composite_head:
-      COMPOSITE IDENTIFIER '(' composite_head_inout ')'
-    ;
-composite_head_inout:
-      /*empty*/                                                                           { }
-    | INPUT composite_head_inout_member_list                                              { $$ = new ComInOutNode($2,NULL, @$)  ; }
-    | INPUT composite_head_inout_member_list ',' OUTPUT composite_head_inout_member_list  { $$ = new ComInOutNode($2,$5,   @$)  ; }
-    | OUTPUT composite_head_inout_member_list                                             { $$ = new ComInOutNode(NULL,$2, @$)  ; }
-    | OUTPUT composite_head_inout_member_list ',' INPUT composite_head_inout_member_list  { $$ = new ComInOutNode($5,$2,   @$)  ; }
-    ;
-composite_head_inout_member_list:
-      composite_head_inout_member                                                         
-    | composite_head_inout_member_list ',' composite_head_inout_member                    
-    ;
-composite_head_inout_member:
-      stream_type_specifier IDENTIFIER                                                    
-    ;
-stream_type_specifier:
-      STREAM '<' stream_declaration_list '>'
-    ;    
-stream_declaration_list:
-      type_specifier IDENTIFIER 
-    | stream_declaration_list ',' type_specifier IDENTIFIER 
-    ;
+
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
 /*************************************************************************/    
