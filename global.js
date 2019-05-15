@@ -72,12 +72,17 @@
             return nThis
         }
         /**
-         * 输入 node 为 object,创建一行格式为 
+         * 输入 node 为 object 或 string ,创建一行格式为 
          * 6 [label="<1> int |<2> 2"] 的 dot 字符串
          * 返回该节点的序号, 例如6
          */
         function newNode(node){
             var line = `    ${ast2dot.count} [label = "`;
+            if(typeof node === 'string'){
+                line += node;
+                body += line + '"];\n';
+                return ast2dot.count++
+            }
             var first = true;
             var tag = 0;
             var keys = Object.keys(node);
@@ -143,20 +148,19 @@
     /*              1.1 declaration                         */
     /********************************************************/
     class declareNode extends Node {
-        constructor(loc,type, init_declarator_list) {
+        constructor(loc, type, init_declarator_list) {
             super(loc);
             this.type = type;
-            this.init_declarator_list = init_declarator_list || [];
+            this.init_declarator_list = [].concat(init_declarator_list);
         }
     }
 
     class declarator extends Node {
-        constructor(loc,identifier, op1, parameter, op2,initializer) {
+        constructor(loc, identifier, op1, parameter, op2, initializer) {
             super(loc);
-            if (identifier instanceof declarator) error("暂时不支持 declarator 的嵌套");
-            Object.assign(this,{
+            Object.assign(this, {
                 identifier,
-                op1,parameter,
+                op1, parameter,
                 op2,
                 initializer
             });
@@ -166,7 +170,7 @@
     /*              1.2 function.definition 函数声明          */
     /********************************************************/
     class function_definition extends Node {
-        constructor(loc,type, declarator, compound) {
+        constructor(loc, type, declarator, compound) {
             super(loc);
             this.type = type;
             this.name = declarator.identifier;
@@ -177,75 +181,158 @@
         }
     }
     class parameter_declaration extends Node {
-        constructor(loc,type, declarator) {
+        constructor(loc, type, declarator) {
             super(loc);
             this.type = type;
             this.declarator = declarator;
         }
     }
     /********************************************************/
+    /*        2. composite                                  */
+    /********************************************************/
+    class compositeNode extends Node {
+        constructor(loc, head, body) {
+            super(loc);
+            Object.assign(this, { 
+                op:'composite',
+                compName:head.compName,
+                inout:head.inout,
+                body 
+            });
+        }
+    }
+    class compHeadNode extends Node {
+        constructor(loc, compName, inout) {
+            super(loc);
+            Object.assign(this, { op: 'composite', compName, inout });
+        }
+    }
+    class ComInOutNode extends Node {
+        constructor(loc, input_list, output_list) {
+            super(loc);
+            Object.assign(this, { op1: 'input', input_list, op2: 'output', output_list });
+        }
+    }
+    class inOutdeclNode extends Node {
+        constructor(loc, strType, id) {
+            super(loc);
+            Object.assign(this, { strType, id });
+        }
+    }
+    class strdclNode extends Node {
+        constructor(loc, type, identifier) {
+            super(loc);
+            this.op = 'stream<';
+            this.id_list = [
+                { type, identifier }
+            ];
+            this.op2 = '>';
+        }
+    }
+    class compBodyNode extends Node {
+        constructor(loc, param, stmt_list) {
+            super(loc);
+            Object.assign(this, {
+                op1: '{',
+                param,
+                stmt_list,
+                op2: '}'
+            });
+        }
+    }
+    class paramNode extends Node {
+        constructor(loc, param_list) {
+            super(loc);
+            if (param_list) {
+                this.op = 'param';
+            }
+            this.param_list = param_list;
+        }
+    }
+    class operBodyNode extends Node {
+        constructor(loc, stmt_list, init, work, win) {
+            super(loc);
+            Object.assign(this, {
+                stmt_list,
+                op1: 'init', init,
+                op2: 'work', work,
+                op3: 'window', win
+            });
+        }
+    }
+    class winStmtNode extends Node{
+        constructor(loc,winName,{type,arg_list}){
+            super(loc);
+            Object.assign(this,{
+                winName,
+                type,
+                arg_list
+            });
+        }
+    }
+    /********************************************************/
     /*        3. statement 花括号内以';'结尾的结构是statement   */
     /********************************************************/
     class blockNode extends Node {
-        constructor(loc,op1, stmt_list, op2) {
+        constructor(loc, op1, stmt_list, op2) {
             super(loc);
             Object.assign(this, { op1, stmt_list, op2 });
         }
     }
-    class jump_statement extends Node{
-        constructor(loc,op1,op2){
+    class jump_statement extends Node {
+        constructor(loc, op1, op2) {
             super(loc);
             Object.assign(this, { op1, op2 });
         }
     }
     class labeled_statement extends Node {
-        constructor(loc,op1,op2,op3,statement) {
+        constructor(loc, op1, op2, op3, statement) {
             super(loc);
-            Object.assign(this, { op1, op2,op3,statement });
+            Object.assign(this, { op1, op2, op3, statement });
         }
     }
-    class selection_statement extends Node{
-        constructor(loc,op1,op2,exp,op3,statement,op4,else_statement){
+    class selection_statement extends Node {
+        constructor(loc, op1, op2, exp, op3, statement, op4, else_statement) {
             super(loc);
-            Object.assign(this,{
-                op1,op2,exp,op3,
+            Object.assign(this, {
+                op1, op2, exp, op3,
                 statement, op4, else_statement
             });
         }
     }
-    class whileNode extends Node{
-        constructor(loc,exp,statement){
+    class whileNode extends Node {
+        constructor(loc, exp, statement) {
             super(loc);
-            Object.assign(this,{
-                type:'while',
-                op1:'(',
+            Object.assign(this, {
+                type: 'while',
+                op1: '(',
                 exp,
-                op2:')',
+                op2: ')',
                 statement
             });
         }
     }
     class doNode extends Node {
-        constructor(loc, exp,statement) {
+        constructor(loc, exp, statement) {
             super(loc);
             Object.assign(this, {
-                type:'do',
-                op1:'(',
+                type: 'do',
+                op1: '(',
                 statement,
-                op2:')',
-                op3:'while',
+                op2: ')',
+                op3: 'while',
                 exp
             });
         }
     }
     class forNode extends Node {
-        constructor(loc,init,cond,next,statement) {
+        constructor(loc, init, cond, next, statement) {
             super(loc);
-            Object.assign(this,{
-                type:'for',
-                op1:'(',
-                init,cond,next,
-                op2:')',
+            Object.assign(this, {
+                type: 'for',
+                op1: '(',
+                init, cond, next,
+                op2: ')',
                 statement
             });
         }
@@ -267,46 +354,46 @@
     }
 
     class unaryNode extends expNode {
-        constructor(loc,first, second) {
+        constructor(loc, first, second) {
             super(loc);
             Object.assign(this, { first, second });
         }
 
     }
     class binopNode extends expNode {
-        constructor(loc,left, op, right) {
+        constructor(loc, left, op, right) {
             super(loc);
             Object.assign(this, { left, op, right });
         }
     }
 
     class ternaryNode extends expNode {
-        constructor(loc,first, second, third) {
+        constructor(loc, first, second, third) {
             super(loc);
             Object.assign(this, { first, op1: '?', second, op2: ':', third });
         }
     }
 
     class parenNode extends expNode {
-        constructor(loc,exp) {
+        constructor(loc, exp) {
             super(loc);
             Object.assign(this, { op1: '(', exp, op2: ')' });
         }
     }
-    class arrayNode extends expNode{
-        constructor(loc,exp,arg){
+    class arrayNode extends expNode {
+        constructor(loc, exp, arg) {
             super(loc);
-            if(exp instanceof arrayNode){
+            if (exp instanceof arrayNode) {
                 this.exp = exp.exp;
                 this.arg_list = exp.arg_list.slice().concat(arg);
-            }else{
+            } else {
                 this.exp = exp;
                 this.arg_list = [arg];
             }
         }
     }
-    class callNode extends expNode{
-        constructor(loc,name,arg_list){
+    class callNode extends expNode {
+        constructor(loc, name, arg_list) {
             super(loc);
             this.name = name;
             this.op1 = '(';
@@ -315,7 +402,7 @@
         }
     }
     class constantNode extends expNode {
-        constructor(loc,sourceStr) {
+        constructor(loc, sourceStr) {
             super(loc);
             //判断这个常量是数字还是字符串
             this.source = sourceStr;
@@ -325,6 +412,59 @@
             this._value = sourceStr;
         }
     }
+    /********************************************************/
+    /* operNode in expression's right                       */
+    /********************************************************/
+    class operNode extends Node {
+        constructor(loc) {
+            super(loc);
+            definePrivate(this, 'outputs');
+        }
+    }
+    class compositeCallNode extends operNode {
+        constructor(loc, compName, inputs, params) {
+            super(loc);
+            Object.assign(this, {
+                compName,
+                op1: '(',
+                inputs,
+                op2: ')'
+            });
+            if (params) {
+                Object.assign(this, {
+                    op3: '(',
+                    params,
+                    op4: ')'
+                });
+            }
+        }
+    }
+    class operatorNode extends operNode {
+        constructor(loc, operName, inputs, operBody) {
+            super(loc);
+            Object.assign(this, { operName, inputs, operBody });
+        }
+    }
+    class splitjoinNode extends operNode {
+        constructor(loc, options) {
+            super(loc);
+            Object.assign(this, options);
+            definePrivate(this, 'replace_composite');
+        }
+    }
+    class pipelineNode extends operNode {
+        constructor(loc, options) {
+            super(loc);
+            Object.assign(this, options);
+            definePrivate(this, 'replace_composite');
+        }
+    }
+    class splitNode extends Node {
+
+    }
+    class joinNode extends Node {
+
+    }
 
     var NodeTypes = /*#__PURE__*/Object.freeze({
         Node: Node,
@@ -332,6 +472,15 @@
         declarator: declarator,
         function_definition: function_definition,
         parameter_declaration: parameter_declaration,
+        compositeNode: compositeNode,
+        compHeadNode: compHeadNode,
+        ComInOutNode: ComInOutNode,
+        inOutdeclNode: inOutdeclNode,
+        strdclNode: strdclNode,
+        compBodyNode: compBodyNode,
+        paramNode: paramNode,
+        operBodyNode: operBodyNode,
+        winStmtNode: winStmtNode,
         blockNode: blockNode,
         jump_statement: jump_statement,
         labeled_statement: labeled_statement,
@@ -346,7 +495,14 @@
         parenNode: parenNode,
         arrayNode: arrayNode,
         callNode: callNode,
-        constantNode: constantNode
+        constantNode: constantNode,
+        operNode: operNode,
+        compositeCallNode: compositeCallNode,
+        operatorNode: operatorNode,
+        splitjoinNode: splitjoinNode,
+        pipelineNode: pipelineNode,
+        splitNode: splitNode,
+        joinNode: joinNode
     });
 
     /**
