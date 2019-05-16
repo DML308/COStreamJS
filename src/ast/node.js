@@ -58,11 +58,11 @@ export class parameter_declaration extends Node {
 export class compositeNode extends Node {
     constructor(loc, head, body) {
         super(loc)
-        Object.assign(this, { 
-            op:'composite',
-            compName:head.compName,
-            inout:head.inout,
-            body 
+        Object.assign(this, {
+            op: 'composite',
+            compName: head.compName,
+            inout: head.inout,
+            body
         })
     }
 }
@@ -125,10 +125,10 @@ export class operBodyNode extends Node {
         })
     }
 }
-export class winStmtNode extends Node{
-    constructor(loc,winName,{type,arg_list}){
+export class winStmtNode extends Node {
+    constructor(loc, winName, { type, arg_list }) {
         super(loc)
-        Object.assign(this,{
+        Object.assign(this, {
             winName,
             type,
             arg_list
@@ -225,6 +225,12 @@ export class unaryNode extends expNode {
     }
 
 };
+export class castNode extends expNode {
+    constructor(loc, type, exp) {
+        super(loc)
+        Object.assign(this, { op1: '(', type, op2: ')', exp })
+    }
+}
 
 export class binopNode extends expNode {
     constructor(loc, left, op, right) {
@@ -340,8 +346,8 @@ export class joinNode extends Node {
         super(loc)
         this.name = "join"
         this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin"
-        if(node.arg_list){
-            Object.assign(this, { op1:'(',arg_list:node.arg_list,op2:')'})
+        if (node.arg_list) {
+            Object.assign(this, { op1: '(', arg_list: node.arg_list, op2: ')' })
         }
     }
 }
@@ -351,14 +357,14 @@ export class duplicateNode extends Node {
         this.arg_list = arg_list
     }
 }
-export class roundrobinNode extends Node{
-    constructor(loc,arg_list){
+export class roundrobinNode extends Node {
+    constructor(loc, arg_list) {
         super(loc)
         this.arg_list = arg_list
     }
 }
-export class addNode extends Node{
-    constructor(loc,content){
+export class addNode extends Node {
+    constructor(loc, content) {
         super(loc)
         this.name = "add"
         this.content = content

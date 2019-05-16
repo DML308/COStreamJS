@@ -313,6 +313,7 @@ statement
     | iteration_statement
     | jump_statement
     | declaration
+    | composite_body_operator
     ;
 labeled_statement
     : CASE constant_expression ':' statement    { $$ = new labeled_statement(@$,$1,$2,$3,$4)}
@@ -429,6 +430,7 @@ unary_expression
     | '++' unary_expression             { $$ = new unaryNode(@$,$1,$2) }
     | '--' unary_expression             { $$ = new unaryNode(@$,$1,$2) }
     | unary_operator unary_expression   { $$ = new unaryNode(@$,$1,$2) }
+    | '(' basic_type_name ')' unary_expression    { $$ = new castNode(@$,$2,$4) }
     ;
 
 unary_operator
