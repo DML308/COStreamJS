@@ -326,8 +326,41 @@ export class pipelineNode extends operNode {
     }
 }
 export class splitNode extends Node {
-
+    constructor(loc, node) {
+        super(loc)
+        this.name = "split"
+        this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin"
+        if (node.arg_list) {
+            Object.assign(this, { op1: '(', arg_list: node.arg_list, op2: ')' })
+        }
+    }
 }
 export class joinNode extends Node {
-
+    constructor(loc, node) {
+        super(loc)
+        this.name = "join"
+        this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin"
+        if(node.arg_list){
+            Object.assign(this, { op1:'(',arg_list:node.arg_list,op2:')'})
+        }
+    }
+}
+export class duplicateNode extends Node {
+    constructor(loc, arg_list) {
+        super(loc)
+        this.arg_list = arg_list
+    }
+}
+export class roundrobinNode extends Node{
+    constructor(loc,arg_list){
+        super(loc)
+        this.arg_list = arg_list
+    }
+}
+export class addNode extends Node{
+    constructor(loc,content){
+        super(loc)
+        this.name = "add"
+        this.content = content
+    }
 }

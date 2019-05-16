@@ -238,13 +238,20 @@ composite_body_operator:
          operator_add              
         ;
 operator_add:
-          ADD operator_pipeline     
-        | ADD operator_splitjoin    
-        | ADD operator_default_call 
+          ADD operator_pipeline                             {  $$ = new addNode(@$,$2) }
+        | ADD operator_splitjoin                            {  $$ = new addNode(@$,$2) }
+        | ADD operator_default_call                         {  $$ = new addNode(@$,$2) }
         ;  
 
 operator_pipeline:
-          PIPELINE '{'  splitjoinPipeline_statement_list '}'     
+          PIPELINE '{'  splitjoinPipeline_statement_list '}'
+                                                            {
+                                                                $$ = new pipelineNode(@$,{
+                                                                    compName: 'pipeline',
+                                                                    inputs: undefined,
+                                                                    body_stmts: $3
+                                                                })
+                                                            }    
         ;
 splitjoinPipeline_statement_list:
           statement                                         { $$ = [$1]   }    
@@ -254,26 +261,46 @@ splitjoinPipeline_statement_list:
         ;
 operator_splitjoin:
           SPLITJOIN '{' split_statement  splitjoinPipeline_statement_list  join_statement '}'     
+                                                            {
+                                                                $$ = new splitjoinNode(@$,{
+                                                                    compName: 'splitjoin',
+                                                                    inputs: undefined,
+                                                                    stmt_list: undefined,
+                                                                    split: $3,
+                                                                    body_stmts: $4,
+                                                                    join: $5
+                                                                })
+                                                            }
         | SPLITJOIN '{' statement_list split_statement splitjoinPipeline_statement_list join_statement '}'  
+                                                            {
+                                                                $$ = new splitjoinNode(@$,{
+                                                                    compName: 'splitjoin',
+                                                                    inputs: undefined,
+                                                                    stmt_list: $3,
+                                                                    split: $4,
+                                                                    body_stmts: $5,
+                                                                    join: $6
+                                                                })
+                                                            }
         ;
 split_statement:
-          SPLIT duplicate_statement                        
-        | SPLIT roundrobin_statement                       
+          SPLIT duplicate_statement                         { $$ = new splitNode(@$,$2)     }          
+        | SPLIT roundrobin_statement                        { $$ = new splitNode(@$,$2)     }
         ;
 roundrobin_statement:
-          ROUNDROBIN '(' ')' ';'                            
-        | ROUNDROBIN '(' argument_expression_list ')' ';'   
+          ROUNDROBIN '(' ')' ';'                            { $$ = new roundrobinNode(@$)   }
+        | ROUNDROBIN '(' argument_expression_list ')' ';'   { $$ = new roundrobinNode(@$,$3)}
         ;
 duplicate_statement:
-          DUPLICATE '('  ')' ';'                            
-        | DUPLICATE '(' exp ')'  ';'                        
+          DUPLICATE '('  ')' ';'                            { $$ = new duplicateNode(@$)    }
+        | DUPLICATE '(' exp ')'  ';'                        { $$ = new duplicateNode(@$,$3) }
         ;
 join_statement:
-          JOIN roundrobin_statement                         
+          JOIN roundrobin_statement                         { $$ = new joinNode(@$,$2)      }
         ;
 operator_default_call:
-          IDENTIFIER  '(' ')' ';'                           
-        | IDENTIFIER  '(' argument_expression_list ')' ';'  
+          IDENTIFIER  '(' ')' ';'                           { $$ = new compositeCallNode(@$,$1)    }
+        | IDENTIFIER  '(' argument_expression_list ')' ';'  { $$ = new compositeCallNode(@$,$1,$3) }
         ;                 
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
@@ -363,7 +390,7 @@ postfix_expression
     |  SPLITJOIN '(' argument_expression_list ')'  '{' split_statement splitjoinPipeline_statement_list  join_statement '}'  
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
-                                                                    compName: 'pipeline',
+                                                                    compName: 'splitjoin',
                                                                     inputs: $3,
                                                                     stmt_list: undefined,
                                                                     split: $6,
