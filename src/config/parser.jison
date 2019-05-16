@@ -214,29 +214,18 @@ stream_declaration_list:
 /*                      1.3.2 composite_body                             */
 /*************************************************************************/
 composite_body:
-      '{' composite_body_param_opt composite_body_statement_list '}'    { $$ = new compBodyNode(@$,$2,$3) }                     
+      '{' composite_body_param_opt statement_list '}'    { $$ = new compBodyNode(@$,$2,$3) }                     
     ;
 composite_body_param_opt:
       /*empty*/                                                         { $$ = undefined }
     | PARAM parameter_type_list ';'                                     { $$ = new paramNode(@$,$2)       }
     ;
-composite_body_statement_list:
-      costream_composite_statement                                      { $$ = [$1]   }
-    | composite_body_statement_list costream_composite_statement        { $$.push($2) }
-    ;
-costream_composite_statement:
-      composite_body_operator
-    | statement                 
-    ;
 /*****************************************************************************/
-/*        2. composite_body_operator  composite体内的init work window等组件   */
+/*        2. operator_add  composite体内的init work window等组件   */
 /*             2_1   ADD operator_pipeline                                   */
 /*             2_2   ADD operator_splitjoin                                  */
 /*             2_3   ADD operator_default_call                               */
 /*****************************************************************************/
-composite_body_operator:
-         operator_add              
-        ;
 operator_add:
           ADD operator_pipeline                             {  $$ = new addNode(@$,$2) }
         | ADD operator_splitjoin                            {  $$ = new addNode(@$,$2) }
@@ -244,7 +233,7 @@ operator_add:
         ;  
 
 operator_pipeline:
-          PIPELINE '{'  splitjoinPipeline_statement_list '}'
+          PIPELINE '{'  statement_list '}'
                                                             {
                                                                 $$ = new pipelineNode(@$,{
                                                                     compName: 'pipeline',
@@ -253,14 +242,8 @@ operator_pipeline:
                                                                 })
                                                             }    
         ;
-splitjoinPipeline_statement_list:
-          statement                                         { $$ = [$1]   }    
-        | operator_add                                      { $$ = [$1]   }
-        | splitjoinPipeline_statement_list statement        { $$.push($2) }
-        | splitjoinPipeline_statement_list operator_add     { $$.push($2) }
-        ;
 operator_splitjoin:
-          SPLITJOIN '{' split_statement  splitjoinPipeline_statement_list  join_statement '}'     
+          SPLITJOIN '{' split_statement  statement_list  join_statement '}'     
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
                                                                     compName: 'splitjoin',
@@ -271,7 +254,7 @@ operator_splitjoin:
                                                                     join: $5
                                                                 })
                                                             }
-        | SPLITJOIN '{' statement_list split_statement splitjoinPipeline_statement_list join_statement '}'  
+        | SPLITJOIN '{' statement_list split_statement statement_list join_statement '}'  
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
                                                                     compName: 'splitjoin',
@@ -313,7 +296,7 @@ statement
     | iteration_statement
     | jump_statement
     | declaration
-    | composite_body_operator
+    | operator_add
     ;
 labeled_statement
     : CASE constant_expression ':' statement    { $$ = new labeled_statement(@$,$1,$2,$3,$4)}
@@ -321,7 +304,7 @@ labeled_statement
     ;
 compound_statement
     : '{' '}'                                   { $$ = new blockNode(@$,$1,undefined,$2) } 
-    | '{' composite_body_statement_list '}'     { $$ = new blockNode(@$,$1,$2,$3) }
+    | '{' statement_list '}'                    { $$ = new blockNode(@$,$1,$2,$3) }
     ;
 statement_list
     : statement                { $$ = $1 ? [$1] : []   }
@@ -388,7 +371,7 @@ postfix_expression
                                                             {
                                                                 $$ = new operatorNode(@$,$1,$2,$3)
                                                             } 
-    |  SPLITJOIN '(' argument_expression_list ')'  '{' split_statement splitjoinPipeline_statement_list  join_statement '}'  
+    |  SPLITJOIN '(' argument_expression_list ')'  '{' split_statement statement_list  join_statement '}'  
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
                                                                     compName: 'splitjoin',
@@ -399,7 +382,7 @@ postfix_expression
                                                                     join: $8
                                                                 })
                                                             }
-    |  SPLITJOIN '(' argument_expression_list ')'  '{' statement_list split_statement splitjoinPipeline_statement_list  join_statement '}'
+    |  SPLITJOIN '(' argument_expression_list ')'  '{' statement_list split_statement statement_list  join_statement '}'
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
                                                                     compName: 'splitjoin',
@@ -410,7 +393,7 @@ postfix_expression
                                                                     join: $9
                                                                 })
                                                             }
-    |   PIPELINE '(' argument_expression_list ')'  '{' splitjoinPipeline_statement_list '}'
+    |   PIPELINE '(' argument_expression_list ')'  '{' statement_list '}'
                                                             {
                                                                 $$ = new pipelineNode(@$,{
                                                                     compName: 'pipeline',
