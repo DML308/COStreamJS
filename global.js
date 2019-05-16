@@ -193,11 +193,11 @@
     class compositeNode extends Node {
         constructor(loc, head, body) {
             super(loc);
-            Object.assign(this, { 
-                op:'composite',
-                compName:head.compName,
-                inout:head.inout,
-                body 
+            Object.assign(this, {
+                op: 'composite',
+                compName: head.compName,
+                inout: head.inout,
+                body
             });
         }
     }
@@ -260,10 +260,10 @@
             });
         }
     }
-    class winStmtNode extends Node{
-        constructor(loc,winName,{type,arg_list}){
+    class winStmtNode extends Node {
+        constructor(loc, winName, { type, arg_list }) {
             super(loc);
-            Object.assign(this,{
+            Object.assign(this, {
                 winName,
                 type,
                 arg_list
@@ -359,7 +359,13 @@
             Object.assign(this, { first, second });
         }
 
+    }class castNode extends expNode {
+        constructor(loc, type, exp) {
+            super(loc);
+            Object.assign(this, { op1: '(', type, op2: ')', exp });
+        }
     }
+
     class binopNode extends expNode {
         constructor(loc, left, op, right) {
             super(loc);
@@ -460,10 +466,43 @@
         }
     }
     class splitNode extends Node {
-
+        constructor(loc, node) {
+            super(loc);
+            this.name = "split";
+            this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin";
+            if (node.arg_list) {
+                Object.assign(this, { op1: '(', arg_list: node.arg_list, op2: ')' });
+            }
+        }
     }
     class joinNode extends Node {
-
+        constructor(loc, node) {
+            super(loc);
+            this.name = "join";
+            this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin";
+            if (node.arg_list) {
+                Object.assign(this, { op1: '(', arg_list: node.arg_list, op2: ')' });
+            }
+        }
+    }
+    class duplicateNode extends Node {
+        constructor(loc, arg_list) {
+            super(loc);
+            this.arg_list = arg_list;
+        }
+    }
+    class roundrobinNode extends Node {
+        constructor(loc, arg_list) {
+            super(loc);
+            this.arg_list = arg_list;
+        }
+    }
+    class addNode extends Node {
+        constructor(loc, content) {
+            super(loc);
+            this.name = "add";
+            this.content = content;
+        }
     }
 
     var NodeTypes = /*#__PURE__*/Object.freeze({
@@ -490,6 +529,7 @@
         forNode: forNode,
         expNode: expNode,
         unaryNode: unaryNode,
+        castNode: castNode,
         binopNode: binopNode,
         ternaryNode: ternaryNode,
         parenNode: parenNode,
@@ -502,7 +542,10 @@
         splitjoinNode: splitjoinNode,
         pipelineNode: pipelineNode,
         splitNode: splitNode,
-        joinNode: joinNode
+        joinNode: joinNode,
+        duplicateNode: duplicateNode,
+        roundrobinNode: roundrobinNode,
+        addNode: addNode
     });
 
     /**
