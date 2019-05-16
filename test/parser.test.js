@@ -5,9 +5,12 @@ const resolve = require('path').resolve
 const parser = require("../dist/parser.js").parser
 describe("测试能否正确识别 examples 里的.cos 文件", () => {
 
-    it("测试用例: wang.cos", () => {
-        var str = fs.readFileSync(resolve(__dirname,"../examples/wang.cos"),"utf8")
-        var node = parser.parse(str)
+    var files = ["wang.cos","pipeline.cos","splitjoinTest.cos","multiOutputs.cos","scheduler.test.cos","DCT.cos"]
+    files.forEach(file=>{
+        it(`测试用例: ${file}`, () => {
+            var str = fs.readFileSync(resolve(__dirname, `../examples/${file}`), "utf8")
+            var node = parser.parse(str)
+        })
     })
   
 })
