@@ -11,7 +11,7 @@
     "bison": "jison src/config/parser.jison -o dist/parser.js",
     "count": "find ./src -maxdepth 4  -name '*.j*'  | xargs cat |wc -l",
     "test": "npm run bison; mocha test/ --require babel-register",
-    "t":"mocha --require babel-register",
+    "t": "mocha --require babel-register",
     "test:cover": "istanbul cover test/lexer.test.js"
   },
   "dependencies": {},
@@ -26,9 +26,9 @@
     "rollup-plugin-commonjs": "^9.3.4",
     "rollup-plugin-node-resolve": "^4.2.3"
   },
-  "babel":{
-      "presets":[
-          "env"
-      ]
+  "babel": {
+    "presets": [
+      "env"
+    ]
   }
 }
