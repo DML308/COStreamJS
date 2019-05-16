@@ -6,24 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>COStreamJS-v0.2.0</title>
+    <style>
+        .container div{ flex:1 0;}
+    </style>
 </head>
 
 <body>
-    <div id="editor" style="position: fixed;top: 0; bottom: 0;left: 0;width:400px;">//请在下面编写.cos 程序
+    <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">//请在下面编写.cos 程序
 //右边的 Abstract Syntax Tree 会自动绘制
-composite Main(){
-	int N =99;
-	Sink(){
-		work{
-			println(P[0].x);
-		}
-		window{
-			P tumbling(1);
-		}
-	};
-}        
+int i = 1 ? 2 ? 3:4:5;      
     </div>
-    <div class="container" style="margin-left:500px;display:flex;flex-flow:row nowrap;">
+    <div class="container" style="position: absolute;top: 0; bottom: 0;left: 400px;">
         <div id="ast-svg"></div>
     </div>
 
