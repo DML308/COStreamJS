@@ -14,3 +14,12 @@ describe("utils/js-hackers definePrivate - 为target定义私有属性(不可枚
         assert(obj.hasOwnProperty('_type') && Object.keys(obj).indexOf('_type') === -1)
     })
 })
+
+
+describe("utils/js-hackers beautify - 让 String 变得好看", () => {
+    it("beautify 行数", () => {
+        var uglyStr = "composite Main(){ operator(){init{int i=0} work{ i=2} window{ S tumbling(1)} }"
+        var lines = uglyStr.beautify().split('\n').filter(x=>/\S+/.test(x))
+        assert(lines.length == 12)
+    })
+})
