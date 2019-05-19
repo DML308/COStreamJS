@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, parameter_declaration, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode } from "./node.js"
+import { jump_statement, blockNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, parameter_declaration, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "./node.js"
 
 export function ast2String(root) {
     var result = ''
@@ -47,7 +47,7 @@ export function loadToStringPlugin() {
         return str
     }
     ComInOutNode.prototype.toString = function () {
-        return 'input ' + list2String(this.input_list) + ', ouput ' + list2String(this.output_list)
+        return 'input ' + list2String(this.input_list) + ', output ' + list2String(this.output_list)
     }
     inOutdeclNode.prototype.toString = function () {
         return this.strType.toString() + this.id
@@ -62,7 +62,7 @@ export function loadToStringPlugin() {
     compBodyNode.prototype.toString = function () {
         var str = '{\n'
         str += this.param ? this.param.toString() : ''
-        str += list2String(this.stmt_list, ';\n') + '\n}\n'
+        str += list2String(this.stmt_list, ';\n') + ';\n}\n'
         return str
     }
     paramNode.prototype.toString = function () {
@@ -74,7 +74,7 @@ export function loadToStringPlugin() {
     //将每一行 statement 的';'上提至 blockNode 处理
     blockNode.prototype.toString = function () {
         var str = '{\n';
-        str += list2String(this.stmt_list, ';\n')
+        str += list2String(this.stmt_list, ';\n')+';\n'
         return str + '}\n'
     }
     jump_statement.prototype.toString = function () {
@@ -96,6 +96,12 @@ export function loadToStringPlugin() {
     }
     constantNode.prototype.toString = function () {
         return this.value
+    }
+    castNode.prototype.toString = function(){
+        return '('+this.type+')'+this.exp
+    }
+    parenNode.prototype.toString = function(){
+        return '('+this.exp+')'
     }
     unaryNode.prototype.toString = function () {
         return '' + this.first + this.second
@@ -123,5 +129,26 @@ export function loadToStringPlugin() {
         str += this.next ? this.next.toString() : ''
         str += ')' + this.statement.toString()
         return str
+    }
+    selection_statement.prototype.toString = function(){
+        if(this.op1 === 'if'){
+            var str =  'if('+this.exp+')'+this.statement
+            str += this.op4 === 'else' ? ('else'+this.else_statement):''
+            return str
+        }else if(this.op1 == 'switch'){
+
+        }
+    }
+    callNode.prototype.toString = function(){
+        var str = this.name + '('
+        str += list2String(this.arg_list,',')
+        return str +')'
+    }
+    compositeCallNode.prototype.toString = function(){
+        var str = this.compName+'('
+        str += this.inputs? list2String(this.inputs,',') : ''
+        str += ')('
+        str += this.params ? list2String(this.params,',') :''
+        return str +')'
     }
 }
