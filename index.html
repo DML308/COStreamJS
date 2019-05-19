@@ -12,9 +12,7 @@
 </head>
 
 <body>
-    <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">//请在下面编写.cos 程序
-//右边的 Abstract Syntax Tree 会自动绘制
-int i = 1 ? 2 ? 3:4:5;      
+    <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">    
     </div>
     <div class="container" style="position: absolute;top: 0; bottom: 0;left: 400px;">
         <div id="ast-svg"></div>
@@ -22,6 +20,7 @@ int i = 1 ? 2 ? 3:4:5;
 
     <script src="./global.js"></script>
     <script src="./parser.js"></script>
+    <script src="./data.js"></script>
     <script src="https://cdn.bootcss.com/vue/2.6.10/vue.js"></script>
     <script src="https://cdn.bootcss.com/ace/1.4.4/ace.js"></script>
     <script src="https://cdn.bootcss.com/viz.js/2.1.2/viz.js"></script>
@@ -50,10 +49,11 @@ int i = 1 ? 2 ? 3:4:5;
         var editor = ace.edit("editor");
         editor.setTheme("ace/theme/tomorrow");
         editor.session.setMode("ace/mode/c_cpp");
+        editor.session.setValue(window.str || `//请在下面编写.cos 程序\n//右边的 Abstract Syntax Tree 会自动绘制\nint i = 1 ? 2 ? 3:4:5;  `);
         editor.session.on('change', debounce(updateSVG, 1000));
         async function updateSVG(str) {
             str = str || editor.getValue()
-            var ast = parser.parse(str)
+            window.ast = parser.parse(str)
             var dotStr = ast2dot(ast)
             var astSvg = await window.renderDot(dotStr)
             astSvg.id = "ast-svg"

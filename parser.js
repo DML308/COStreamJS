@@ -92,7 +92,7 @@ break;
 case 3: case 11: case 32: case 42: case 110: case 156:
  this.$.push($$[$0]) 
 break;
-case 7: case 8: case 26: case 44: case 80: case 97: case 154:
+case 7: case 8: case 26: case 80: case 97: case 154:
  this.$ = $$[$0-1] 
 break;
 case 9:
@@ -167,11 +167,14 @@ break;
 case 43:
  this.$ = new inOutdeclNode(this._$,$$[$0-1],$$[$0]) 
 break;
+case 44:
+ this.$ = 'stream<'+$$[$0-1]+'>' 
+break;
 case 45:
- this.$ = new strdclNode(this._$,$$[$0-1],$$[$0])              
+ this.$ = $$[$0-1]+' '+$$[$0] 
 break;
 case 46:
- this.$.id_list.push({ type:$$[$0-1],identifier:$$[$0] }) 
+ this.$ = $$[$0-3]+','+$$[$0-1]+' '+$$[$0] 
 break;
 case 47:
  this.$ = new compBodyNode(this._$,$$[$0-2],$$[$0-1]) 

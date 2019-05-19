@@ -136,6 +136,32 @@
         Object.defineProperty(target, key, descriptor);
     }
 
+    /**
+     * 输入一段带有'{' '}'的字符串,然后按照层级在\n 的后面添加空格, 来美化输出
+     */
+    String.prototype.beautify = function (space_num = 2) {
+        var space = (x) => Array(x).fill(' ').join('');
+        var stage = 0, result = '';
+        var str = this.replace(/\{(?![ \t]*\n)/g, '{\n'); // 在 { 右侧添加换行符
+        str = str.replace(/(?<!\n[ \t]*)\}/g, '\n\}').replace(/\}(?![ \t;]*\n)/g, '}\n'); // 在 } 的左右两侧都添加换行符,除非右侧已经有换行符或者右侧有个紧挨着的';'(全局 declareNode 的特例)
+        var stmts = str.split('\n').map(x => x.trim());
+        for (var s of stmts) {
+            if (/\}/.test(s)) stage--;
+            result += space(stage * space_num) + s + '\n';
+            if (/\{$/.test(s)) stage++;
+        }
+        return result
+    };
+
+    Array.prototype.replace = function (oldValue,newValue){
+        var index = this.indexOf(oldValue);
+        if(index !== -1){
+            this.splice(index,1,newValue);
+        }else{
+            this.push(newValue);
+        }
+    };
+
     class Node {
         constructor(loc) {
             this._loc = loc;
@@ -214,19 +240,9 @@
         }
     }
     class inOutdeclNode extends Node {
-        constructor(loc, strType, id) {
+        constructor(loc, type, id) {
             super(loc);
-            Object.assign(this, { strType, id });
-        }
-    }
-    class strdclNode extends Node {
-        constructor(loc, type, identifier) {
-            super(loc);
-            this.op = 'stream<';
-            this.id_list = [
-                { type, identifier }
-            ];
-            this.op2 = '>';
+            Object.assign(this, { type, id });
         }
     }
     class compBodyNode extends Node {
@@ -497,7 +513,7 @@
             this.arg_list = arg_list;
         }
     }
-    class addNode extends Node {
+    class addNode$1 extends Node {
         constructor(loc, content) {
             super(loc);
             this.name = "add";
@@ -515,7 +531,6 @@
         compHeadNode: compHeadNode,
         ComInOutNode: ComInOutNode,
         inOutdeclNode: inOutdeclNode,
-        strdclNode: strdclNode,
         compBodyNode: compBodyNode,
         paramNode: paramNode,
         operBodyNode: operBodyNode,
@@ -545,7 +560,7 @@
         joinNode: joinNode,
         duplicateNode: duplicateNode,
         roundrobinNode: roundrobinNode,
-        addNode: addNode
+        addNode: addNode$1
     });
 
     /**
@@ -621,20 +636,74 @@
         };
     }
 
+    function ast2String(root) {
+        var result = '';
+        root.forEach((x, idx) => {
+            result += x.toString() + (x instanceof declareNode ? ';' : '') + '\n';
+        });
+        return result.replace(/ {2,}/g, ' ').beautify()
+    }
     /**
-    * 加载toString插件,加载该插件后, statement 类型的节点可以执行 toString 用于代码生成
+     * 输入一个 list 返回它转化后的 string, 可以配置分隔符 split 例如','
+     * 也可以配置 start 和 end 例如'{' '}'
+     */
+    function list2String(list, split, start, end) {
+        if (!list || list.length == 0) return ''
+        var str = start ? start : '';
+        list.forEach((x, idx) => {
+            str += x.toString();
+            str += split && idx < list.length - 1 ? split : '';
+        });
+        return end ? str + end : str
+    }
+
+    /**
+    * 加载toString插件,加载该插件后, statement 类型的节点可以执行 toString 用于代码生成或调试
     */
     function loadToStringPlugin() {
+        declarator.prototype.toString = function () {
+            var str = this.identifier.toString() + ' ';
+            str += this.op1 ? this.op1 : '';
+            str += this.parameter ? this.parameter.toString() : '';
+            str += this.op2 ? this.op2 : '';
+            if (this.initializer instanceof Array) {
+                str += list2String(this.initializer, ',', '{', '}');
+            } else {
+                str += this.initializer ? this.initializer.toString() : '';
+            }
+            return str
+        };
+        declareNode.prototype.toString = function () {
+            return this.type + ' ' + list2String(this.init_declarator_list, ',')
+        };
+        compositeNode.prototype.toString = function () {
+            var str = 'composite ' + this.compName + '(';
+            str += this.inout ? this.inout.toString() : '';
+            str += ')' + this.body.toString();
+            return str
+        };
+        ComInOutNode.prototype.toString = function () {
+            return 'input ' + list2String(this.input_list) + ', output ' + list2String(this.output_list)
+        };
+        inOutdeclNode.prototype.toString = function () {
+            return this.type.toString() + this.id
+        };
+        compBodyNode.prototype.toString = function () {
+            var str = '{\n';
+            str += this.param ? this.param.toString() : '';
+            str += list2String(this.stmt_list, ';\n') + ';\n}\n';
+            return str
+        };
+        paramNode.prototype.toString = function () {
+            return 'param\n  ' + list2String(this.param_list, ',')+';\n'
+        };
+        parameter_declaration.prototype.toString = function () {
+            return this.type + ' ' + this.declarator.toString()
+        };
         //将每一行 statement 的';'上提至 blockNode 处理
         blockNode.prototype.toString = function () {
-            var str = '{';
-            this.stmt_list && this.stmt_list.forEach((node) => {
-                str += node.toString();
-                if ([expNode].some(x => node instanceof x)) {
-                    str += ';';
-                }
-                str += '\n';
-            });
+            var str = '{\n';
+            str += list2String(this.stmt_list, ';\n')+';\n';
             return str + '}\n'
         };
         jump_statement.prototype.toString = function () {
@@ -647,9 +716,40 @@
             str += this.op2 ? this.op2 : '';
             return str + ' ' + this.op3 + this.statement.toString()
         };
-        //TODO:未完成,待填充
-        expNode.prototype.toString = function () {
+        //expNode 的子类
+        binopNode.prototype.toString = function () {
+            return this.left + this.op + this.right
+        };
+        arrayNode.prototype.toString = function () {
+            return '' + this.exp + list2String(this.arg_list, '][', '[', ']')
+        };
+        constantNode.prototype.toString = function () {
             return this.value
+        };
+        castNode.prototype.toString = function(){
+            return '('+this.type+')'+this.exp
+        };
+        parenNode.prototype.toString = function(){
+            return '('+this.exp+')'
+        };
+        unaryNode.prototype.toString = function () {
+            return '' + this.first + this.second
+        };
+        operatorNode.prototype.toString = function () {
+            var str =  this.operName + '('; 
+            str+= this.inputs ? this.inputs :'';
+            return str + ')' + this.operBody 
+        };
+        operBodyNode.prototype.toString = function () {
+            var str = '{\n'; 
+            str += this.stmt_list ? list2String(this.stmt_list, ';\n')+';\n' :'';
+            str += this.init ? 'init' + this.init : '';
+            str += this.work ? 'work' + this.work : '';
+            str += this.win ? 'window{' + list2String(this.win,';\n')+';\n'+'}' : '';
+            return str + '\n}\n'
+        };
+        winStmtNode.prototype.toString = function(){
+            return this.winName+' '+this.type+'('+list2String(this.arg_list,',')+')'
         };
         forNode.prototype.toString = function () {
             var str = 'for(';
@@ -659,6 +759,180 @@
             str += ')' + this.statement.toString();
             return str
         };
+        selection_statement.prototype.toString = function(){
+            if(this.op1 === 'if'){
+                var str =  'if('+this.exp+')'+this.statement;
+                str += this.op4 === 'else' ? ('else'+this.else_statement):'';
+                return str
+            }else if(this.op1 == 'switch');
+        };
+        callNode.prototype.toString = function(){
+            var str = this.name + '(';
+            str += list2String(this.arg_list,',');
+            return str +')'
+        };
+        compositeCallNode.prototype.toString = function(){
+            var str = this.compName+'(';
+            str += this.inputs? list2String(this.inputs,',') : '';
+            str += ')(';
+            str += this.params ? list2String(this.params,',') :'';
+            return str +')'
+        };
+    }
+
+    class Scope{
+        constructor(description){
+            this.description = description;//用来简单描述该作用域
+            this.ST = {};        // 当前作用域的符号表
+            this.parent = null;  // 指向父级作用域
+        }
+        getInstance(root){
+            if(Scope.instance){
+                return Scope.instance
+            }
+            return (Scope.instance = initSymbol(root))
+        }
+    }
+    const S = new Scope();
+
+    /**
+     * 输入一棵语法树,返回初始化后的composite符号表
+     */
+    function initSymbol(root) {
+        var global = new Scope("global");
+        root.filter(node=>node instanceof declareNode ).forEach(decl=>{
+            decl.init_declarator_list.forEach(dec=>{
+                global.ST[dec.identifier] = dec;
+                global.ST[dec.identifier] . type = decl.type;
+            });
+        });
+        root.filter(node => node instanceof compositeNode).forEach(comp => {
+            var compScop = S[comp.compName] = new Scope(comp);
+            //处理该 composite 的输入参数
+            debugger
+            //处理该 composite 的 body
+        });
+
+        return global
+    }
+
+    class Edge{
+        constructor(){
+            this.from = {};
+            this.to = {};
+            this.weight = 0;
+        }
+    }
+    class FlatNode{
+        constructor(node){
+            this.name = node.operName;
+            this.inEdges = [];
+            this.outEdges = [];
+            this.work_estimate = 0;
+            this.contents = node;
+        }
+    }
+
+    class StaticStreamGraph {
+        constructor() {
+            this.topNode = null;
+            this.flatNodes = getHackerNodes();
+        }
+        getInstance() {
+            return StaticStreamGraph.instance ? StaticStreamGraph.instance : new StaticStreamGraph()
+        }
+    }
+
+    StaticStreamGraph.prototype.generateAllEdges = function (composite){
+
+    };
+    StaticStreamGraph.prototype.GenerateFlatNodes = function (operator) {
+        
+    };
+    function getHackerNodes(){
+        var flatNodes = [];
+        for(var i = 0;i< 6;i++){
+            var node = new FlatNode({operName:'hacker_'+i});
+            flatNodes.push(node);
+        }
+        for(var i = 1;i<6;i++){
+            var edge = new Edge();
+            edge.from = flatNodes[i-1];
+            edge.to = flatNodes[i];
+            flatNodes[i-1].outEdges.push(edge);
+            flatNodes[i].inEdges.push(edge);
+        }
+        return flatNodes
+    }
+
+    /**
+     * 输入一棵语法树, 返回 StaticStreamGraph 对象
+     */
+    function AST2FlatStaticStreamGraph(root){
+        //var main = findMainComposite(root)
+        var ssg = new StaticStreamGraph();
+        //第1步, 把所有的 splitjoin pipeline 节点展开为普通 operator 节点
+        unfold(root);
+        //第2步, 对所有的 operator 节点声明,建立 FlatNode, 对 stream<type x>S 声明,建立对应的Edge
+        //第3步, 将第2步中建立的 FlatNode 和 Edge 连接起来
+
+        return ssg
+    }
+
+    function unfold(root){
+        root.filter(x=>x instanceof compositeNode ).forEach(comp=>{
+            comp.body.stmt_list.forEach(stmt=>{
+                var resultComp = null;
+
+                if(stmt instanceof pipelineNode){
+                    resultComp = unfoldPipelineToOperator(stmt,comp);
+                    var compCall = new compositeCallNode('', resultComp.compName, stmt.inputs);
+                    comp.body.stmt_list.replace(stml, compCall);
+                }else if(stmt instanceof binopNode && stmt.right instanceof pipelineNode){
+                    resultComp = unfoldPipelineToOperator(stmt.right,comp);
+                    stmt.right = new compositeCallNode('', resultComp.compName, stmt.right.inputs);
+                    root.push(resultComp);
+                }
+            });
+        });
+    }
+
+    /**
+     * 展开 pipeline , 目前该函数只支持单输入单输出流,且不支持识别内部的 for 循环(需要完成循环展开函数)
+     */
+    function unfoldPipelineToOperator(pipeline,comp){
+        debugger
+        //构建新 composite 的 head 部分
+        var compName = 'pipeline'+'_'+comp.compName;
+        var inputs = pipeline.inputs.map(inputStreamName=>{
+            return new inOutdeclNode('', getTypeof(inputStreamName), inputStreamName)
+        });
+        //构建新 composite 的 body 部分
+        var stmt_list = [];
+        var currentStream = pipeline.inputs;
+        var count = 0;
+        pipeline.body_stmts.forEach(stmt=>{
+            if (stmt instanceof addNode && stmt.content instanceof compositeCallNode){
+                var outStreamName = 'S' + count++;
+                var decl = new declareNode('', getTypeof(), outStreamName);
+                var right = new compositeCallNode('', stmt.content.compName,currentStream);
+                var binop = new binopNode('', outStreamName,'=',right);
+                stmt_list.push(decl);
+                stmt_list.push(binop);
+                currentStream = [outStreamName];
+            }
+        });
+        var body = new compBodyNode('',undefined,stmt_list);
+        var inout = new ComInOutNode('', inputs, [new inOutdeclNode('', getTypeof(), currentStream[0])]);
+        var head = new compHeadNode('', compName, inout);
+        //合并 head 和 body
+        var composite = new compositeNode('',head,body);
+        return composite;
+    }
+
+    //临时函数, 后来要被替换(完成符号表后)
+    function getTypeof(str){
+        return 'stream<int x>'
     }
 
     loadCVPPlugin();
@@ -667,6 +941,11 @@
     var COStreamJS = {};
     COStreamJS.global = typeof window === "object" ? window : global;
     Object.assign(COStreamJS.global, utils);
-    Object.assign(COStreamJS.global, NodeTypes);
+    Object.assign(COStreamJS.global, NodeTypes,{
+        S,
+        initSymbol,
+        ast2String,
+        AST2FlatStaticStreamGraph
+    });
 
 }());
