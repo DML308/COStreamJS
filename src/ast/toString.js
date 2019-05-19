@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, parameter_declaration, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode } from "./node.js"
+import { jump_statement, blockNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, parameter_declaration, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode } from "./node.js"
 
 export function ast2String(root) {
     var result = ''
@@ -41,7 +41,7 @@ export function loadToStringPlugin() {
         return this.type + ' ' + list2String(this.init_declarator_list, ',')
     }
     compositeNode.prototype.toString = function () {
-        var str = 'composite' + this.compName + '('
+        var str = 'composite ' + this.compName + '('
         str += this.inout ? this.inout.toString() : ''
         str += ')' + this.body.toString()
         return str
@@ -66,7 +66,7 @@ export function loadToStringPlugin() {
         return str
     }
     paramNode.prototype.toString = function () {
-        return 'param\n  ' + list2String(this.param_list, ',')
+        return 'param\n  ' + list2String(this.param_list, ',')+';\n'
     }
     parameter_declaration.prototype.toString = function () {
         return this.type + ' ' + this.declarator.toString()
@@ -101,14 +101,20 @@ export function loadToStringPlugin() {
         return '' + this.first + this.second
     }
     operatorNode.prototype.toString = function () {
-        return this.operName + '(' + this.inputs + ')' + this.operBody
+        var str =  this.operName + '(' 
+        str+= this.inputs ? this.inputs :''
+        return str + ')' + this.operBody 
     }
     operBodyNode.prototype.toString = function () {
-        var str = list2String(this.stmt_list, ';\n') + '{\n'
+        var str = '{\n' 
+        str += this.stmt_list ? list2String(this.stmt_list, ';\n')+';\n' :''
         str += this.init ? 'init' + this.init : ''
         str += this.work ? 'work' + this.work : ''
-        str += this.win ? 'window' + this.win : ''
+        str += this.win ? 'window{' + list2String(this.win,';\n')+';\n'+'}' : ''
         return str + '\n}\n'
+    }
+    winStmtNode.prototype.toString = function(){
+        return this.winName+' '+this.type+'('+list2String(this.arg_list,',')+')'
     }
     forNode.prototype.toString = function () {
         var str = 'for('
