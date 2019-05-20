@@ -3,9 +3,9 @@ import commonjs from 'rollup-plugin-commonjs'
 export default {
     input: 'main.js',
     output: {
-        file: 'dist/global.js',
+        file: 'dist/COStreamJS.js',
         format: 'iife',
-        name: 'bundle'
+        name: 'COStreamJS'
     },
     plugins: [
         resolve(),

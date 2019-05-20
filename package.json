@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "NODE_ENV=development rollup -w -c rollup.config.js",
     "build": "NODE_ENV=production rollup -c rollup.config.js",
-    "bison": "jison src/config/parser.jison -o dist/parser.js",
-    "count": "find ./src -maxdepth 4  -name '*.j*'  | xargs cat |wc -l",
+    "bison": "jison src/config/parser.jison -o src/config/parser.js; node beforeRollup.js",
+    "count": "rm src/config/parser.js ;find ./src -maxdepth 4  -name '*.j*'  | xargs cat |wc -l",
     "test": "npm run bison; mocha test/ --require babel-register",
     "t": "mocha --require babel-register",
     "test:cover": "istanbul cover test/lexer.test.js"

@@ -9,3 +9,4 @@ test.js
 /*.jison
 /*.dot
 /*.png
+/src/config/parser.js
