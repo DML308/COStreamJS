@@ -455,7 +455,7 @@ assignment_expression:
     | unary_expression assignment_operator assignment_expression    
       {
           if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode].some(x=> $3 instanceof x)){
-              $3.outputs = $1
+              $3.outputs = [$1]
           }
           $$ = new binopNode(@$,$1,$2,$3) 
       }
