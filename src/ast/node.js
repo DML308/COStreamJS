@@ -320,14 +320,21 @@ export class operatorNode extends operNode {
 export class splitjoinNode extends operNode {
     constructor(loc, options) {
         super(loc)
-        Object.assign(this, options)
+        this.compName = options.compName 
+        this.inputs = options.inputs     
+        this.stmt_list = options.stmt_list
+        this.split = options.split
+        this.body_stmts = options.body_stmts
+        this.join = options.join
         definePrivate(this, 'replace_composite')
     }
 }
 export class pipelineNode extends operNode {
     constructor(loc, options) {
         super(loc)
-        Object.assign(this, options)
+        this.compName = options.compName
+        this.inputs = options.inputs
+        this.body_stmts = options.body_stmts
         definePrivate(this, 'replace_composite')
     }
 }
