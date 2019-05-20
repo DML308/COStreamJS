@@ -309,6 +309,7 @@ export class compositeCallNode extends operNode {
                 op4: ')'
             })
         }
+        definePrivate(this,'actual_composite')
     }
 }
 export class operatorNode extends operNode {
