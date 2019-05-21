@@ -76,6 +76,7 @@ UnfoldComposite.prototype.compositeCallStreamReplace = function (/*compositeNode
         debugger
         UnfoldComposite.prototype.modifyStreamName(oper, inputs, true);
         UnfoldComposite.prototype.modifyStreamName(oper, outputs, false);
+        return oper
     }
 }
 

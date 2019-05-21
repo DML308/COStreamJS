@@ -276,8 +276,9 @@ export class callNode extends expNode {
 export class constantNode extends expNode {
     constructor(loc, sourceStr) {
         super(loc)
+        // 转义字符串中的 \n 等特殊字符
+        this.source = sourceStr.replace(/\\/g, '\\\\').replace(/\n/g, '\\n')
         //判断这个常量是数字还是字符串
-        this.source = sourceStr
         if (!Number.isNaN(Number(sourceStr))) {
             this._value = Number(sourceStr)
         }

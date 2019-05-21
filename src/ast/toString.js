@@ -95,7 +95,8 @@ export function loadToStringPlugin() {
         return '' + this.exp + list2String(this.arg_list, '][', '[', ']')
     }
     constantNode.prototype.toString = function () {
-        return this.value
+        let value = this.value 
+        return Number.isNaN(value) ? this.source : value
     }
     castNode.prototype.toString = function(){
         return '('+this.type+')'+this.exp
