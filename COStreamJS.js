@@ -2107,7 +2107,7 @@ var COStreamJS = (function () {
         var newName = stream[0];
         var oldName = style ? oper.inputs[0] : oper.outputs[0];
         let reg = new RegExp(oldName,'g');
-        oper.operBody.work = oper.operBody.work.replace(reg,newName);
+        oper.operBody.work = (oper.operBody.work+'').replace(reg,newName);
         oper.operBody.win.forEach(winStmt=>{
             if(winStmt.winName == oldName){
                 winStmt.winName = newName;
@@ -2224,14 +2224,13 @@ var COStreamJS = (function () {
             if (it instanceof binopNode) {
                 var right = it.right;
                 if (right instanceof compositeCallNode) {
-                    debugger
-                    let comp = right.actual_composite;
+                    let comp = COStreamJS.S.LookUpCompositeSymbol(right.compName);
                     right.actual_composite = unfold.streamReplace(comp,right.inputs, right.outputs, 1);
                 }
             }
 
             else if (it instanceof compositeCallNode) {
-                let comp = right.actual_composite;
+                let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName);
                 it.actual_composite = unfold.streamReplace(comp,it.inputs, it.outputs, 1);
             }
             
