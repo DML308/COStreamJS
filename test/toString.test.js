@@ -3,7 +3,9 @@ require('../main.js')
 const assert = require("assert")
 const fs = require('fs')
 const resolve = require('path').resolve
-const parser = require("../dist/parser.js").parser
+
+import COStreamJS from "../main"
+const parser = COStreamJS.parser
 
 //最小化字符串,用于后续的字符串比较
 function minifyStr(str){

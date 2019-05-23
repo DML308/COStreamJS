@@ -1,6 +1,7 @@
 require('../main.js')
 const assert = require('assert')
-const parser = require("../dist/parser.js").parser
+import COStreamJS from "../main"
+const parser = COStreamJS.parser
 
 
 describe("测试表达式的运算符优先级是否正确", () => {

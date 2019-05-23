@@ -2,7 +2,10 @@ require('../main.js')
 const assert = require('assert')
 const fs = require('fs')
 const resolve = require('path').resolve
-const parser = require("../dist/parser.js").parser
+
+import COStreamJS from "../main"
+const parser = COStreamJS.parser
+
 describe("测试能否正确识别 examples 里的.cos 文件", () => {
 
     var files = ["wang.cos","pipeline.cos","splitjoinTest.cos","multiOutputs.cos","scheduler.test.cos","DCT.cos"]
