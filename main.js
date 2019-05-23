@@ -9,6 +9,7 @@ import { unfold } from "./src/FrontEnd/unfoldComposite"
 import { COStreamJS } from "./src/FrontEnd/global"
 import { SymbolTable } from "./src/FrontEnd/symbol"
 import { WorkEstimate } from "./src/LifeCycle/workEstimate"
+import { ShedulingSSG } from "./src/LifeCycle/SchedulingSSG"
 loadCVPPlugin()
 loadToStringPlugin()
 
@@ -23,6 +24,7 @@ COStreamJS.main = function(str){
     this.gMainComposite = this.SemCheck.findMainComposite(this.ast)
     this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold)
     WorkEstimate(this.ssg)
+    ShedulingSSG(this.ssg)
 }
 
 //下面代码是为了在浏览器的 window 作用域下调试而做的妥协

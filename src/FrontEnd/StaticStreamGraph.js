@@ -63,7 +63,7 @@ StaticStreamGraph.prototype.GenerateFlatNodes = function (/* operatorNode* */ u)
             if (this.mapEdge2UpFlatNode.has(inEdgeName)) {
                 var parent = this.mapEdge2UpFlatNode.get(inEdgeName)
                 parent.AddOutEdges(flat)
-                flat.AddInEdges(flat)
+                flat.AddInEdges(parent)
             }
         })
     }
