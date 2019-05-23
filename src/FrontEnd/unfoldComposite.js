@@ -7,7 +7,7 @@ export class UnfoldComposite {
 
     /* 给与每一个不同的splitjoin或者pipeline节点不同的名字 */
     MakeCompositeName(/*string*/ name) {
-        return name + "_" + this.num;
+        return name + "_" + this.num++;
     }
     //compositeNode *
     UnfoldRoundrobin(/*string*/ comName,/* splitjoinNode **/ node) { }
@@ -148,6 +148,7 @@ UnfoldComposite.prototype.UnfoldPipeline = function (/* pipelineNode */ node) {
     let stmt_list = generateBodyStmts()
     let body = new compBodyNode(null,null,stmt_list)
     let pipeline = new compositeNode(null,head,body)
+    compositeCall_list.length = 0 //清空该数组
     return pipeline 
 
     /**
@@ -158,17 +159,17 @@ UnfoldComposite.prototype.UnfoldPipeline = function (/* pipelineNode */ node) {
      *   add C();
      * } 
      * 我们要生成的 stmt_list 的格式为{
-     *   //stream<type x>S0,S1; 理想状态这里应该生成一个 strdcl 语句, 但实际上并没生成
-     *   S0 = A(in);
-     *   S1 = B(S0);
-     *   out= C(S1);
+     *   //stream<type x>S0_0,S0_1; 理想状态这里应该生成一个 strdcl 语句, 但实际上并没生成
+     *   S0_0 = A(in);
+     *   S0_1 = B(S0_0);
+     *   out= C(S0_1);
      * }
      */
     function generateBodyStmts(){
         let result = []
         for (let i = 0; i < compositeCall_list.length ;i ++){
-            let inputs = i == 0 ? node.inputs : ['S'+(i-1)]
-            let outputs = i != compositeCall_list.length -1 ? ['S'+i] : node.outputs
+            let inputs = i == 0 ? node.inputs : [compName+'_'+(i-1)]
+            let outputs = i != compositeCall_list.length - 1 ? [compName+'_'+i] : node.outputs
 
             let compCall = compositeCall_list[i]
             let call = new compositeCallNode(null, compCall.compName,inputs)
@@ -194,6 +195,7 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
         stmt instanceof addNode ? handlerAdd(stmt) : '' ;
         stmt instanceof forNode ? handlerFor(stmt) : '' ;
     })
+    return
 
     function handlerAdd(add){
         if(add.content instanceof compositeCallNode){
@@ -204,7 +206,37 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
             compositeCall_list.push(copy)
         }
     }
-    function handlerFor(){
-        throw new Error("handleFor not completed")
+    
+    /**
+     * 对一个静态 for 循环做循环展开, 目前没有符号表, 所以只考虑如下简单例子
+     * for(j= 1;j<10;i+=2) //对该例子会将其内部语句展开5次
+     * 
+     * @warning 得益于 js 的字符串转函数能力, 我们能以一种 hacker 的方式来获取循环次数. 而 C++ 中的做法并非如此
+     */
+    function handlerFor(for_stmt){
+        /*获得for循环中的init，cond和next值 目前只处理for循环中数据是整型的情况 */
+        let forStr = for_stmt.toString()
+        debugger
+        forStr.match(/([^\{]*)\{/)
+        forStr = RegExp.$1
+        let evalStr = `
+            var count = 0;
+            ${forStr}{
+                count++
+            }
+            return count` ;
+        let count = (new Function(evalStr))()  //得到了 for 循环的实际执行次数
+        let adds
+        if(for_stmt.statement instanceof blockNode){
+            adds = for_stmt.statement.stmt_list.filter(n => n instanceof addNode)
+        }else {
+            adds = [for_stmt.statement]
+        }
+        //现在需要展开循环的次数 count 和展开循环的内部语句 adds 都已准备好, 那么开始将其按顺序放入目标中
+        for(let i = 0 ;i<count ;i++){
+            adds.forEach(add => {
+                compositeCall_list.push(add.content)
+            })
+        }
     }
 }

@@ -61,7 +61,7 @@ StaticStreamGraph.prototype.GenerateFlatNodes = function(/* operatorNode* */ u){
 
             /* 同时还要找找看 in 是由哪个 operator 输出的, 如果找得到则建立连接*/
             if(this.mapEdge2UpFlatNode.has(inEdgeName)){
-                var parent = this.mapEdge2DownFlatNode.get(inEdgeName)
+                var parent = this.mapEdge2UpFlatNode.get(inEdgeName)
                 parent.AddOutEdges(flat)
                 flat.AddInEdges(flat)
             }

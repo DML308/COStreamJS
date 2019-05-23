@@ -30,7 +30,7 @@ export function AST2FlatStaticStreamGraph(mainComposite,unfold){
 
 /**
  * 1.遇到 out = call(in){ int / work / window } 形式的 operatorNode, 则在 ssg 中创建该 flatNode 并连接Edge
- * 2.遇到
+ * 2.遇到 pipeline , 则将其展开为一个真正的 composite 并挂载至 exp.replace_composite
  * 
  * @param {StaticStreamGraph} ssg
  */
