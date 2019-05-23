@@ -23,6 +23,7 @@
     <div style="position:absolute;top:0;left:420px">
         <button onclick="updateSVG()">绘制语法树</button>
         <button onclick="updateSSG()">语法树转数据流图</button>
+        <button onclick="updateSDF()">flatgraph.dot</button>
     </div>
     <script src="./COStreamJS.js"></script>
     <script src="./data.js"></script>
@@ -61,6 +62,12 @@
         function updateSSG() {
             var str = editor.getValue()
             window.COStreamJS.main(str)
+        }
+        async function updateSDF(){
+            var dotStr = COStreamJS.DumpStreamGraph(COStreamJS.ssg)
+            var astSvg = await window.renderDot(dotStr)
+            astSvg.id = "ast-svg"
+            document.querySelector(".container").replaceChild(astSvg, document.getElementById("ast-svg"))
         }
     </script>
 </body>

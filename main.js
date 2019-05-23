@@ -10,13 +10,17 @@ import { COStreamJS } from "./src/FrontEnd/global"
 import { SymbolTable } from "./src/FrontEnd/symbol"
 import { WorkEstimate } from "./src/LifeCycle/workEstimate"
 import { ShedulingSSG } from "./src/LifeCycle/SchedulingSSG"
+import { DumpStreamGraph } from "./src/LifeCycle/DumpStreamGraph"
 loadCVPPlugin()
 loadToStringPlugin()
 
-COStreamJS.parser = parser
-COStreamJS.AST2FlatStaticStreamGraph = AST2FlatStaticStreamGraph
-COStreamJS.unfold = unfold
-COStreamJS.SemCheck = SemCheck
+Object.assign(COStreamJS, {
+    parser,
+    AST2FlatStaticStreamGraph,
+    unfold,
+    SemCheck,
+    DumpStreamGraph
+})
 COStreamJS.main = function(str){
     debugger
     this.ast = COStreamJS.parser.parse(str)
