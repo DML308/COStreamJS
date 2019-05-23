@@ -17,7 +17,11 @@ export function AST2FlatStaticStreamGraph(mainComposite,unfold){
     streamFlow(mainComposite);
     debug("--------- 执行GraphToOperators, 逐步构建FlatNode ---------------\n");
     GraphToOperators(mainComposite, ssg, unfold);
-
+    ssg.topNode = ssg.flatNodes[0]
+    /* 将每个composite重命名 */
+    ssg.ResetFlatNodeNames();
+    ssg.SetFlatNodesWeights();
+    debug("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n",ssg)
     return ssg
 }
 

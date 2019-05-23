@@ -216,7 +216,6 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
     function handlerFor(for_stmt){
         /*获得for循环中的init，cond和next值 目前只处理for循环中数据是整型的情况 */
         let forStr = for_stmt.toString()
-        debugger
         forStr.match(/([^\{]*)\{/)
         forStr = RegExp.$1
         let evalStr = `
