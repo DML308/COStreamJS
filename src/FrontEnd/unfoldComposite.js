@@ -131,7 +131,7 @@ UnfoldComposite.prototype.modifyStreamName = function (/*operatorNode **/ oper, 
     var newName = stream[0]
     var oldName = style ? oper.inputs[0] : oper.outputs[0]
     let reg = new RegExp(oldName,'g')
-    oper.operBody.work = oper.operBody.work.replace(reg,newName)
+    oper.operBody.work = (oper.operBody.work+'').replace(reg,newName)
     oper.operBody.win.forEach(winStmt=>{
         if(winStmt.winName == oldName){
             winStmt.winName = newName
