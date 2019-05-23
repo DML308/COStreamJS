@@ -31,6 +31,8 @@ export function AST2FlatStaticStreamGraph(mainComposite,unfold){
 /**
  * 1.遇到 out = call(in){ int / work / window } 形式的 operatorNode, 则在 ssg 中创建该 flatNode 并连接Edge
  * 2.遇到
+ * 
+ * @param {StaticStreamGraph} ssg
  */
 function GraphToOperators(/*compositeNode*/composite, ssg, unfold){
     for (let it of composite.body.stmt_list){
@@ -41,14 +43,13 @@ function GraphToOperators(/*compositeNode*/composite, ssg, unfold){
             ssg.GenerateFlatNodes(exp)
 
         }else if(exp instanceof compositeCallNode){
-
-
+            GraphToOperators(exp.actual_composite, ssg, unfold);
         }else if(exp instanceof splitjoinNode){
 
 
         }else if(exp instanceof pipelineNode){
             exp.replace_composite = unfold.UnfoldPipeline(exp)
-            GraphToOperators(exp.replace_composite)
+            GraphToOperators(exp.replace_composite, ssg, unfold)
         }
     }
 }

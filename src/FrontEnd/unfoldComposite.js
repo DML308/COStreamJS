@@ -174,7 +174,6 @@ UnfoldComposite.prototype.UnfoldPipeline = function (/* pipelineNode */ node) {
             let call = new compositeCallNode(null, compCall.compName,inputs)
             call.outputs = outputs
             //TODO: 符号表修改后要修改对应的这个地方
-            debugger;
             let comp = COStreamJS.S.LookUpCompositeSymbol(compCall.compName);
             call.actual_composite = UnfoldComposite.prototype.compositeCallStreamReplace(comp, inputs, outputs)
 
