@@ -1873,9 +1873,9 @@ var COStreamJS = (function () {
     }
 
     class StaticStreamGraph {
-        constructor(){
+        constructor() {
             this.topNode = null; // SDF图的起始节点，假设只有一个输入为0的节点
-            
+
             //@type {FlatNode[]} 静态数据流图所有节点集合
             this.flatNodes = [];
 
@@ -1889,26 +1889,26 @@ var COStreamJS = (function () {
 
             //map < FlatNode *, int > mapInitWork2FlatNode;    // 存放各个operator的workestimate（初态）
             this.mapInitWork2FlatNode = new Map();
-            
+
         };
 
         //给静态数据流图中所有的 FlatNode 加上数字后缀来表达顺序, 如 Source => Source_0
-        ResetFlatNodeNames(){
-            this.flatNodes.forEach((flat,idx)=>flat.name = flat.name+'_'+idx);
+        ResetFlatNodeNames() {
+            this.flatNodes.forEach((flat, idx) => flat.name = flat.name + '_' + idx);
         }
-        
+
         /*重置ssg结点flatnodes内所有flatnode内的visitimes*/
-        ResetFlatNodeVisitTimes(){
-            this.flatNodes.forEach(flat=>flat.ResetVisitTimes());
-        }      
-        
-        AddSteadyWork(/*FlatNode * */flat, work){
+        ResetFlatNodeVisitTimes() {
+            this.flatNodes.forEach(flat => flat.ResetVisitTimes());
+        }
+
+        AddSteadyWork(/*FlatNode * */flat, work) {
             this.mapSteadyWork2FlatNode.set(flat, work);
         }
         // 存放初态调度工作量
-        AddInitWork(flat, work){
+        AddInitWork(flat, work) {
             this.mapInitWork2FlatNode.set(flat, work);
-        }   
+        }
     }
 
     /**
@@ -1916,35 +1916,57 @@ var COStreamJS = (function () {
      * 标记 out 的 up 指向 flat, 同时标记 in 的 down 指向 flat,
      * 如果 in 是由 parent 产生的, 则 parent 指向 flat
      */
-    StaticStreamGraph.prototype.GenerateFlatNodes = function(/* operatorNode* */ u){
+    StaticStreamGraph.prototype.GenerateFlatNodes = function (/* operatorNode* */ u) {
 
-        const flat  = new FlatNode(u);
+        const flat = new FlatNode(u);
 
         /* 寻找输出流  建立节点的输入输出流关系
          * 例如 out = call(in) 对 edgeName:out 来说, call 是它的"上端"节点, 所以插入 mapEdge2UpFlatNode */
-        if(u.outputs)   u.outputs.forEach(edgeName => this.mapEdge2UpFlatNode.set(edgeName,flat));
+        if (u.outputs) u.outputs.forEach(edgeName => this.mapEdge2UpFlatNode.set(edgeName, flat));
 
         this.flatNodes.push(flat);
 
         /* 例如 out = call(in), 对 in 来说, call 是它的"下端"节点, 所以插入 mapEdge2DownFlatNode */
-        if(u.inputs){
-            u.inputs.forEach(inEdgeName=>{
-                this.mapEdge2DownFlatNode.set(inEdgeName,flat);
+        if (u.inputs) {
+            u.inputs.forEach(inEdgeName => {
+                this.mapEdge2DownFlatNode.set(inEdgeName, flat);
 
                 /* 同时还要找找看 in 是由哪个 operator 输出的, 如果找得到则建立连接*/
-                if(this.mapEdge2UpFlatNode.has(inEdgeName)){
+                if (this.mapEdge2UpFlatNode.has(inEdgeName)) {
                     var parent = this.mapEdge2UpFlatNode.get(inEdgeName);
                     parent.AddOutEdges(flat);
-                    flat.AddInEdges(flat);
+                    flat.AddInEdges(parent);
                 }
             });
         }
     };
 
 
-
-    StaticStreamGraph.prototype.SetFlatNodesWeights = function(){
-
+    /**
+     * 设置 flatNode 的边的 weight
+     * @eaxmple
+     * window{
+     *   In  sliding(1,2); //则分别设置inPeekWeights 为1, inPopWeights 为2
+     *   Out tumbling(2);  //设置 outPushWeights 为2
+     * }
+     */
+    StaticStreamGraph.prototype.SetFlatNodesWeights = function () {
+        for (let flat of this.flatNodes) {
+            let oper = flat.contents;
+            let win_stmts = oper.operBody.win;
+            for(let it of win_stmts){
+                let edgeName = it.winName;
+                if(it.type === "sliding"){
+                    flat.inPeekString.push(edgeName);
+                    flat.inPopString.push(edgeName);
+                    flat.inPeekWeights.push(it.arg_list[0].value);
+                    flat.inPopWeights.push(it.arg_list[1].value);
+                }else if(it.type === "tumbling"){
+                    flat.outPushString.push(edgeName);
+                    flat.outPushWeights.push(it.arg_list[0].value);
+                }
+            }
+        }
     };
 
     //对外的包装对象
@@ -2170,7 +2192,6 @@ var COStreamJS = (function () {
         function handlerFor(for_stmt){
             /*获得for循环中的init，cond和next值 目前只处理for循环中数据是整型的情况 */
             let forStr = for_stmt.toString();
-            debugger
             forStr.match(/([^\{]*)\{/);
             forStr = RegExp.$1;
             let evalStr = `
@@ -2232,7 +2253,11 @@ var COStreamJS = (function () {
         streamFlow(mainComposite);
         debug("--------- 执行GraphToOperators, 逐步构建FlatNode ---------------\n");
         GraphToOperators(mainComposite, ssg, unfold);
-
+        ssg.topNode = ssg.flatNodes[0];
+        /* 将每个composite重命名 */
+        ssg.ResetFlatNodeNames();
+        ssg.SetFlatNodesWeights();
+        debug("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n",ssg);
         return ssg
     }
 
@@ -2278,19 +2303,152 @@ var COStreamJS = (function () {
         }
     }
 
+    /**
+     * 对 ssg 中的 flatNode 进行工作量估计
+     * @param {StaticStreamGraph} ssg
+     */
+    function WorkEstimate(ssg)
+    {
+        for (let flat of ssg.flatNodes)
+        {
+            /* 检查每一个operatorNode的body（包括init，work和window)*/
+            var body = flat.contents.operBody;
+            var w_init = 0;//body.init ? body.init.WorkEstimate(): 0 ;
+            var w_steady = 60; //body.work ? body.work.WorkEstimate() : 0;
+            w_steady += (flat.outFlatNodes.length + flat.inFlatNodes.length) * 20; //多核下调整缓冲区head和tail
+            ssg.mapInitWork2FlatNode.set(flat, w_init);
+            ssg.mapSteadyWork2FlatNode.set(flat, w_steady);
+        }
+    }
+
+    /**
+     * 数据流图调度
+     * @param {StaticStreamGraph} - ssg
+     */
+    function ShedulingSSG(ssg){
+        InitScheduling(ssg);
+        SteadyScheduling(ssg);
+        debug("---稳态调度序列---\n");
+        console.table(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})));
+    }
+    function InitScheduling(ssg){
+        ssg.flatNodes.forEach(n => n.initCount = 1);
+    }
+    function SteadyScheduling(ssg){
+        // 默认第一个节点是源，也就是说peek和pop均为0,在图的表示上暂不允许有多个源，但可以有多个peek = pop = 0节点
+        var up = ssg.topNode, down , flats = [up];
+        up.steadyCount = 1;
+        //BFS 遍历 ssg.flatNodes
+        while(flats.length !== 0){
+            up = flats.shift();  
+            for(let i = 0 ;i < up.outFlatNodes.length; i++){
+                let nPush = up.outPushWeights[i];    // 上端节点的push值
+                down = up.outFlatNodes[i];           // 找到下端节点
+                let j = down.inFlatNodes.indexOf(up);    // 下端节点找到与上端节点对应的标号
+                let nPop = down.inPopWeights[j];     // 下端节点取出对应的pop值
+
+                // 检查down节点是否已进行稳态调度
+                if( !down.steadyCount ){
+                    //若 down 之前未调度过
+                    let x = up.steadyCount;
+                    nPush *= x;
+                    if(nPush !== 0){
+                        let scale = lcm(nPush,nPop) / nPush; //放大倍数
+                        ssg.flatNodes.forEach(n=>{
+                            if(n.steadyCount) n.steadyCount *= scale;
+                        });
+                        down.steadyCount = lcm(nPush, nPop) / nPop;
+                    }else{
+                        throw new Error("一般的 up 节点的 push 值不会为0")
+                    }
+                }else{
+                    //若 down 节点已进行稳态调度，检查SDF图是否存在稳态调度系列，一般不存在的话表明程序有误
+                    if(nPush * up.steadyCount !== nPop * down.steadyCount){
+                        throw new Error("调度算法出错, 请检查")
+                    }
+                }
+                flats.push(down);
+            }
+        }
+    }
+
+    //求a,b的最大公约数
+    function gcd(a,b){
+        return b ? gcd(b, a%b ) : a
+    }
+    //求a,b的最小公倍数
+    function lcm(a,b){
+        return a*b / gcd(a,b)
+    }
+
+    var dotString = '';
+
+
+    /**
+     * 用XML文本的形式描述SDF图
+     * @param { StaticStreamGraph } ssg
+     * @param { Partition } mp
+     * @returns { String }
+     */
+    function DumpStreamGraph(ssg, mp) {
+        dotString = "digraph Flattend {\n";
+        let isVisited = new Map();
+        toBuildOutPutString(ssg.topNode, ssg,isVisited,mp);
+        dotString += "\n\n}\n";
+        return dotString.beautify()
+    }
+
+    function toBuildOutPutString(/*FlatNode*/ node,ssg, isVisited, mp) {
+        isVisited.set(node, true);
+        dotString += MyVisitNode(node,ssg,mp);
+        node.outFlatNodes.filter(out => !isVisited.get(out)).forEach(out => {
+            toBuildOutPutString(out, ssg,isVisited, mp);
+        });
+    }
+
+    function MyVisitNode(node,ssg,mp){
+        let str = `name[ label = "name \\n init Mult: initMult steady Mult: steadyMult \\n init work: initWork steady work:steadyWork \\n  PPP \\n" color="azure" style="filled"  ]\n\n`;
+        str = str.replace(/name/g,node.name);
+        str = str.replace(/initMult/,node.initCount);
+        str = str.replace(/steadyMult/, node.steadyCount);
+        str = str.replace(/initWork/, ssg.mapInitWork2FlatNode.get(node));
+        str = str.replace(/steadyWork/, ssg.mapSteadyWork2FlatNode.get(node));
+
+        let peek = node.inPeekWeights.map(w => " peek: "+w);
+        let pop  = node.inPopWeights.map(w => " pop: " + w);
+        let push = node.outPushWeights.map(w => " push: " + w);
+        let ppp = [peek,pop,push].filter(s=>s.length>0).join('\\n');
+        str = str.replace(/PPP/,ppp);
+
+        if(mp){
+            throw new Error("上色代码还没写")
+        }
+
+        //链接输出边
+        node.outFlatNodes.forEach((out,idx) =>{
+            str += node.name + '->' + out.name + `[label="${node.outPushWeights[idx]}"];\n\n`;
+        });
+        return str
+    }
+
     loadCVPPlugin();
     loadToStringPlugin();
 
-    COStreamJS.parser = parser;
-    COStreamJS.AST2FlatStaticStreamGraph = AST2FlatStaticStreamGraph;
-    COStreamJS.unfold = unfold;
-    COStreamJS.SemCheck = SemCheck;
+    Object.assign(COStreamJS, {
+        parser,
+        AST2FlatStaticStreamGraph,
+        unfold,
+        SemCheck,
+        DumpStreamGraph
+    });
     COStreamJS.main = function(str){
         debugger
         this.ast = COStreamJS.parser.parse(str);
         this.S = new SymbolTable(this.ast);
         this.gMainComposite = this.SemCheck.findMainComposite(this.ast);
         this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold);
+        WorkEstimate(this.ssg);
+        ShedulingSSG(this.ssg);
     };
 
     //下面代码是为了在浏览器的 window 作用域下调试而做的妥协
