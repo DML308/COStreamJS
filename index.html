@@ -4,22 +4,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="https://i.loli.net/2019/05/23/5ce65c6a0153242368.png" type="image/x-icon" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>COStreamJS-v0.2.1</title>
     <style>
-        .container div{ flex:1 0;}
+        .container div {
+            flex: 1 0;
+        }
     </style>
 </head>
 
 <body>
-    <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">    
+    <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">
     </div>
     <div class="container" style="position: absolute;top: 0; bottom: 0;left: 400px;">
         <div id="ast-svg"></div>
     </div>
-
-    <script src="./global.js"></script>
-    <script src="./parser.js"></script>
+    <div style="position:absolute;top:0;left:420px">
+        <button onclick="updateSVG()">绘制语法树</button>
+        <button onclick="updateSSG()">语法树转数据流图</button>
+    </div>
+    <script src="./COStreamJS.js"></script>
     <script src="./data.js"></script>
     <script src="https://cdn.bootcss.com/vue/2.6.10/vue.js"></script>
     <script src="https://cdn.bootcss.com/ace/1.4.4/ace.js"></script>
@@ -35,25 +40,15 @@
                 console.log("要渲染的 dot 字符串内容为", str)
             }
         }
-        function debounce(fn, interval = 300) {
-            let timeout = null;
-            return function () {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => {
-                    fn()
-                }, interval);
-            };
-        }
     </script>
     <script>
         var editor = ace.edit("editor");
         editor.setTheme("ace/theme/tomorrow");
         editor.session.setMode("ace/mode/c_cpp");
-        editor.session.setValue(window.str || `//请在下面编写.cos 程序\n//右边的 Abstract Syntax Tree 会自动绘制\nint i = 1 ? 2 ? 3:4:5;  `);
-        editor.session.on('change', debounce(updateSVG, 1000));
+        editor.session.setValue(str || `//请在下面编写.cos 程序\n//右边的 Abstract Syntax Tree 会自动绘制\nint i = 1 ? 2 ? 3:4:5;  `);
         async function updateSVG(str) {
             str = str || editor.getValue()
-            window.ast = parser.parse(str)
+            window.ast = COStreamJS.parser.parse(str)
             var dotStr = ast2dot(ast)
             var astSvg = await window.renderDot(dotStr)
             astSvg.id = "ast-svg"
@@ -61,7 +56,12 @@
             //debugger
             document.querySelector(".container").replaceChild(astSvg, document.getElementById("ast-svg"))
         }
-        updateSVG();
+        //updateSVG();
+
+        function updateSSG() {
+            var str = editor.getValue()
+            window.COStreamJS.main(str)
+        }
     </script>
 </body>
 
