@@ -29,8 +29,37 @@ export class UnfoldComposite {
 export var unfold = new UnfoldComposite()
 
 
-UnfoldComposite.prototype.streamReplace = function (/*compositeNode **/ composite,/* list < Node *> */ inputs,/* list < Node *> */ outputs,/* int*/ flag) {
-    throw new Error("not defined")
+/**
+ * @description 对于composite节点内的operatorNode进行流替换
+ * 只替换第一个和最后一个oper 的原因是: 对第一个修改 IN, 对最后一个修改 Out, 对简单串行的 comp 是没问题的
+ * @param { bool } flag - flag 为1则同时替换内部的 work 和 win 的 stream 变量名, 为0则说明之前已调用过 modifyStreamName
+ * @example
+ * 例如对于 
+ * composite SecondSource(input Source,output S0){
+ *    Out = AssignmentX(In){ }
+ * }
+ * 将其替换为
+ * composite SecondSource(input Source,output S0){
+ *    S0 = AssignmentX(Source){ }
+ * }
+ */
+UnfoldComposite.prototype.streamReplace = function (/*compositeNode **/ comp,/* String[] */ inputs,outputs,/* int*/ flag) {
+    let stmt_list = comp.body.stmt_list
+    operaterStreamReplace(stmt_list[0], inputs,'inputs')
+    operaterStreamReplace(stmt_list[stmt_list.length-1], outputs,'outputs')
+    return comp
+
+    function operaterStreamReplace(stmt,streamNames,tag){
+        let oper = stmt instanceof binopNode ? stmt.right : stmt
+        if(oper instanceof operatorNode){
+            if(flag){
+                UnfoldComposite.prototype.modifyStreamName(oper, streamNames, true)
+            }
+            oper[tag] = streamNames
+        }else if(oper instanceof splitjoinNode || oper instanceof pipelineNode){
+            oper[tag] = streamNames
+        }
+    }
 }
 
 /**
@@ -46,7 +75,9 @@ UnfoldComposite.prototype.compositeCallStreamReplace = function (/*compositeNode
         if(it instanceof binopNode){
             let exp  = it.right
             if(exp instanceof operatorNode){
-                copy = getCopyInStreamReplace(exp,inputs,outputs)
+                let oper = getCopyOperInStreamReplace(exp,inputs,outputs)
+                let comp_body = new compBodyNode(null,null,[oper])
+                copy = new compositeNode(null,head,comp_body)
             }else if(exp instanceof pipelineNode || exp instanceof splitjoinNode){
                 copy = comp
             }
@@ -54,11 +85,11 @@ UnfoldComposite.prototype.compositeCallStreamReplace = function (/*compositeNode
             throw new Error("未定义的分支. 前面假设 pipeline 中 add call()的 call 只有 binop 节点是否太片面了")
         }
     }
-    this.streamReplace(copy,inputs,outpus,0)
+    this.streamReplace(copy,inputs,outputs,0)
     return copy
 
 
-    function getCopyInStreamReplace(exp,inputs,outputs){
+    function getCopyOperInStreamReplace(exp,inputs,outputs){
         /* 除了window都可以指向一块内存 对于window动态分配一块内存，替换window中的名字，再函数的结尾将流进行替换*/
         let work = UnfoldComposite.prototype.workNodeCopy(exp.operBody.work);
         /*动态分配生成新的windowNode*/
@@ -73,7 +104,6 @@ UnfoldComposite.prototype.compositeCallStreamReplace = function (/*compositeNode
         let body = new operBodyNode(null,exp.operBody.stmt_list, exp.operBody.init, work, win)
         let oper = new operatorNode(null,exp.operName, exp.inputs, body)
         oper.outputs = exp.outputs 
-        debugger
         UnfoldComposite.prototype.modifyStreamName(oper, inputs, true);
         UnfoldComposite.prototype.modifyStreamName(oper, outputs, false);
         return oper
