@@ -1,6 +1,6 @@
 {
   "name": "costreamjs",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "main": "main.js",
   "repository": "git@github.com:DML308/COStreamJS.git",
   "author": "lxx.imac <lxx2013@mail.ustc.edu.cn>",
