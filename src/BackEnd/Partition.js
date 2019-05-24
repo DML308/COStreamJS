@@ -8,7 +8,8 @@ export class Partition {
             //map < int, vector<FlatNode *> > PartitonNum2FlatNode; //划分编号到节点的映射
             this.PartitonNum2FlatNode = new Map()
             //划分的份数,即核数
-            this.mnparts  =   1      
+            this.mnparts  =   1   
+            this.finalParts = 0 //最终所需的核数, 因为划分算法的极端情况下可能用不完全部的核   
         }
     /**
      * 划分成员方法，具体实现由子类实现

@@ -31,9 +31,9 @@ COStreamJS.main = function(str){
     this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold)
     WorkEstimate(this.ssg)
     ShedulingSSG(this.ssg)
-    this.mp = this.GreedyPartition(this.ssg)
+    this.mp = new this.GreedyPartition(this.ssg)
     this.mp.setCpuCoreNum(4)
-    this.mp.SssgPartition()
+    this.mp.SssgPartition(this.ssg)
 }
 
 //下面代码是为了在浏览器的 window 作用域下调试而做的妥协
