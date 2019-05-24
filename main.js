@@ -11,6 +11,7 @@ import { SymbolTable } from "./src/FrontEnd/symbol"
 import { WorkEstimate } from "./src/LifeCycle/workEstimate"
 import { ShedulingSSG } from "./src/LifeCycle/SchedulingSSG"
 import { DumpStreamGraph } from "./src/LifeCycle/DumpStreamGraph"
+import { GreedyPartition } from "./src/BackEnd/GreedyPartition"
 loadCVPPlugin()
 loadToStringPlugin()
 
@@ -19,7 +20,8 @@ Object.assign(COStreamJS, {
     AST2FlatStaticStreamGraph,
     unfold,
     SemCheck,
-    DumpStreamGraph
+    DumpStreamGraph,
+    GreedyPartition
 })
 COStreamJS.main = function(str){
     debugger
@@ -29,6 +31,9 @@ COStreamJS.main = function(str){
     this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold)
     WorkEstimate(this.ssg)
     ShedulingSSG(this.ssg)
+    this.mp = this.GreedyPartition(this.ssg)
+    this.mp.setCpuCoreNum(4)
+    this.mp.SssgPartition()
 }
 
 //下面代码是为了在浏览器的 window 作用域下调试而做的妥协
