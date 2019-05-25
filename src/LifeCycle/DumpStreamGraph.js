@@ -41,7 +41,8 @@ function MyVisitNode(node,ssg,mp){
     str = str.replace(/PPP/,ppp)
 
     if(mp){
-        throw new Error("上色代码还没写")
+        let id = mp.findPartitionNumForFlatNode(node)
+        str = str.replace(/azure/,colors[id])
     }
 
     //链接输出边

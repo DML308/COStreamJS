@@ -64,7 +64,7 @@
             window.COStreamJS.main(str)
         }
         async function updateSDF(){
-            var dotStr = COStreamJS.DumpStreamGraph(COStreamJS.ssg)
+            var dotStr = COStreamJS.DumpStreamGraph(COStreamJS.ssg,COStreamJS.mp)
             var astSvg = await window.renderDot(dotStr)
             astSvg.id = "ast-svg"
             document.querySelector(".container").replaceChild(astSvg, document.getElementById("ast-svg"))

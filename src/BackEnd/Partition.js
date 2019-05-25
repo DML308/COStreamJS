@@ -20,8 +20,8 @@ export class Partition {
     /**
      * 根据flatnode找到其下标号 如source_0中的0
      */
-    findID(/* FlatNode */ flatnode){
-        return flatnode.name.match(/\d+$/g)[0]
+    findID(/* FlatNode */ flat){
+        return flat.name.match(/\d+$/g)[0]
     }  
     /**
      * 根据编号num查找其中的节点，将节点集合返回给PartitonNumSet(编号->节点)
@@ -32,7 +32,7 @@ export class Partition {
     /**
      * 根据节点返回其所在划分区的编号(节点->编号) for dot
      */
-    findPartitionNumForFlatNode(/* FlatNode */ flatnode){
-        return this.FlatNode2PartitionNum.get(flatNode)
+    findPartitionNumForFlatNode(/* FlatNode */ flat){
+        return this.FlatNode2PartitionNum.get(flat)
     }           
 };
