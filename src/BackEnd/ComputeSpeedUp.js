@@ -44,7 +44,7 @@ export function GetSpeedUpInfo(ssg, mp, sourceFileName = "default.cos", pSelecte
 export function PrintSpeedUpInfo(SpeedUpInfo) {
     if (!SpeedUpInfo) console.warn("SpeedUpInfo 为空")
 
-    let header =`---------------------default.cos - GAPartition(4) DATE ---------------------\n`
+    let header =`-------- default.cos - GAPartition(4) DATE -----------\n`
     header = header.replace("default.cos", SpeedUpInfo.sourceFileName)
     header = header.replace("GAPartition", SpeedUpInfo.pSelected)
     header = header.replace("4", SpeedUpInfo.finalParts)
