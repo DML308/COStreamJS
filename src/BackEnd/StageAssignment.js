@@ -7,9 +7,8 @@
 export function StageAssignment(ssg, mp) {
     //第一步根据SDF图的输入边得到拓扑序列，并打印输出
     let topologic = actorTopologicalorder(ssg.flatNodes);
-    debugger
     //第二步根据以上步骤的节点划分结果，得到阶段赋值结果
-    actorStageMap(mp.FlatNode2PartitionNum);
+    return actorStageMap(mp.FlatNode2PartitionNum, topologic);
 }
 
 /**
@@ -35,4 +34,23 @@ export function actorTopologicalorder(flatNodes) {
     }
 
     return [...topologic]
+}
+
+/**
+ * 根据拓扑排序结果、获得阶段赋值结果
+ * 若节点和其输入节点在一个划分子图，则其阶段号一致; 否则阶段号=上端最大阶段号+1
+ * @param { map<FlatNode,int> } map - mp.FlatNode2PartitionNum
+ */
+export function actorStageMap(map, topologic){
+    let stage = 0 //初始阶段号
+    topologic.forEach(flat=>{
+        //判断该节点是否和其输入节点都在一个划分子图
+        let isInSameSubGraph = flat.inFlatNodes.every(src=> map.get(src) == map.get(flat))
+
+        //如果有上端和自己不在同一子图的话,就要让阶段号+1
+        flat.stageNum = isInSameSubGraph ? stage : ++stage
+    })
+
+    //返回总共有几个阶段, 例如阶段号分别是0,1,2,3,那么要返回一共有"4"个阶段
+    return stage + 1
 }
