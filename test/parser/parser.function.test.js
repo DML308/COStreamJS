@@ -1,6 +1,6 @@
-require('../main.js')
+require('../../main.js')
 const assert = require('assert')
-import COStreamJS from "../main"
+import COStreamJS from "../../main"
 const parser = COStreamJS.parser
 
 describe("测试能否正确识别函数定义 functino_definition 和它的 函数体内的各种 statement", () => {

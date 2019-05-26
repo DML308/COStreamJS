@@ -1,6 +1,6 @@
-require('../main.js')
+require('../../main.js')
 const assert = require('assert')
-import COStreamJS from "../main"
+import COStreamJS from "../../main"
 const parser = COStreamJS.parser
 
 

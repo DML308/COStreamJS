@@ -1,9 +1,9 @@
 const assert = require('assert')
 const fs = require('fs')
 const resolve = require('path').resolve
-const lexerPath = resolve(__dirname, "../src/config/parser.jison")
+const lexerPath = resolve(__dirname, "../../src/config/parser.jison")
 const TextContent = fs.readFileSync(lexerPath, "utf8").split('\n')
-import COStreamJS from "../main"
+import COStreamJS from "../../main"
 const lexer = COStreamJS.parser.lexer
 describe("lexer NUMBER", function () {
     var regOfNumber = '^' + TextContent.find(x => /return\s+'NUMBER'/.test(x)).split(/\s+/)[0] + '$'

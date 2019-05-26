@@ -1,10 +1,10 @@
-import { ast2String } from "../src/ast/toString.js"
-require('../main.js')
+import { ast2String } from "../../src/ast/toString.js"
+require('../../main.js')
 const assert = require("assert")
 const fs = require('fs')
 const resolve = require('path').resolve
 
-import COStreamJS from "../main"
+import COStreamJS from "../../main"
 const parser = COStreamJS.parser
 
 //最小化字符串,用于后续的字符串比较
@@ -84,7 +84,7 @@ describe("测试各种 node 的 toString 方法",()=>{
     var files = ["wang.cos"]
     files.forEach(file => {
         it(`使用文件测试: ${file}`, () => {
-            var str = fs.readFileSync(resolve(__dirname, `../examples/${file}`), "utf8")
+            var str = fs.readFileSync(resolve(__dirname, `../../examples/${file}`), "utf8")
             var ast = parser.parse(str)
             var str1 = ast2String(ast)
             var str2 = ast2String(parser.parse(str1))
