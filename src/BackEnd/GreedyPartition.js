@@ -3,9 +3,6 @@ export class GreedyPartition extends Partition {
     constructor() {
         super()
 
-        /** @type { number } 总工作量 */
-        this.totalWork = 0
-
         /** @type { vector<vector<FlatNode *>> }  划分的结果 */
         this.X = []
 

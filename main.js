@@ -34,6 +34,7 @@ COStreamJS.main = function(str){
     this.mp = new this.GreedyPartition(this.ssg)
     this.mp.setCpuCoreNum(4)
     this.mp.SssgPartition(this.ssg)
+    this.mp.computeCommunication()
 }
 
 //下面代码是为了在浏览器的 window 作用域下调试而做的妥协
