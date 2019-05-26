@@ -12,6 +12,7 @@ import { WorkEstimate } from "./src/LifeCycle/workEstimate"
 import { ShedulingSSG } from "./src/LifeCycle/SchedulingSSG"
 import { DumpStreamGraph } from "./src/LifeCycle/DumpStreamGraph"
 import { GreedyPartition } from "./src/BackEnd/GreedyPartition"
+import { GetSpeedUpInfo, PrintSpeedUpInfo } from "./src/BackEnd/ComputeSpeedUp"
 loadCVPPlugin()
 loadToStringPlugin()
 
@@ -21,7 +22,9 @@ Object.assign(COStreamJS, {
     unfold,
     SemCheck,
     DumpStreamGraph,
-    GreedyPartition
+    GreedyPartition,
+    GetSpeedUpInfo,
+    PrintSpeedUpInfo
 })
 COStreamJS.main = function(str){
     debugger
@@ -35,6 +38,9 @@ COStreamJS.main = function(str){
     this.mp.setCpuCoreNum(4)
     this.mp.SssgPartition(this.ssg)
     this.mp.computeCommunication()
+    let SI = this.GetSpeedUpInfo(this.ssg,this.mp)
+    for(var i in SI){ debug(`-------${i}-------`); console.table(SI[i])}
+    debug(this.PrintSpeedUpInfo(SI))
 }
 
 //下面代码是为了在浏览器的 window 作用域下调试而做的妥协
