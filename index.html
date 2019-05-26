@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="https://i.loli.net/2019/05/23/5ce65c6a0153242368.png" type="image/x-icon" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>COStreamJS-v0.2.4</title>
+    <title>COStreamJS-v0.2.5</title>
     <style>
         .container div {
             flex: 1 0;
@@ -64,7 +64,7 @@
             window.COStreamJS.main(str)
         }
         async function updateSDF(){
-            var dotStr = COStreamJS.DumpStreamGraph(COStreamJS.ssg)
+            var dotStr = COStreamJS.DumpStreamGraph(COStreamJS.ssg,COStreamJS.mp)
             var astSvg = await window.renderDot(dotStr)
             astSvg.id = "ast-svg"
             document.querySelector(".container").replaceChild(astSvg, document.getElementById("ast-svg"))

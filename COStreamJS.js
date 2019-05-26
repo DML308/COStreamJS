@@ -1,7 +1,7 @@
 var COStreamJS = (function () {
     'use strict';
 
-    function debug(...args) {
+    function debug$1(...args) {
         console.log("%c " + args[0], "color: #0598bd", ...args.slice(1));
     }
     function green(...args) {
@@ -114,7 +114,7 @@ var COStreamJS = (function () {
 
 
     var utils = /*#__PURE__*/Object.freeze({
-        debug: debug,
+        debug: debug$1,
         line: line,
         error: error$1,
         green: green,
@@ -2250,13 +2250,13 @@ var COStreamJS = (function () {
     function AST2FlatStaticStreamGraph(mainComposite,unfold){
         var ssg = new StaticStreamGraph();
         streamFlow(mainComposite);
-        debug("--------- 执行GraphToOperators, 逐步构建FlatNode ---------------\n");
+        debug$1("--------- 执行GraphToOperators, 逐步构建FlatNode ---------------\n");
         GraphToOperators(mainComposite, ssg, unfold);
         ssg.topNode = ssg.flatNodes[0];
         /* 将每个composite重命名 */
         ssg.ResetFlatNodeNames();
         ssg.SetFlatNodesWeights();
-        debug("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n",ssg);
+        debug$1("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n",ssg);
         return ssg
     }
 
@@ -2327,7 +2327,7 @@ var COStreamJS = (function () {
     function ShedulingSSG(ssg){
         InitScheduling(ssg);
         SteadyScheduling(ssg);
-        debug("---稳态调度序列---\n");
+        debug$1("---稳态调度序列---\n");
         console.table(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})));
     }
     function InitScheduling(ssg){
@@ -2405,6 +2405,9 @@ var COStreamJS = (function () {
         });
     }
 
+    const colors = ["aliceblue", "antiquewhite", "yellowgreen", "aquamarine",
+        "azure", "magenta", "maroon", "mediumaquamarine", "mediumblue", "mediumorchid"];
+
     function MyVisitNode(node,ssg,mp){
         let str = `name[ label = "name \\n init Mult: initMult steady Mult: steadyMult \\n init work: initWork steady work:steadyWork \\n  PPP \\n" color="azure" style="filled"  ]\n\n`;
         str = str.replace(/name/g,node.name);
@@ -2420,7 +2423,8 @@ var COStreamJS = (function () {
         str = str.replace(/PPP/,ppp);
 
         if(mp){
-            throw new Error("上色代码还没写")
+            let id = mp.findPartitionNumForFlatNode(node);
+            str = str.replace(/azure/,colors[id]);
         }
 
         //链接输出边
@@ -2434,47 +2438,78 @@ var COStreamJS = (function () {
      * SDF 图划分算法的基类, 子类需要继承此类并实现对应方法
      */
     class Partition {
-            constructor(){
-                //map<FlatNode *, int> FlatNode2PartitionNum;     
-                this.FlatNode2PartitionNum = new Map(); //节点到划分编号的映射
-                //map < int, vector<FlatNode *> > PartitonNum2FlatNode; //划分编号到节点的映射
-                this.PartitonNum2FlatNode = new Map();
-                //划分的份数,即核数
-                this.mnparts  =   1;   
-                this.finalParts = 0; //最终所需的核数, 因为划分算法的极端情况下可能用不完全部的核   
-            }
+        constructor() {
+            /** @type {map<FlatNode,number>} 节点到划分编号的映射 */
+            this.FlatNode2PartitionNum = new Map();
+
+            /** @type {map<number,FlatNode[]>} 划分编号到节点集合的映射 */
+            this.PartitonNum2FlatNode = new Map();
+
+            /** @type {map<number, number>} 划分编号到通信量的映射 */
+            this.PartitonNum2Communication = new Map();
+
+            /** @type {number} 核数 */
+            this.mnparts = 1;
+
+            /** @type {number} 最终划分的份数,因为划分算法的极端情况下可能用不完全部的核 */
+            this.finalParts = 0;
+
+            /** @type { number } 总工作量 */
+            this.totalWork = 0;
+        }
         /**
          * 划分成员方法，具体实现由子类实现
          */
-        SssgPartition(ssg,  level){
+        SssgPartition(ssg, level) {
             throw new Error("不能调用基类的 SssgPartition 算法, 请在子类中实现该算法")
-        } 
+        }
         /**
          * 根据flatnode找到其下标号 如source_0中的0
          */
-        findID(/* FlatNode */ flatnode){
-            return flatnode.name.match(/\d+$/g)[0]
-        }  
+        findID(/* FlatNode */ flat) {
+            return flat.name.match(/\d+$/g)[0]
+        }
         /**
          * 根据编号num查找其中的节点，将节点集合返回给PartitonNumSet(编号->节点)
-         */        
-        findNodeSetInPartition(num){
+         */
+        findNodeSetInPartition(num) {
             return this.PartitonNum2FlatNode.get(num)
         }
         /**
          * 根据节点返回其所在划分区的编号(节点->编号) for dot
          */
-        findPartitionNumForFlatNode(/* FlatNode */ flatnode){
-            return this.FlatNode2PartitionNum.get(flatNode)
-        }           
+        findPartitionNumForFlatNode(/* FlatNode */ flat) {
+            return this.FlatNode2PartitionNum.get(flat)
+        }
+        /**
+         * 划分完毕后计算通信量
+         */
+        computeCommunication() {
+            for (let [core, Xi] of this.PartitonNum2FlatNode) {
+                let communication = 0;
+                for (let flat of Xi) {
+                    //如果flat的上端节点不在此Xi中则累计通信量
+                    flat.inFlatNodes.forEach((src, idx) => {
+                        if (!Xi.includes(src)) {
+                            communication += flat.inPopWeights[idx] * flat.steadyCount;
+                        }
+                    });
+                    //如果flat的下端节点不在此Xi中则累计通信量
+                    flat.outFlatNodes.forEach((out, idx) => {
+                        if (!Xi.includes(out)) {
+                            communication += flat.outPushWeights[idx] * flat.steadyCount;
+                        }
+                    });
+                }
+                //将该子图的通信量保存下来
+                this.PartitonNum2Communication.set(core, communication);
+            }
+        }
     }
 
     class GreedyPartition extends Partition {
         constructor() {
             super();
-
-            /** @type { number } 总工作量 */
-            this.totalWork = 0;
 
             /** @type { vector<vector<FlatNode *>> }  划分的结果 */
             this.X = [];
@@ -2636,6 +2671,152 @@ var COStreamJS = (function () {
         this.finalParts = this.X.length;
     };
 
+    /**
+     * 计算加速比信息, 返回一个格式化的 Object
+     */
+    function GetSpeedUpInfo(ssg, mp, sourceFileName = "default.cos", pSelected = "GAPartition") {
+        let SpeedUpInfo = { pSelected, sourceFileName, finalParts: mp.finalParts };
+        SpeedUpInfo.date = new Date().toLocaleString();
+
+        let PartitionInfo = [];
+        for (var [core, communication] of mp.PartitonNum2Communication) {
+            let info = {
+                part: core,
+                workload: mp.w[core],
+                percent: (100 * mp.w[core] / mp.totalWork).toFixed(2) + '%',
+                communication: communication
+            };
+            PartitionInfo.push(info);
+        }
+
+        let Detail = [];
+        ssg.flatNodes.forEach((flat, idx) => {
+            let workload = ssg.mapSteadyWork2FlatNode.get(flat) * flat.steadyCount;
+            Detail.push({
+                part: idx,
+                actor: flat.name,
+                workload: workload,
+                percent: (workload * 100 / mp.totalWork).toFixed(2) + '%'
+            });
+        });
+
+        let TotalInfo = {
+            totalWorkload: mp.totalWork,
+        };
+        TotalInfo.totalCommunication = PartitionInfo.reduce((sum,info) => sum + info.communication, 0);
+        debugger
+        TotalInfo.maxWorkload = PartitionInfo.reduce((max,info) => info.workload > max.workload ? info : max).workload;
+        TotalInfo.maxSpeedUp = (TotalInfo.totalWorkload / TotalInfo.maxWorkload).toFixed(2);
+
+        Object.assign(SpeedUpInfo, { PartitionInfo, Detail, TotalInfo });
+        return SpeedUpInfo
+    }
+    /**
+     * 输入一个加速比信息的 Object, 返回它的格式化字符串
+     */
+    function PrintSpeedUpInfo(SpeedUpInfo) {
+        if (!SpeedUpInfo) console.warn("SpeedUpInfo 为空");
+
+        let header =`-------- default.cos - GAPartition(4) DATE -----------\n`;
+        header = header.replace("default.cos", SpeedUpInfo.sourceFileName);
+        header = header.replace("GAPartition", SpeedUpInfo.pSelected);
+        header = header.replace("4", SpeedUpInfo.finalParts);
+        header = header.replace("DATE", SpeedUpInfo.date);
+
+        let partitionStr =
+            `#######################  Partition info  ##########################
+part            workload             percent      communication\n`;
+        SpeedUpInfo.PartitionInfo.forEach(info=>{
+            let line = info.part + setw(info.workload,23) + setw(info.percent,19);
+            line += setw(info.communication,20);
+            partitionStr += line +'\n';
+        });
+
+        let detailStr = `######################## Detail ###################################
+part               actor             workload           percent\n`;
+        SpeedUpInfo.Detail.forEach(info=>{
+            let line = info.part + setw(info.actor, 23) + setw(info.workload, 19);
+            line += setw(info.percent, 20);
+            detailStr += line + '\n';
+        });
+
+        let totalStr = `##################### total info ###############################\n`;
+        for(let key in SpeedUpInfo.TotalInfo){
+            totalStr += key.padEnd(20) + '=    ' + SpeedUpInfo.TotalInfo[key] + '\n';
+        }
+
+        return header+ partitionStr + '\n' + detailStr + '\n' + totalStr
+    }
+
+    /**
+     * 在字符串 str 左边填充空格使得整个字符串具有 num 指定的长度
+     */
+    function setw(str = '', num = 20) {
+        str = str + '';
+        if (str.length > num) {
+            console.warn("[ComputeSpeedUp.js] setw 的 str 字符串较长, 影响排版");
+            console.trace();
+        }
+        return str.padStart(num)
+    }
+
+    /**
+     * 执行阶段赋值, 为ssg 中的每个 flatNode 添加 stageNum 字段
+     * @param { StaticStreamGraph } ssg
+     * @param { Partition } mp
+     * @returns { number } MaxStageNum - 最大阶段号
+     */
+    function StageAssignment(ssg, mp) {
+        //第一步根据SDF图的输入边得到拓扑序列，并打印输出
+        let topologic = actorTopologicalorder(ssg.flatNodes);
+        //第二步根据以上步骤的节点划分结果，得到阶段赋值结果
+        return actorStageMap(mp.FlatNode2PartitionNum, topologic);
+    }
+
+    /**
+     * 拓扑排序算法, 输入一组 flatNode 的 list, 在不改变其中数据的情况下, 返回拓扑排序后的 list
+     */
+    function actorTopologicalorder(flatNodes) {
+        let flats = flatNodes.slice();   //初始 flatNode 集合
+        let topologic = new Set(); //拓扑排序集合, 使用 Set 是为了判断 has 的时候更快
+
+        while (flats.length) {
+            //寻找没有前驱的节点(入度为0, 或它的上端节点都已经被拓扑过了)
+            let head = flats.find(flat => {
+                return flat.inFlatNodes.length == 0 ||
+                    flat.inFlatNodes.every(src => topologic.has(src))
+            });
+            if(!head){
+                throw new Error("[StageAssignment.js] 算法或SDF图出错,这里 head 不应该为空")
+            }
+            //找到该前驱节点后,将它加入 topologic 拓扑排序序列,并从初始集合中移出
+            topologic.add(head);
+            flats.splice(flats.indexOf(head),1);
+            
+        }
+
+        return [...topologic]
+    }
+
+    /**
+     * 根据拓扑排序结果、获得阶段赋值结果
+     * 若节点和其输入节点在一个划分子图，则其阶段号一致; 否则阶段号=上端最大阶段号+1
+     * @param { map<FlatNode,int> } map - mp.FlatNode2PartitionNum
+     */
+    function actorStageMap(map, topologic){
+        let stage = 0; //初始阶段号
+        topologic.forEach(flat=>{
+            //判断该节点是否和其输入节点都在一个划分子图
+            let isInSameSubGraph = flat.inFlatNodes.every(src=> map.get(src) == map.get(flat));
+
+            //如果有上端和自己不在同一子图的话,就要让阶段号+1
+            flat.stageNum = isInSameSubGraph ? stage : ++stage;
+        });
+
+        //返回总共有几个阶段, 例如阶段号分别是0,1,2,3,那么要返回一共有"4"个阶段
+        return stage + 1
+    }
+
     loadCVPPlugin();
     loadToStringPlugin();
 
@@ -2645,7 +2826,10 @@ var COStreamJS = (function () {
         unfold,
         SemCheck,
         DumpStreamGraph,
-        GreedyPartition
+        GreedyPartition,
+        GetSpeedUpInfo,
+        PrintSpeedUpInfo,
+        StageAssignment
     });
     COStreamJS.main = function(str){
         debugger
@@ -2658,6 +2842,10 @@ var COStreamJS = (function () {
         this.mp = new this.GreedyPartition(this.ssg);
         this.mp.setCpuCoreNum(4);
         this.mp.SssgPartition(this.ssg);
+        this.mp.computeCommunication();
+        let SI = this.GetSpeedUpInfo(this.ssg,this.mp);
+        debug(this.PrintSpeedUpInfo(SI));
+        this.MaxStageNum = this.StageAssignment(this.ssg,this.mp);
     };
 
     //下面代码是为了在浏览器的 window 作用域下调试而做的妥协
