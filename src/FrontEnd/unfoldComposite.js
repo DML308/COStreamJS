@@ -328,7 +328,7 @@ UnfoldComposite.prototype.generateDuplicateBodyStmts = function (compName, node)
         }
     }
     //2.构建 join 节点
-    let join = UnfoldComposite.prototype.MakeJoinOperator()
+    let join = UnfoldComposite.prototype.MakeJoinOperator(node.inputs,node.outputs)
     result.push(join)
     return result
 }
@@ -340,33 +340,66 @@ UnfoldComposite.prototype.generateDuplicateBodyStmts = function (compName, node)
 UnfoldComposite.prototype.MakeRoundrobinWork = function (/*list < Node *> **/ input,/* list < Node *> */ args,/* list < Node *> */ outputs) {
 
 }
-/**
- * @returns {Node} 
- */
-UnfoldComposite.prototype.MakeJoinWork = function (/*list < Node *> **/ input,/* list < Node *> */ args,/* list < Node *> */ outputs) {
 
-}
 /**
  * @returns {operatorNode} 
  */
 UnfoldComposite.prototype.MakeSplitOperator = function (/*Node **/ input,/* list < Node *> */ args,/* int */ style) {
     return 'split'
 }
+
+
 /**
- * 构建出一个真实的 join 的 operatorNode, 例如
+ * 构建出一个真实的 join 的 operatorNode, 该 operator 没有 stmt_list 和 init, 只有 work 和 window
+ * 例如
  * join(In1,In2) {
  *   work{
- *       Out[0] = In1[0];
- *       Out[1] = In2[1];
+ *       int i=0;
+ *		 int j=0;
+ *		 for(i=0;i<1;++i)		Out[j++]=Dstream0_0[i];
+ *		 for(i=0;i<1;++i)		Out[j++]=Dstream0_1[i];
+ *		 for(i=0;i<1;++i)		Out[j++]=Dstream0_2[i];
  *   }
  *   window{
- *       In1 sliding(1,1);
- *       In2 sliding(1,1);
- *       Out tumbling(2);
+ *       Dstream0_0 sliding(1,1);
+ *       Dstream0_1 sliding(1,1);
+ *       Dstream0_2 sliding(1,1);
+ *       Out tumbling(3);
  *   }
  * }
  * @returns {operatorNode} 
  */
-UnfoldComposite.prototype.MakeJoinOperator = function (/*Node **/ output,/* list < Node *> */ inputs,/* list < Node *> */ args) {
-    return "join";
+UnfoldComposite.prototype.MakeJoinOperator = function (inputs,outputs,args) {
+    args = args || Array.from({ length: inputs.length }).fill(1) //join roundrobin()在小括号中不输入参数的话默认全都是1
+
+    let work = MakeJoinWork(inputs, args, outputs);
+    let window = MakeJoinWindow(inputs, args, outputs);
+    let body = new operBodyNode(null,null,null,work,window) //没有 stmt_list 和 init,只有 work,window
+    let res = new operatorNode(null, "join", inputs, body)
+    res.outputs = outputs
+    return res
+
+    /**
+     * 构建 join 的 work 部分
+     * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
+     */
+    function MakeJoinWork(inputs,args,outputs){
+        let stmts = ["int i=0,j=0;"]
+        inputs.forEach((name,idx)=>{
+            stmts.push(`for(i=0;i<${args[idx]};++i)  ${outputs[0]}[j++] = ${name}[i]; \n`)
+        })
+        let work = '{\n' + stmts.join('\n') + '\n}\n'
+        return work
+    }
+    function MakeJoinWindow(inputs, args, outputs) {
+        //每行一个形如 In sliding(1,1) 的 winStmt
+        let winStmts = inputs.map((name,idx)=>{
+            let arg_list = [ args[idx], args[idx] ] //一般情况下为 sliding(1,1), 也兼容其它 arg
+            return new winStmtNode(null, name, { type: 'sliding', arg_list })
+        })
+        //加入末尾的输出, 形如 Out tumbling(3) 其中的数字是 args 的总和
+        let sum = args.reduce((a,b)=>a+b)
+        winStmts.push(new winStmtNode(null, outputs[0], { type: 'tumbling', arg_list:[sum] }) )
+        return winStmts
+    }
 }
