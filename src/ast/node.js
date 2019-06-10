@@ -293,9 +293,6 @@ export class operNode extends Node {
         super(loc)
         definePrivate(this, 'outputs')
     }
-    getCopy(){ 
-        throw new Error("该 oper 未实现此函数")
-    }
 }
 export class compositeCallNode extends operNode {
     constructor(loc, compName, inputs, params) {

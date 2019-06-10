@@ -1,3 +1,4 @@
+import { deepCloneWithoutCircle } from "../utils"
 import { compositeCall_list, COStreamJS } from "./global"
 import { addNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode } from "../ast/node";
 export class UnfoldComposite {
@@ -77,7 +78,7 @@ UnfoldComposite.prototype.compositeCallStreamReplace = function (/*compositeNode
 
     function getCopyOperInStreamReplace(exp, inputs, outputs) {
         /* 除了window都可以指向一块内存 对于window动态分配一块内存，替换window中的名字，再函数的结尾将流进行替换*/
-        let work = UnfoldComposite.prototype.workNodeCopy(exp.operBody.work);
+        let work = deepCloneWithoutCircle(exp.operBody.work);
         /*动态分配生成新的windowNode*/
         let win = []
         for (let win_stmt of exp.operBody.win) {
@@ -93,20 +94,6 @@ UnfoldComposite.prototype.compositeCallStreamReplace = function (/*compositeNode
         UnfoldComposite.prototype.modifyStreamName(oper, inputs, true);
         UnfoldComposite.prototype.modifyStreamName(oper, outputs, false);
         return oper
-    }
-}
-
-//FIXME 与杨飞的 workNodeCopy 不一致
-UnfoldComposite.prototype.workNodeCopy = function (/* Node */ u) {
-    return u.toString()
-
-    if (u instanceof declareNode) {
-
-    } else if (u instanceof blockNode) {
-        let stmt_list = u.stmt_list.map(node => workNodeCopy(node))
-        return new blockNode(null, '{', stmt_list, '}')
-    } else {
-        throw new Error("work中怎么会出现这种节点?! " + u.constructor.name)
     }
 }
 
@@ -184,19 +171,12 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
     return
 
     function handlerAdd(add) {
-        if (add.content instanceof compositeCallNode) {
-            compositeCall_list.push(add.content)
-
-        } else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {
-            let copy = unfold.workNodeCopy(add.content)
+            let copy = deepCloneWithoutCircle(add.content)
             compositeCall_list.push(copy)
-        }
     }
-
     /**
      * 对一个静态 for 循环做循环展开, 目前没有符号表, 所以只考虑如下简单例子
      * for(j= 1;j<10;i+=2) //对该例子会将其内部语句展开5次
-     * 
      * @warning 得益于 js 的字符串转函数能力, 我们能以一种 hacker 的方式来获取循环次数. 而 C++ 中的做法并非如此
      */
     function handlerFor(for_stmt) {
@@ -211,17 +191,9 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
             }
             return count` ;
         let count = (new Function(evalStr))()  //得到了 for 循环的实际执行次数
-        let adds
-        if (for_stmt.statement instanceof blockNode) {
-            adds = for_stmt.statement.stmt_list.filter(n => n instanceof addNode)
-        } else {
-            adds = [for_stmt.statement]
-        }
-        //现在需要展开循环的次数 count 和展开循环的内部语句 adds 都已准备好, 那么开始将其按顺序放入目标中
+        //现在需要展开循环的次数 count 和展开循环的循环体都已准备好, 则递归调用.
         for (let i = 0; i < count; i++) {
-            adds.forEach(add => {
-                compositeCall_list.push(add.content)
-            })
+            compositeCallFlow(for_stmt.statement.stmt_list)
         }
     }
 }
