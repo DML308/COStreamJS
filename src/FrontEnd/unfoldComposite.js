@@ -301,17 +301,18 @@ UnfoldComposite.prototype.generateRoundrobinBodyStmts = function (compName, node
  * }
  */
 UnfoldComposite.prototype.generateDuplicateBodyStmts = function (compName, node) {
-    let result = []
+    let result = [], innerStreams = []
     //1.构建 body 中的对输入流的处理
     for (let i = 0; i < compositeCall_list.length; i++) {
         let it = compositeCall_list[i]
-        let innerStreams = [compName + "_" + i] //该数组只有一个元素, 存放临时流名,例如[S0_1]
+        let streamName = [compName + "_" + i] //该数组只有一个元素, 存放临时流名,例如[S0_1]
+        innerStreams.push(streamName[0])
 
         if (it instanceof compositeCallNode) {
             let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName)
             let call = new compositeCallNode(null, it.compName, node.inputs, null)
-            call.outputs = innerStreams
-            call.actual_composite = this.compositeCallStreamReplace(comp, node.inputs, innerStreams)
+            call.outputs = streamName
+            call.actual_composite = this.compositeCallStreamReplace(comp, node.inputs, streamName)
             result.push(call)
 
         } else if (it instanceof splitjoinNode || it instanceof pipelineNode) {
@@ -323,12 +324,12 @@ UnfoldComposite.prototype.generateDuplicateBodyStmts = function (compName, node)
              * 但好像该BUG对代码生成影响不大, 所以先留在这里.
              */
             it.inputs = node.inputs
-            it.outputs = innerStreams
+            it.outputs = streamName
             result.push(it)
         }
     }
     //2.构建 join 节点
-    let join = UnfoldComposite.prototype.MakeJoinOperator(node.inputs,node.outputs)
+    let join = this.MakeJoinOperator(innerStreams,node.outputs)
     result.push(join)
     return result
 }
@@ -386,7 +387,7 @@ UnfoldComposite.prototype.MakeJoinOperator = function (inputs,outputs,args) {
     function MakeJoinWork(inputs,args,outputs){
         let stmts = ["int i=0,j=0;"]
         inputs.forEach((name,idx)=>{
-            stmts.push(`for(i=0;i<${args[idx]};++i)  ${outputs[0]}[j++] = ${name}[i]; \n`)
+            stmts.push(`for(i=0;i<${args[idx]};++i)  ${outputs[0]}[j++] = ${name}[i];`)
         })
         let work = '{\n' + stmts.join('\n') + '\n}\n'
         return work

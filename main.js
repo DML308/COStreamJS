@@ -1,8 +1,8 @@
 import * as utils from "./src/utils"
 import * as NodeTypes from "./src/ast/node.js"
 import parser from "./src/config/parser.js"
-import { loadCVPPlugin } from "./src/ast/constantValuePropagation"
-import { loadToStringPlugin, ast2String } from "./src/ast/toString"
+import "./src/ast/constantValuePropagation"
+import { ast2String } from "./src/ast/toString"
 import { SemCheck } from "./src/LifeCycle/semcheck"
 import { AST2FlatStaticStreamGraph } from "./src/LifeCycle/ast2ssg"
 import { unfold } from "./src/FrontEnd/unfoldComposite"
@@ -14,8 +14,6 @@ import { DumpStreamGraph } from "./src/LifeCycle/DumpStreamGraph"
 import { GreedyPartition } from "./src/BackEnd/GreedyPartition"
 import { GetSpeedUpInfo, PrintSpeedUpInfo } from "./src/BackEnd/ComputeSpeedUp"
 import { StageAssignment } from "./src/BackEnd/StageAssignment"
-loadCVPPlugin()
-loadToStringPlugin()
 
 Object.assign(COStreamJS, {
     parser,
