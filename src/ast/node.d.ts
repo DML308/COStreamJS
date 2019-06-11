@@ -8,26 +8,26 @@ export interface YYLTYPE {
 export class Node {
     _loc?: YYLTYPE
 
-    constructor(loc:YYLTYPE)
+    constructor(loc: YYLTYPE)
 }
 /********************************************************/
 /*              1.1 declaration                         */
 /********************************************************/
-export class declarator extends Node{
-    identifier:string | declarator
-    op1:string
-    parameter:any
-    op2?:string
-    initializer:null
+export class declarator extends Node {
+    identifier: string | declarator
+    op1: string
+    parameter: any
+    op2?: string
+    initializer: null
 
-    constructor(loc:YYLTYPE, identifier:string, op1:string, parameter:any, op2:string, initializer:any)
-    
+    constructor(loc: YYLTYPE, identifier: string, op1: string, parameter: any, op2: string, initializer: any)
+
 }
-export class declareNode extends Node{
+export class declareNode extends Node {
     type: string
     init_declarator_list: declarator[]
 
-    constructor(loc:YYLTYPE, type:string, init_declarator_list:declarator[])
+    constructor(loc: YYLTYPE, type: string, init_declarator_list: declarator[])
 }
 /********************************************************/
 /*              1.2 function.definition 函数声明          */
@@ -206,61 +206,62 @@ export class forNode extends Node {
 
 export class expNode extends Node {
     _value: number
-    getValue():number
+    getValue(): number
 }
 
-declare primary_expression: string | constantNode | parenNode;
-declare unary_expression: postfix_expression | unaryNode | castNode;
-declare basic_type_name: string
-declare type_specifier: string
+type exp = expNode
+type primary_expression = string | expNode
+type argument_expression_list = exp[]
+type operator_arguments = void | argument_expression_list
+type postfix_expression = primary_expression | arrayNode | compositeCallNode | callNode | binopNode | unaryNode | operatorNode | splitjoinNode | pipelineNode;
+type unary_expression = postfix_expression | unaryNode | castNode
+type basic_type_name = string
+type type_specifier = string
+type expression = expNode | expNode[]
 
 export class unaryNode extends expNode {
-    first:string
-    second:unary_expression
+    first: string | unary_expression
+    second: unary_expression | string
 
-    constructor(loc:YYLTYPE, first:string, second:primary_expression) 
+    constructor(loc: YYLTYPE, first: string | unary_expression, second: primary_expression | string)
 };
 
 export class castNode extends expNode {
-    op1: '(' 
+    op1: '('
     type: basic_type_name
     op2: ')'
     exp: unary_expression
-    
-    constructor(loc:YYLTYPE, type:basic_type_name, exp:unary_expression)
+
+    constructor(loc: YYLTYPE, type: basic_type_name, exp: unary_expression)
 }
 
 export class binopNode extends expNode {
-    constructor(loc, left, op, right) {
-        super(loc)
-        Object.assign(this, { left, op, right })
-    }
+    left: exp
+    op:string
+    right:exp
+    constructor(loc: YYLTYPE, left:exp, op:string, right:exp)
 }
 
 export class ternaryNode extends expNode {
-    constructor(loc, first, second, third) {
-        super(loc)
-        Object.assign(this, { first, op1: '?', second, op2: ':', third })
-    }
+    first:exp
+    second:exp
+    third:exp
+
+    constructor(loc: YYLTYPE, first:exp, second:exp, third:exp) 
 }
 
 export class parenNode extends expNode {
-    constructor(loc, exp) {
-        super(loc)
-        Object.assign(this, { op1: '(', exp, op2: ')' })
-    }
+    op1:'('
+    exp:exp
+    op2:')'
+
+    constructor(loc: YYLTYPE, exp:exp)
 }
 export class arrayNode extends expNode {
-    constructor(loc, exp, arg) {
-        super(loc)
-        if (exp instanceof arrayNode) {
-            this.exp = exp.exp
-            this.arg_list = exp.arg_list.slice().concat(arg)
-        } else {
-            this.exp = exp
-            this.arg_list = [arg]
-        }
-    }
+    exp: string | arrayNode 
+    arg_list:expression[]
+    //TODO: index: string | constantNode | binopNode
+    constructor(loc: YYLTYPE, exp: exp | arrayNode, arg: expression) 
 }
 export class callNode extends expNode {
     constructor(loc, name, arg_list) {
@@ -273,8 +274,8 @@ export class callNode extends expNode {
 }
 export class constantNode extends expNode {
     /** 表示常量的原字符串,例如0x10是数字16的原字符串 */
-    source: string 
-    constructor(loc:YYLTYPE, sourceStr:string) 
+    source: string
+    constructor(loc: YYLTYPE, sourceStr: string)
 }
 /********************************************************/
 /* operNode in expression's right                       */
@@ -301,7 +302,7 @@ export class compositeCallNode extends operNode {
                 op4: ')'
             })
         }
-        definePrivate(this,'actual_composite')
+        definePrivate(this, 'actual_composite')
     }
 }
 export class operatorNode extends operNode {
@@ -313,8 +314,8 @@ export class operatorNode extends operNode {
 export class splitjoinNode extends operNode {
     constructor(loc, options) {
         super(loc)
-        this.compName = options.compName 
-        this.inputs = options.inputs     
+        this.compName = options.compName
+        this.inputs = options.inputs
         this.stmt_list = options.stmt_list
         this.split = options.split
         this.body_stmts = options.body_stmts
