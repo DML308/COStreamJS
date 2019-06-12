@@ -955,7 +955,7 @@ var COStreamJS = (function () {
 
               if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode].some(x=> $$[$0] instanceof x)){
                   if($$[$0-2] instanceof parenNode){
-                      $$[$0].outputs = $$[$0-2].exp;
+                      $$[$0].outputs = $$[$0-2].exp.slice();
                   }else if(typeof $$[$0-2] == "string"){
                       $$[$0].outputs = [$$[$0-2]];
                   }else{
