@@ -216,7 +216,7 @@ UnfoldComposite.prototype.UnfoldSplitJoin = function (node) {
     let inout = new ComInOutNode(null, node.inputs, node.outputs)
     let head = new compHeadNode(null, compName, inout)
 
-    var stmt_list = this.generateDuplicateOrRoundrobinBodyStmts(compName, node, node.split.type );
+    var stmt_list = this.generateDuplicateOrRoundrobinBodyStmts(compName, node, node.split.type);
 
     let body = new compBodyNode(null, null, stmt_list)
     let actual_composite = new compositeNode(null, head, body)
@@ -238,18 +238,20 @@ UnfoldComposite.prototype.UnfoldSplitJoin = function (node) {
  *   S0_2 = pipeline(dup_2)
  *   Out = join(S0_0, S0_1, S0_2)
  * }
+ * @param {splitjoinNode} node
+ * @returns {statement[]}
  */
-UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (compName, node,type="duplicate") {
+UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (compName, node, type = "duplicate") {
     let result = []
 
     //0.先提前设置好流变量名
-    let splitStreams = Array.from({length:compositeCall_list.length}).map((_,idx)=>compName+"_split_"+idx)
+    let splitStreams = Array.from({ length: compositeCall_list.length }).map((_, idx) => compName + "_split_" + idx)
     let joinStreams = Array.from({ length: compositeCall_list.length }).map((_, idx) => compName + "_join_" + idx)
 
     //1.构建 duplicateOrRoundrobin  节点
-    let duplicateOrRoundrobinOper = type === "duplicate" 
-        ? this.MakeDuplicateOperator(node.inputs, node.arg_list, splitStreams)
-        : this.MakeRoundrobinOperator(node.inputs, node.arg_list, splitStreams)
+    let duplicateOrRoundrobinOper = type === "duplicate"
+        ? this.MakeDuplicateOperator(node.inputs, node.split.arg_list, splitStreams)
+        : this.MakeRoundrobinOperator(node.inputs, node.split.arg_list, splitStreams)
     result.push(duplicateOrRoundrobinOper)
 
     //2.构建 body 中的对输入流的处理
@@ -278,7 +280,7 @@ UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (com
         }
     }
     //3.构建 join 节点
-    result.push(this.MakeJoinOperator(joinStreams, node.outputs))
+    result.push(this.MakeJoinOperator(joinStreams, node.split.arg_list, node.outputs))
     return result
 }
 
@@ -300,7 +302,7 @@ UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (com
  * }
  * @returns {operatorNode}
  */
-UnfoldComposite.prototype.MakeRoundrobinOperator = function (inputs,args,outputs){
+UnfoldComposite.prototype.MakeRoundrobinOperator = function (inputs, args, outputs) {
     /* duplicate  的参数被文法手册规定为全为1
      * Roundrobin 的参数可不仅仅为1哦, 可以自定义哒
      * 如果不指定参数, 则默认都为1 */
@@ -327,13 +329,14 @@ UnfoldComposite.prototype.MakeRoundrobinOperator = function (inputs,args,outputs
     }
     function MakeRoundrobinWindow(inputs, args, outputs) {
         //1. 构建 In sliding(2,2);
-        let sum = args.reduce((a,b)=>a+b)
+        let sum = args.reduce((a, b) => a + b)
         let arg_list = [sum, sum].map(num => new constantNode(null, num)) //Roundrobin 的参数可不仅仅为1哦, 可以自定义哒
         let winStmts = [new winStmtNode(null, inputs[0], { type: 'sliding', arg_list })]
 
         //2. 循环构建 Out tumbling(1);
-        outputs.forEach((name,idx) => {
-            winStmts.push(new winStmtNode(null, name, { type: 'tumbling', arg_list: [ args[idx] ] }))
+        outputs.forEach((name, idx) => {
+            let arg_list = [new constantNode(null, args[idx])]
+            winStmts.push(new winStmtNode(null, name, { type: 'tumbling', arg_list }))
         })
         return winStmts
     }
@@ -359,7 +362,7 @@ UnfoldComposite.prototype.MakeRoundrobinOperator = function (inputs,args,outputs
  * }
  * @returns {operatorNode}
  */
-UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs,args,outputs) {
+UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs, args, outputs) {
     args = args || Array.from({ length: outputs.length }).fill(1) //使用默认全都是1 , 实际上split duplicate()在小括号中不允许输入参数
     let work = MakeDuplicateWork(inputs, args, outputs);
     let window = MakeDuplicateWindow(inputs, args, outputs);
@@ -382,12 +385,12 @@ UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs,args,outputs)
     }
     function MakeDuplicateWindow(inputs, args, outputs) {
         //1. 构建 In sliding(1,1);
-        let arg_list = [1,1].map(num => new constantNode(null, num)) //duplicate 的参数被文法手册规定为1
-        let winStmts = [new winStmtNode(null,inputs[0],{type:'sliding',arg_list})]
+        let arg_list = [1, 1].map(num => new constantNode(null, num)) //duplicate 的参数被文法手册规定为1
+        let winStmts = [new winStmtNode(null, inputs[0], { type: 'sliding', arg_list })]
 
         //2. 循环构建 Out1 tumbling(1);
-        outputs.forEach(name=>{
-            winStmts.push(new winStmtNode(null, name, { type: 'tumbling', arg_list: arg_list.slice(1)}))
+        outputs.forEach(name => {
+            winStmts.push(new winStmtNode(null, name, { type: 'tumbling', arg_list: arg_list.slice(1) }))
         })
         return winStmts
     }
@@ -414,7 +417,7 @@ UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs,args,outputs)
  * }
  * @returns {operatorNode} 
  */
-UnfoldComposite.prototype.MakeJoinOperator = function (inputs, outputs, args) {
+UnfoldComposite.prototype.MakeJoinOperator = function (inputs, args, outputs) {
     args = args || Array.from({ length: inputs.length }).fill(1) //join roundrobin()在小括号中不输入参数的话默认全都是1
 
     let work = MakeJoinWork(inputs, args, outputs);
@@ -445,8 +448,8 @@ UnfoldComposite.prototype.MakeJoinOperator = function (inputs, outputs, args) {
         //加入末尾的输出, 形如 Out tumbling(3) 其中的数字是 args 的总和
         let sum = args.reduce((a, b) => a + b)
         winStmts.push(new winStmtNode(
-            null, 
-            outputs[0], 
+            null,
+            outputs[0],
             { type: 'tumbling', arg_list: [new constantNode(null, sum)] })
         )
         return winStmts
