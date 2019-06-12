@@ -455,7 +455,13 @@ assignment_expression:
     | unary_expression assignment_operator assignment_expression    
       {
           if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode].some(x=> $3 instanceof x)){
-              $3.outputs = [$1]
+              if($1 instanceof parenNode){
+                  $3.outputs = $1.exp
+              }else if(typeof $1 == "string"){
+                  $3.outputs = [$1]
+              }else{
+                  error("只支持 S = oper()() 或 (S1,S2) = oper()() 两种方式",$1,$3) 
+              }
           }
           $$ = new binopNode(@$,$1,$2,$3) 
       }
