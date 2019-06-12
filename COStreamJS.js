@@ -120,14 +120,13 @@ var COStreamJS = (function () {
 
         function deepClone(node) {
             if (hasVisitedNode.has(node)) {
-                console.error("深拷贝出现递归错误,请检查:",node);
+                console.error("深拷贝出现循环引用错误,请检查:",node);
             } else {
                 if (['number', 'boolean', 'string', 'undefined'].includes(typeof node) || node === null) {
                     return node
                 } else {
                     hasVisitedNode.set(node, true);
-                    let proto = Object.getPrototypeOf(node);
-                    let obj = Object.create(proto);
+                    let obj = new node.constructor();
                     Object.keys(node).forEach(key => {
                         obj[key] = deepClone(node[key]);
                     });
@@ -235,7 +234,7 @@ var COStreamJS = (function () {
     /*        2. composite                                  */
     /********************************************************/
     class compositeNode extends Node {
-        constructor(loc, head, body) {
+        constructor(loc, head = {}, body = {}) {
             super(loc);
             Object.assign(this, {
                 op: 'composite',
@@ -305,12 +304,12 @@ var COStreamJS = (function () {
         }
     }
     class winStmtNode extends Node {
-        constructor(loc, winName, { type, arg_list }) {
+        constructor(loc, winName, options ={}) {
             super(loc);
             Object.assign(this, {
                 winName,
-                type,
-                arg_list
+                type: options.type,
+                arg_list: options.arg_list
             });
         }
     }
@@ -388,8 +387,6 @@ var COStreamJS = (function () {
     class expNode extends Node {
         constructor(loc) {
             super(loc);
-            this._value = NaN;
-            definePrivate(this, '_value');
             //检查是否有常量传播插件提供的 getValue 函数
             if (expNode.prototype.getValue) {
                 expNode.prototype.getValue.call(this);
@@ -452,15 +449,10 @@ var COStreamJS = (function () {
         }
     }
     class constantNode extends expNode {
-        constructor(loc, sourceStr) {
+        constructor(loc, sourceStr='') {
             super(loc);
             // 转义字符串中的 \n 等特殊字符
-            this.source = sourceStr.replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
-            //判断这个常量是数字还是字符串
-            if (!Number.isNaN(Number(sourceStr))) {
-                this._value = Number(sourceStr);
-            }
-            this._value = sourceStr;
+            this.source = (sourceStr+'').replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
         }
     }
     /********************************************************/
@@ -469,7 +461,7 @@ var COStreamJS = (function () {
     class operNode extends Node {
         constructor(loc) {
             super(loc);
-            definePrivate(this, 'outputs');
+            this.outputs = [];
         }
     }
     class compositeCallNode extends operNode {
@@ -488,7 +480,7 @@ var COStreamJS = (function () {
                     op4: ')'
                 });
             }
-            definePrivate(this,'actual_composite');
+            definePrivate(this, 'actual_composite');
         }
     }
     class operatorNode extends operNode {
@@ -498,10 +490,10 @@ var COStreamJS = (function () {
         }
     }
     class splitjoinNode extends operNode {
-        constructor(loc, options) {
+        constructor(loc, options = {}) {
             super(loc);
-            this.compName = options.compName; 
-            this.inputs = options.inputs;     
+            this.compName = options.compName;
+            this.inputs = options.inputs;
             this.stmt_list = options.stmt_list;
             this.split = options.split;
             this.body_stmts = options.body_stmts;
@@ -510,7 +502,7 @@ var COStreamJS = (function () {
         }
     }
     class pipelineNode extends operNode {
-        constructor(loc, options) {
+        constructor(loc, options = {}) {
             super(loc);
             this.compName = options.compName;
             this.inputs = options.inputs;
@@ -519,7 +511,7 @@ var COStreamJS = (function () {
         }
     }
     class splitNode extends Node {
-        constructor(loc, node) {
+        constructor(loc, node = {}) {
             super(loc);
             this.name = "split";
             this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin";
@@ -529,7 +521,7 @@ var COStreamJS = (function () {
         }
     }
     class joinNode extends Node {
-        constructor(loc, node) {
+        constructor(loc, node = {}) {
             super(loc);
             this.name = "join";
             this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin";
@@ -962,7 +954,13 @@ var COStreamJS = (function () {
     case 142:
 
               if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode].some(x=> $$[$0] instanceof x)){
-                  $$[$0].outputs = [$$[$0-2]];
+                  if($$[$0-2] instanceof parenNode){
+                      $$[$0].outputs = $$[$0-2].exp;
+                  }else if(typeof $$[$0-2] == "string"){
+                      $$[$0].outputs = [$$[$0-2]];
+                  }else{
+                      error("只支持 S = oper()() 或 (S1,S2) = oper()() 两种方式",$$[$0-2],$$[$0]); 
+                  }
               }
               this.$ = new binopNode(this._$,$$[$0-2],$$[$0-1],$$[$0]); 
           
@@ -1606,13 +1604,10 @@ var COStreamJS = (function () {
         Object.defineProperty(this, 'value', {
             enumerable: false,
             get: function () {
-                if (!Number.isNaN(this._value)) return Number(this._value)
-                else {
-                    return (this.getValue && (this._value = this.getValue()))
-                }
+                return this.getValue()
             },
             set: function () {
-                error$1("请不要手动给 value 赋值. 请给 _value 赋值,然后 value 会基于 _value 计算而来", this);
+                error$1("请不要手动给 value 赋值.", this);
             }
         });
     };
@@ -1666,6 +1661,10 @@ var COStreamJS = (function () {
     };
     callNode.prototype.getValue = function () {
         return NaN
+    };
+
+    constantNode.prototype.getValue = function(){
+        return Number(this.source)
     };
 
     function ast2String(root) {
@@ -2031,17 +2030,17 @@ var COStreamJS = (function () {
      *    S0 = AssignmentX(Source){ }
      * }
      */
-    UnfoldComposite.prototype.streamReplace = function (/*compositeNode **/ comp,/* String[] */ inputs, outputs,/* int*/ flag) {
+    UnfoldComposite.prototype.streamReplace = function (/*compositeNode **/ comp,/* String[] */ inputs, outputs, flag) {
         let stmt_list = comp.body.stmt_list;
-        operaterStreamReplace(stmt_list[0], inputs, 'inputs');
-        operaterStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs');
+        operatorStreamReplace(stmt_list[0], inputs, 'inputs');
+        operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs');
         return comp
 
-        function operaterStreamReplace(stmt, streamNames, tag) {
+        function operatorStreamReplace(stmt, streamNames, tag) {
             let oper = stmt instanceof binopNode ? stmt.right : stmt;
             if (oper instanceof operatorNode) {
                 if (flag) {
-                    UnfoldComposite.prototype.modifyStreamName(oper, streamNames, true);
+                    UnfoldComposite.prototype.modifyStreamName(oper, streamNames, tag=="inputs");
                 }
                 oper[tag] = streamNames;
             } else if (oper instanceof splitjoinNode || oper instanceof pipelineNode) {
@@ -2098,9 +2097,11 @@ var COStreamJS = (function () {
         }
     };
 
-    /* style标识输入流还是输出流,true: 输入流, false: 输出流*/
-    //important!: 杨飞的版本中, 虽然 work 和 win 都修改为了新的streamName, 但是 inputs 和 outputs 还是未变, 不知道这样好不好
-    //FIXME 与杨飞的 modifyStreamName 不一致
+    /**
+     * 对oper进行修改: 用输入的 stream 流名来替换 work 和 win 中对应的流名
+     * @param {boolean} style -标识输入流还是输出流,true: 输入流, false: 输出流
+     * @description FIXME 与杨飞的 modifyStreamName 不一致: 因为这里的 work 简化为了字符串, 所以直接进行了字符串替换. win 的处理基本一致
+     */
     UnfoldComposite.prototype.modifyStreamName = function (/*operatorNode **/ oper, stream, style) {
         var newName = stream[0];
         var oldName = style ? oper.inputs[0] : oper.outputs[0];
@@ -2150,6 +2151,7 @@ var COStreamJS = (function () {
                 call.outputs = outputs;
                 //TODO: 符号表修改后要修改对应的这个地方
                 let comp = COStreamJS.S.LookUpCompositeSymbol(compCall.compName);
+                comp = deepCloneWithoutCircle(comp); //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
                 call.actual_composite = UnfoldComposite.prototype.compositeCallStreamReplace(comp, inputs, outputs);
 
                 let binop = new binopNode(null, outputs, '=', call);
@@ -2172,8 +2174,13 @@ var COStreamJS = (function () {
         return
 
         function handlerAdd(add) {
+            if (add.content instanceof compositeCallNode) {
+                compositeCall_list.push(add.content);
+
+            } else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {
                 let copy = deepCloneWithoutCircle(add.content);
                 compositeCall_list.push(copy);
+            }
         }
         /**
          * 对一个静态 for 循环做循环展开, 目前没有符号表, 所以只考虑如下简单例子
@@ -2208,9 +2215,8 @@ var COStreamJS = (function () {
         compositeCallFlow(node.body_stmts);
         let inout = new ComInOutNode(null, node.inputs, node.outputs);
         let head = new compHeadNode(null, compName, inout);
-        var stmt_list = node.split.type === 'roundrobin'
-            ? this.generateRoundrobinBodyStmts(compName, node)
-            : this.generateDuplicateBodyStmts(compName, node);
+
+        var stmt_list = this.generateDuplicateOrRoundrobinBodyStmts(compName, node, node.split.type);
 
         let body = new compBodyNode(null, null, stmt_list);
         let actual_composite = new compositeNode(null, head, body);
@@ -2219,107 +2225,170 @@ var COStreamJS = (function () {
     };
 
     /**
-     * 对于如下形式的 split roundrobin
-     * split roundrobin(1,1);
-     *   add A();
-     *   add B();
-     * join  roundrobin(1,1);
-     * 我们要生成的 stmt_list 的格式为{
-     *   [S1,S2] = MakeSplitOperator(In)
-     *   S3 = A(S1)
-     *   S4 = B(S2)
-     *   Out = MakeJoinOperator(S3,S4)
-     * }
-     */
-    UnfoldComposite.prototype.generateRoundrobinBodyStmts = function (compName, node) {
-        //1.构建 split 来切分输入流
-        let result = [];
-        result.push(this.MakeSplitOperator(node.inputs , node.split.arg_list));
-        //2.构建 body 中的对输入流的处理
-        for (let i = 0; i < compositeCall_list.length; i++) {
-            let it = compositeCall_list[i];
-            let innerStreams = [compName + "_" + i]; //该数组只有一个元素, 存放临时流名,例如[S0_1]
-
-            if (it instanceof compositeCallNode) {
-                let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName);
-                let call = new compositeCallNode(null, it.compName, node.inputs, null);
-                call.outputs = innerStreams;
-                call.actual_composite = this.compositeCallStreamReplace(comp, node.inputs, innerStreams);
-                result.push(call);
-
-            } else {
-                /* FIXME: 对于有限的测试用例, 这里做了理想的假设: 即 roundrobin 节点里只有简单的 compositeCall */
-                throw new Error('Unfold 暂不支持 roundrobin 中嵌套复杂类型')
-            }
-        }
-        //3.构建 join 节点
-        let join = UnfoldComposite.prototype.MakeJoinOperator();
-        result.push(join);
-        return result
-    };
-
-
-    /**
-     * 对于如下形式的 split duplicate
-     * split duplicate();
+     * 对于如下形式的 split duplicateOrRoundrobin
+     * split duplicateOrRoundrobin();
      *   add A();
      *   add B();
      *   add pipeline();
      * join  roundrobin();
      * 我们要生成的 stmt_list 的格式为{
-     *   S0_0 = A(In)
-     *   S0_1 = B(In)
-     *   S0_2 = pipeline(In)
+     *   (dup_0,dup_1,dup_2) = duplicateOrRoundrobinOper(In)
+     *   S0_0 = A(dup_0)
+     *   S0_1 = B(dup_1)
+     *   S0_2 = pipeline(dup_2)
      *   Out = join(S0_0, S0_1, S0_2)
      * }
+     * @param {splitjoinNode} node
+     * @returns {statement[]}
      */
-    UnfoldComposite.prototype.generateDuplicateBodyStmts = function (compName, node) {
-        let result = [], innerStreams = [];
-        //1.构建 body 中的对输入流的处理
+    UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (compName, node, type = "duplicate") {
+        let result = [];
+
+        //0.先提前设置好流变量名
+        let splitStreams = Array.from({ length: compositeCall_list.length }).map((_, idx) => compName + "_split_" + idx);
+        let joinStreams = Array.from({ length: compositeCall_list.length }).map((_, idx) => compName + "_join_" + idx);
+
+        //1.构建 duplicateOrRoundrobin  节点
+        let duplicateOrRoundrobinOper = type === "duplicate"
+            ? this.MakeDuplicateOperator(node.inputs, node.split.arg_list, splitStreams)
+            : this.MakeRoundrobinOperator(node.inputs, node.split.arg_list, splitStreams);
+        result.push(duplicateOrRoundrobinOper);
+
+        //2.构建 body 中的对输入流的处理
         for (let i = 0; i < compositeCall_list.length; i++) {
             let it = compositeCall_list[i];
-            let streamName = [compName + "_" + i]; //该数组只有一个元素, 存放临时流名,例如[S0_1]
-            innerStreams.push(streamName[0]);
 
             if (it instanceof compositeCallNode) {
                 let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName);
-                let call = new compositeCallNode(null, it.compName, node.inputs, null);
-                call.outputs = streamName;
-                call.actual_composite = this.compositeCallStreamReplace(comp, node.inputs, streamName);
+                comp = deepCloneWithoutCircle(comp); //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
+                let call = new compositeCallNode(null, it.compName, [splitStreams[i]], null);
+                call.outputs = joinStreams[i];
+                call.actual_composite = this.compositeCallStreamReplace(comp, [splitStreams[i]], [joinStreams[i]]);
                 result.push(call);
 
             } else if (it instanceof splitjoinNode || it instanceof pipelineNode) {
                 /* 若为splitjoin或者pipeline结构，赋予其输入和输出流 */
-                /* FIXME: 这里会有一个 BUG, 因为这里是对右边的 call 进行了复用, 
-                 * 所以会导致最后一个赋值的流名覆盖了之前的流名 , 
-                 * 例如我们本意是 join(S0,S1,S2)
-                 * 实际情况会得到结果 join(S2,S2,S2)
-                 * 但好像该BUG对代码生成影响不大, 所以先留在这里.
-                 */
-                it.inputs = node.inputs;
-                it.outputs = streamName;
+                /* NOTE: 这里的it 可能都为 splitjoinNode, 但是它们在 handlerAdd 中被 clone 过,所以不会有 重赋值 的问题 */
+                it.inputs = [splitStreams[i]];
+                it.outputs = [joinStreams[i]];
                 result.push(it);
             }
         }
-        //2.构建 join 节点
-        let join = this.MakeJoinOperator(innerStreams,node.outputs);
-        result.push(join);
+        //3.构建 join 节点
+        result.push(this.MakeJoinOperator(joinStreams, node.split.arg_list, node.outputs));
         return result
     };
 
 
     /**
-     * @returns {Node} 
+     * 构建出一个真实的 roundrobin 的 operatorNode, 该 operator 没有 stmt_list 和 init, 只有 work 和 window
+     * 例如
+     * roundrobin(In) {
+     *   work{
+     *       int i=0,j=0;
+     *		 for(i=0;i<1;++i)		round2_0[i]=dup0_1[j++];
+     *		 for(i=0;i<1;++i)		round2_1[i]=dup0_1[j++];
+     *   }
+     *   window{
+     *       dup0_1 sliding(2,2);
+     *       round2_0 tumbling(1);
+     *       round2_1 tumbling(1);
+     *   }
+     * }
+     * @returns {operatorNode}
      */
-    UnfoldComposite.prototype.MakeRoundrobinWork = function (/*list < Node *> **/ input,/* list < Node *> */ args,/* list < Node *> */ outputs) {
+    UnfoldComposite.prototype.MakeRoundrobinOperator = function (inputs, args, outputs) {
+        /* duplicate  的参数被文法手册规定为全为1
+         * Roundrobin 的参数可不仅仅为1哦, 可以自定义哒
+         * 如果不指定参数, 则默认都为1 */
+        args = args || Array.from({ length: outputs.length }).fill(1);
 
+        let work = MakeRoundrobinWork(inputs, args, outputs);
+        let window = MakeRoundrobinWindow(inputs, args, outputs);
+        let body = new operBodyNode(null, null, null, work, window); //没有 stmt_list 和 init,只有 work,window
+        let res = new operatorNode(null, "roundrobin", inputs, body);
+        res.outputs = outputs;
+        return res
+
+        /**
+         * 构建 Roundrobin 的 work 部分
+         * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
+         */
+        function MakeRoundrobinWork(inputs, args, outputs) {
+            let stmts = ["int i=0,j=0;"];
+            outputs.forEach((name, idx) => {
+                stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[j++];`);
+            });
+            let work = '{\n' + stmts.join('\n') + '\n}\n';
+            return work
+        }
+        function MakeRoundrobinWindow(inputs, args, outputs) {
+            //1. 构建 In sliding(2,2);
+            let sum = args.reduce((a, b) => a + b);
+            let arg_list = [sum, sum].map(num => new constantNode(null, num)); //Roundrobin 的参数可不仅仅为1哦, 可以自定义哒
+            let winStmts = [new winStmtNode(null, inputs[0], { type: 'sliding', arg_list })];
+
+            //2. 循环构建 Out tumbling(1);
+            outputs.forEach((name, idx) => {
+                let arg_list = [new constantNode(null, args[idx])];
+                winStmts.push(new winStmtNode(null, name, { type: 'tumbling', arg_list }));
+            });
+            return winStmts
+        }
     };
 
+
     /**
-     * @returns {operatorNode} 
+     * 构建出一个真实的 duplicate 的 operatorNode, 该 operator 没有 stmt_list 和 init, 只有 work 和 window
+     * 例如
+     * duplicate(In) {
+     *   work{
+     *       int i=0;
+     *		 for(i=0;i<1;++i)		Out1[i]=In[i];
+     *		 for(i=0;i<1;++i)		Out2[i]=In[i];
+     *		 for(i=0;i<1;++i)		Out3[i]=In[i];
+     *   }
+     *   window{
+     *       In sliding(1,1);
+     *       Out1 tumbling(1);
+     *       Out2 tumbling(1);
+     *       Out3 tumbling(1);
+     *   }
+     * }
+     * @returns {operatorNode}
      */
-    UnfoldComposite.prototype.MakeSplitOperator = function (/*Node **/ input,/* list < Node *> */ args,/* int */ style) {
-        return 'split'
+    UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs, args, outputs) {
+        args = args || Array.from({ length: outputs.length }).fill(1); //使用默认全都是1 , 实际上split duplicate()在小括号中不允许输入参数
+        let work = MakeDuplicateWork(inputs, args, outputs);
+        let window = MakeDuplicateWindow(inputs, args, outputs);
+        let body = new operBodyNode(null, null, null, work, window); //没有 stmt_list 和 init,只有 work,window
+        let res = new operatorNode(null, "duplicate", inputs, body);
+        res.outputs = outputs;
+        return res
+
+        /**
+         * 构建 duplicate 的 work 部分
+         * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
+         */
+        function MakeDuplicateWork(inputs, args, outputs) {
+            let stmts = ["int i=0;"];
+            outputs.forEach((name, idx) => {
+                stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[i];`);
+            });
+            let work = '{\n' + stmts.join('\n') + '\n}\n';
+            return work
+        }
+        function MakeDuplicateWindow(inputs, args, outputs) {
+            //1. 构建 In sliding(1,1);
+            let arg_list = [1, 1].map(num => new constantNode(null, num)); //duplicate 的参数被文法手册规定为1
+            let winStmts = [new winStmtNode(null, inputs[0], { type: 'sliding', arg_list })];
+
+            //2. 循环构建 Out1 tumbling(1);
+            outputs.forEach(name => {
+                winStmts.push(new winStmtNode(null, name, { type: 'tumbling', arg_list: arg_list.slice(1) }));
+            });
+            return winStmts
+        }
     };
 
 
@@ -2343,12 +2412,12 @@ var COStreamJS = (function () {
      * }
      * @returns {operatorNode} 
      */
-    UnfoldComposite.prototype.MakeJoinOperator = function (inputs,outputs,args) {
+    UnfoldComposite.prototype.MakeJoinOperator = function (inputs, args, outputs) {
         args = args || Array.from({ length: inputs.length }).fill(1); //join roundrobin()在小括号中不输入参数的话默认全都是1
 
         let work = MakeJoinWork(inputs, args, outputs);
         let window = MakeJoinWindow(inputs, args, outputs);
-        let body = new operBodyNode(null,null,null,work,window); //没有 stmt_list 和 init,只有 work,window
+        let body = new operBodyNode(null, null, null, work, window); //没有 stmt_list 和 init,只有 work,window
         let res = new operatorNode(null, "join", inputs, body);
         res.outputs = outputs;
         return res
@@ -2357,9 +2426,9 @@ var COStreamJS = (function () {
          * 构建 join 的 work 部分
          * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
          */
-        function MakeJoinWork(inputs,args,outputs){
+        function MakeJoinWork(inputs, args, outputs) {
             let stmts = ["int i=0,j=0;"];
-            inputs.forEach((name,idx)=>{
+            inputs.forEach((name, idx) => {
                 stmts.push(`for(i=0;i<${args[idx]};++i)  ${outputs[0]}[j++] = ${name}[i];`);
             });
             let work = '{\n' + stmts.join('\n') + '\n}\n';
@@ -2367,13 +2436,17 @@ var COStreamJS = (function () {
         }
         function MakeJoinWindow(inputs, args, outputs) {
             //每行一个形如 In sliding(1,1) 的 winStmt
-            let winStmts = inputs.map((name,idx)=>{
-                let arg_list = [ args[idx], args[idx] ]; //一般情况下为 sliding(1,1), 也兼容其它 arg
+            let winStmts = inputs.map((name, idx) => {
+                let arg_list = [args[idx], args[idx]].map(num => new constantNode(null, num)); //一般情况下为 sliding(1,1), 也兼容其它 arg. 转为 constantNode 为后续SetFlatNodesWeights做准备
                 return new winStmtNode(null, name, { type: 'sliding', arg_list })
             });
             //加入末尾的输出, 形如 Out tumbling(3) 其中的数字是 args 的总和
-            let sum = args.reduce((a,b)=>a+b);
-            winStmts.push(new winStmtNode(null, outputs[0], { type: 'tumbling', arg_list:[sum] }) );
+            let sum = args.reduce((a, b) => a + b);
+            winStmts.push(new winStmtNode(
+                null,
+                outputs[0],
+                { type: 'tumbling', arg_list: [new constantNode(null, sum)] })
+            );
             return winStmts
         }
     };
@@ -2381,21 +2454,15 @@ var COStreamJS = (function () {
     function streamFlow(/* compositeNode */ main) {
         var body_stmt = main.body.stmt_list;
 
-        for (var it of body_stmt) {
-
-            if (it instanceof binopNode) {
-                var right = it.right;
-                if (right instanceof compositeCallNode) {
-                    let comp = COStreamJS.S.LookUpCompositeSymbol(right.compName);
-                    right.actual_composite = unfold.streamReplace(comp,right.inputs, right.outputs, 1);
-                }
-            }
-
-            else if (it instanceof compositeCallNode) {
+        for (var stmt of body_stmt) {
+            let it = stmt instanceof binopNode ? stmt.right : stmt; //获取到要处理的 operator(){}
+          
+            if (it instanceof compositeCallNode) {
                 let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName);
-                it.actual_composite = unfold.streamReplace(comp,it.inputs, it.outputs, 1);
+                comp = deepCloneWithoutCircle(comp);
+                it.actual_composite = unfold.streamReplace(comp,it.inputs,it.outputs, 1);
             }
-            
+
         }
     }
 
@@ -2813,14 +2880,13 @@ var COStreamJS = (function () {
             let increase = 0, decrease = 0;
 
             flat.inFlatNodes.forEach((src, idx) => {
-                if (this.X[0].includes(src)) decrease += src.steadyCount * flat.inPopWeights[idx];
-                if (Xi.includes(src)) increase += src.steadyCount * flat.inPopWeights[idx];
+                if (this.X[0].includes(src)) decrease += flat.steadyCount * flat.inPopWeights[idx];
+                if (Xi.includes(src)) increase += flat.steadyCount * flat.inPopWeights[idx];
             });
             flat.outFlatNodes.forEach((out, idx) => {
-                if (this.X[0].includes(out)) decrease += out.steadyCount * flat.inPopWeights[idx];
-                if (Xi.includes(out)) increase += out.steadyCount * flat.inPopWeights[idx];
+                if (this.X[0].includes(out)) decrease += flat.steadyCount * flat.outPushWeights[idx];
+                if (Xi.includes(out)) increase += flat.steadyCount * flat.outPushWeights[idx];
             });
-
             gains[i] = increase - decrease;
         }
         let max = gains.indexOf(Math.max(...gains));
