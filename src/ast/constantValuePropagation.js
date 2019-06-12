@@ -1,4 +1,4 @@
-import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, arrayNode } from "./node.js"
+import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, arrayNode, constantNode } from "./node.js"
 import { error } from "../utils"
 
 /**
@@ -10,13 +10,10 @@ expNode.prototype.getValue = function () {
     Object.defineProperty(this, 'value', {
         enumerable: false,
         get: function () {
-            if (!Number.isNaN(this._value)) return Number(this._value)
-            else {
-                return (this.getValue && (this._value = this.getValue()))
-            }
+            return this.getValue()
         },
         set: function () {
-            error("请不要手动给 value 赋值. 请给 _value 赋值,然后 value 会基于 _value 计算而来", this)
+            error("请不要手动给 value 赋值.", this)
         }
     })
 }
@@ -70,4 +67,8 @@ arrayNode.prototype.getValue = function () {
 }
 callNode.prototype.getValue = function () {
     return NaN
+}
+
+constantNode.prototype.getValue = function(){
+    return Number(this.source)
 }
