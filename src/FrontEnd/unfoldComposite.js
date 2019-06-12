@@ -268,12 +268,7 @@ UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (com
 
         } else if (it instanceof splitjoinNode || it instanceof pipelineNode) {
             /* 若为splitjoin或者pipeline结构，赋予其输入和输出流 */
-            /* FIXME: 这里会有一个 BUG, 因为这里是对右边的 call 进行了复用, 
-             * 所以会导致最后一个赋值的流名覆盖了之前的流名 , 
-             * 例如我们本意是 join(S0,S1,S2)
-             * 实际情况会得到结果 join(S2,S2,S2)
-             * 但好像该BUG对代码生成影响不大, 所以先留在这里.
-             */
+            /* NOTE: 这里的it 可能都为 splitjoinNode, 但是它们在 handlerAdd 中被 clone 过,所以不会有 重赋值 的问题 */
             it.inputs = [splitStreams[i]]
             it.outputs = [joinStreams[i]]
             result.push(it)
