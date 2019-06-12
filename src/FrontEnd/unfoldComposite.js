@@ -149,6 +149,7 @@ UnfoldComposite.prototype.UnfoldPipeline = function (/* pipelineNode */ node) {
             call.outputs = outputs
             //TODO: 符号表修改后要修改对应的这个地方
             let comp = COStreamJS.S.LookUpCompositeSymbol(compCall.compName);
+            comp = deepCloneWithoutCircle(comp) //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
             call.actual_composite = UnfoldComposite.prototype.compositeCallStreamReplace(comp, inputs, outputs)
 
             let binop = new binopNode(null, outputs, '=', call)
@@ -171,8 +172,13 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
     return
 
     function handlerAdd(add) {
+        if (add.content instanceof compositeCallNode) {
+            compositeCall_list.push(add.content)
+
+        } else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {
             let copy = deepCloneWithoutCircle(add.content)
             compositeCall_list.push(copy)
+        }
     }
     /**
      * 对一个静态 for 循环做循环展开, 目前没有符号表, 所以只考虑如下简单例子
@@ -233,7 +239,7 @@ UnfoldComposite.prototype.UnfoldSplitJoin = function (node) {
 UnfoldComposite.prototype.generateRoundrobinBodyStmts = function (compName, node) {
     //1.构建 split 来切分输入流
     let result = []
-    result.push(this.MakeSplitOperator(node.inputs , node.split.arg_list))
+    result.push(this.MakeSplitOperator(node.inputs, node.split.arg_list))
     //2.构建 body 中的对输入流的处理
     for (let i = 0; i < compositeCall_list.length; i++) {
         let it = compositeCall_list[i]
@@ -241,6 +247,7 @@ UnfoldComposite.prototype.generateRoundrobinBodyStmts = function (compName, node
 
         if (it instanceof compositeCallNode) {
             let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName)
+            comp = deepCloneWithoutCircle(comp) //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
             let call = new compositeCallNode(null, it.compName, node.inputs, null)
             call.outputs = innerStreams
             call.actual_composite = this.compositeCallStreamReplace(comp, node.inputs, innerStreams)
@@ -266,25 +273,30 @@ UnfoldComposite.prototype.generateRoundrobinBodyStmts = function (compName, node
  *   add pipeline();
  * join  roundrobin();
  * 我们要生成的 stmt_list 的格式为{
- *   S0_0 = A(In)
- *   S0_1 = B(In)
- *   S0_2 = pipeline(In)
+ *   (dup_0,dup_1,dup_2) = duplicate(In)
+ *   S0_0 = A(dup_0)
+ *   S0_1 = B(dup_1)
+ *   S0_2 = pipeline(dup_2)
  *   Out = join(S0_0, S0_1, S0_2)
  * }
  */
 UnfoldComposite.prototype.generateDuplicateBodyStmts = function (compName, node) {
-    let result = [], innerStreams = []
-    //1.构建 body 中的对输入流的处理
+    let result = []
+    //0.先提前设置好流变量名
+    let dupStreams = Array.from({length:compositeCall_list.length}).map((_,idx)=>compName+"_dup_"+idx)
+    let innerStreams = Array.from({ length: compositeCall_list.length }).map((_, idx) => compName + "_" + idx)
+    //1.构建 duplicate 节点
+    result.push(this.MakeDuplicateOperator(node.inputs, dupStreams))
+    //2.构建 body 中的对输入流的处理
     for (let i = 0; i < compositeCall_list.length; i++) {
         let it = compositeCall_list[i]
-        let streamName = [compName + "_" + i] //该数组只有一个元素, 存放临时流名,例如[S0_1]
-        innerStreams.push(streamName[0])
 
         if (it instanceof compositeCallNode) {
             let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName)
-            let call = new compositeCallNode(null, it.compName, node.inputs, null)
-            call.outputs = streamName
-            call.actual_composite = this.compositeCallStreamReplace(comp, node.inputs, streamName)
+            comp = deepCloneWithoutCircle(comp) //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
+            let call = new compositeCallNode(null, it.compName, [dupStreams[i]], null)
+            call.outputs = innerStreams[i]
+            call.actual_composite = this.compositeCallStreamReplace(comp, [dupStreams[i]], [innerStreams[i]])
             result.push(call)
 
         } else if (it instanceof splitjoinNode || it instanceof pipelineNode) {
@@ -295,14 +307,13 @@ UnfoldComposite.prototype.generateDuplicateBodyStmts = function (compName, node)
              * 实际情况会得到结果 join(S2,S2,S2)
              * 但好像该BUG对代码生成影响不大, 所以先留在这里.
              */
-            it.inputs = node.inputs
-            it.outputs = streamName
+            it.inputs = [dupStreams[i]]
+            it.outputs = [innerStreams[i]]
             result.push(it)
         }
     }
-    //2.构建 join 节点
-    let join = this.MakeJoinOperator(innerStreams,node.outputs)
-    result.push(join)
+    //3.构建 join 节点
+    result.push(this.MakeJoinOperator(innerStreams, node.outputs))
     return result
 }
 
@@ -314,11 +325,58 @@ UnfoldComposite.prototype.MakeRoundrobinWork = function (/*list < Node *> **/ in
 
 }
 
+
 /**
- * @returns {operatorNode} 
+ * 构建出一个真实的 duplicate 的 operatorNode, 该 operator 没有 stmt_list 和 init, 只有 work 和 window
+ * 例如
+ * duplicate(In) {
+ *   work{
+ *       int i=0;
+ *		 for(i=0;i<1;++i)		Out1[i]=In[i];
+ *		 for(i=0;i<1;++i)		Out2[i]=In[i];
+ *		 for(i=0;i<1;++i)		Out3[i]=In[i];
+ *   }
+ *   window{
+ *       In sliding(1,1);
+ *       Out1 tumbling(1);
+ *       Out2 tumbling(1);
+ *       Out3 tumbling(1);
+ *   }
+ * }
+ * @returns {operatorNode}
  */
-UnfoldComposite.prototype.MakeSplitOperator = function (/*Node **/ input,/* list < Node *> */ args,/* int */ style) {
-    return 'split'
+UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs,outputs,args) {
+    args = args || Array.from({ length: outputs.length }).fill(1) //使用默认全都是1 , 实际上split duplicate()在小括号中不允许输入参数
+    let work = MakeDuplicateWork(inputs, args, outputs);
+    let window = MakeDuplicateWindow(inputs, args, outputs);
+    let body = new operBodyNode(null, null, null, work, window) //没有 stmt_list 和 init,只有 work,window
+    let res = new operatorNode(null, "duplicate", inputs, body)
+    res.outputs = outputs
+    return res
+
+    /**
+     * 构建 duplicate 的 work 部分
+     * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
+     */
+    function MakeDuplicateWork(inputs, args, outputs) {
+        let stmts = ["int i=0;"]
+        outputs.forEach((name, idx) => {
+            stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[i];`)
+        })
+        let work = '{\n' + stmts.join('\n') + '\n}\n'
+        return work
+    }
+    function MakeDuplicateWindow(inputs, args, outputs) {
+        //1. 构建 In sliding(1,1);
+        let arg_list = [1,1].map(num => new constantNode(null, num)) //duplicate 的参数被文法手册规定为1
+        let winStmts = [new winStmtNode(null,inputs[0],{type:'sliding',arg_list})]
+
+        //2. 循环构建 Out1 tumbling(1);
+        outputs.forEach(name=>{
+            winStmts.push(new winStmtNode(null, name, { type: 'tumbling', arg_list: arg_list.slice(1)}))
+        })
+        return winStmts
+    }
 }
 
 
@@ -342,12 +400,12 @@ UnfoldComposite.prototype.MakeSplitOperator = function (/*Node **/ input,/* list
  * }
  * @returns {operatorNode} 
  */
-UnfoldComposite.prototype.MakeJoinOperator = function (inputs,outputs,args) {
+UnfoldComposite.prototype.MakeJoinOperator = function (inputs, outputs, args) {
     args = args || Array.from({ length: inputs.length }).fill(1) //join roundrobin()在小括号中不输入参数的话默认全都是1
 
     let work = MakeJoinWork(inputs, args, outputs);
     let window = MakeJoinWindow(inputs, args, outputs);
-    let body = new operBodyNode(null,null,null,work,window) //没有 stmt_list 和 init,只有 work,window
+    let body = new operBodyNode(null, null, null, work, window) //没有 stmt_list 和 init,只有 work,window
     let res = new operatorNode(null, "join", inputs, body)
     res.outputs = outputs
     return res
@@ -356,9 +414,9 @@ UnfoldComposite.prototype.MakeJoinOperator = function (inputs,outputs,args) {
      * 构建 join 的 work 部分
      * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
      */
-    function MakeJoinWork(inputs,args,outputs){
+    function MakeJoinWork(inputs, args, outputs) {
         let stmts = ["int i=0,j=0;"]
-        inputs.forEach((name,idx)=>{
+        inputs.forEach((name, idx) => {
             stmts.push(`for(i=0;i<${args[idx]};++i)  ${outputs[0]}[j++] = ${name}[i];`)
         })
         let work = '{\n' + stmts.join('\n') + '\n}\n'
@@ -366,13 +424,17 @@ UnfoldComposite.prototype.MakeJoinOperator = function (inputs,outputs,args) {
     }
     function MakeJoinWindow(inputs, args, outputs) {
         //每行一个形如 In sliding(1,1) 的 winStmt
-        let winStmts = inputs.map((name,idx)=>{
-            let arg_list = [ args[idx], args[idx] ] //一般情况下为 sliding(1,1), 也兼容其它 arg
+        let winStmts = inputs.map((name, idx) => {
+            let arg_list = [args[idx], args[idx]].map(num => new constantNode(null, num)) //一般情况下为 sliding(1,1), 也兼容其它 arg. 转为 constantNode 为后续SetFlatNodesWeights做准备
             return new winStmtNode(null, name, { type: 'sliding', arg_list })
         })
         //加入末尾的输出, 形如 Out tumbling(3) 其中的数字是 args 的总和
-        let sum = args.reduce((a,b)=>a+b)
-        winStmts.push(new winStmtNode(null, outputs[0], { type: 'tumbling', arg_list:[sum] }) )
+        let sum = args.reduce((a, b) => a + b)
+        winStmts.push(new winStmtNode(
+            null, 
+            outputs[0], 
+            { type: 'tumbling', arg_list: [new constantNode(null, sum)] })
+        )
         return winStmts
     }
 }
