@@ -136,6 +136,8 @@ export class winStmtNode extends Node {
 /********************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement   */
 /********************************************************/
+export type statement = blockNode | binopNode | forNode | operatorNode | splitjoinNode | pipelineNode
+
 export class blockNode extends Node {
     constructor(loc, op1, stmt_list, op2) {
         super(loc)
@@ -189,16 +191,12 @@ export class doNode extends Node {
     }
 }
 export class forNode extends Node {
-    constructor(loc, init, cond, next, statement) {
-        super(loc)
-        Object.assign(this, {
-            type: 'for',
-            op1: '(',
-            init, cond, next,
-            op2: ')',
-            statement
-        })
-    }
+    init: binopNode
+    cond: binopNode
+    next: unaryNode | binopNode
+    statement: blockNode | statement
+
+    constructor(loc: YYLTYPE, init: binopNode, cond: binopNode, next: unaryNode | binopNode, statement: blockNode | statement)
 }
 /********************************************************/
 /*        4. expression 计算表达式头节点                   */
@@ -281,29 +279,14 @@ export class constantNode extends expNode {
 /* operNode in expression's right                       */
 /********************************************************/
 export class operNode extends Node {
-    constructor(loc) {
-        super(loc)
-        definePrivate(this, 'outputs')
-    }
+    outputs?: string[]
 }
 export class compositeCallNode extends operNode {
-    constructor(loc, compName, inputs, params) {
-        super(loc)
-        Object.assign(this, {
-            compName,
-            op1: '(',
-            inputs,
-            op2: ')'
-        })
-        if (params) {
-            Object.assign(this, {
-                op3: '(',
-                params,
-                op4: ')'
-            })
-        }
-        definePrivate(this, 'actual_composite')
-    }
+    compName: string
+    inputs?: string[]
+    params?: expNode[]
+
+    constructor(loc: YYLTYPE, compName: string, inputs?: string[], params?: expNode[])
 }
 export class operatorNode extends operNode {
     operName: string
@@ -312,62 +295,43 @@ export class operatorNode extends operNode {
     constructor(loc: YYLTYPE, operName: string, inputs: string[], operBody: operBodyNode)
 }
 export class splitjoinNode extends operNode {
-    constructor(loc, options) {
-        super(loc)
-        this.compName = options.compName
-        this.inputs = options.inputs
-        this.stmt_list = options.stmt_list
-        this.split = options.split
-        this.body_stmts = options.body_stmts
-        this.join = options.join
-        definePrivate(this, 'replace_composite')
-    }
+    compName: string
+    inputs: string[]
+    stmt_list: statement[]
+    split: splitNode
+    body_stmts: statement[]
+    join: joinNode
+    replace_composite: compositeNode
+
+    constructor(loc: YYLTYPE, options: object)
 }
 export class pipelineNode extends operNode {
-    constructor(loc, options) {
-        super(loc)
-        this.compName = options.compName
-        this.inputs = options.inputs
-        this.body_stmts = options.body_stmts
-        definePrivate(this, 'replace_composite')
-    }
+    compName: "pipeline"
+    inputs: string[]
+    body_stmts: statement[]
 }
+
 export class splitNode extends Node {
-    constructor(loc, node) {
-        super(loc)
-        this.name = "split"
-        this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin"
-        if (node.arg_list) {
-            Object.assign(this, { op1: '(', arg_list: node.arg_list, op2: ')' })
-        }
-    }
+    name: "split"
+    type: "duplicate" | "roundrobin"
+    arg_list?: constantNode[]
+    constructor(loc: YYLTYPE, node: duplicateNode | roundrobinNode)
 }
 export class joinNode extends Node {
-    constructor(loc, node) {
-        super(loc)
-        this.name = "join"
-        this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin"
-        if (node.arg_list) {
-            Object.assign(this, { op1: '(', arg_list: node.arg_list, op2: ')' })
-        }
-    }
+    name: "join"
+    type: "duplicate" | "roundrobin"
+    arg_list?: constantNode[]
+    constructor(loc: YYLTYPE, node: duplicateNode | roundrobinNode)
 }
+
 export class duplicateNode extends Node {
-    constructor(loc, arg_list) {
-        super(loc)
-        this.arg_list = arg_list
-    }
+    arg_list: constantNode[]
 }
 export class roundrobinNode extends Node {
-    constructor(loc, arg_list) {
-        super(loc)
-        this.arg_list = arg_list
-    }
+    arg_list: constantNode[]
 }
 export class addNode extends Node {
-    constructor(loc, content) {
-        super(loc)
-        this.name = "add"
-        this.content = content
-    }
+    name: "add"
+    content: pipelineNode | splitjoinNode
+    constructor(loc: YYLTYPE, content: pipelineNode | splitjoinNode)
 }
