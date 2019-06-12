@@ -138,14 +138,13 @@ GreedyPartition.prototype.chooseMaxGain = function (Xi) {
         let increase = 0, decrease = 0
 
         flat.inFlatNodes.forEach((src, idx) => {
-            if (this.X[0].includes(src)) decrease += src.steadyCount * flat.inPopWeights[idx]
-            if (Xi.includes(src)) increase += src.steadyCount * flat.inPopWeights[idx]
+            if (this.X[0].includes(src)) decrease += flat.steadyCount * flat.inPopWeights[idx]
+            if (Xi.includes(src)) increase += flat.steadyCount * flat.inPopWeights[idx]
         })
         flat.outFlatNodes.forEach((out, idx) => {
-            if (this.X[0].includes(out)) decrease += out.steadyCount * flat.inPopWeights[idx]
-            if (Xi.includes(out)) increase += out.steadyCount * flat.inPopWeights[idx]
+            if (this.X[0].includes(out)) decrease += flat.steadyCount * flat.outPushWeights[idx]
+            if (Xi.includes(out)) increase += flat.steadyCount * flat.outPushWeights[idx]
         })
-
         gains[i] = increase - decrease
     }
     let max = gains.indexOf(Math.max(...gains))
