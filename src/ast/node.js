@@ -56,7 +56,7 @@ export class parameter_declaration extends Node {
 /*        2. composite                                  */
 /********************************************************/
 export class compositeNode extends Node {
-    constructor(loc, head, body) {
+    constructor(loc, head = {}, body = {}) {
         super(loc)
         Object.assign(this, {
             op: 'composite',
@@ -126,12 +126,12 @@ export class operBodyNode extends Node {
     }
 }
 export class winStmtNode extends Node {
-    constructor(loc, winName, { type, arg_list }) {
+    constructor(loc, winName, options ={}) {
         super(loc)
         Object.assign(this, {
             winName,
-            type,
-            arg_list
+            type: options.type,
+            arg_list: options.arg_list
         })
     }
 }
@@ -209,8 +209,6 @@ export class forNode extends Node {
 export class expNode extends Node {
     constructor(loc) {
         super(loc)
-        this._value = NaN
-        definePrivate(this, '_value')
         //检查是否有常量传播插件提供的 getValue 函数
         if (expNode.prototype.getValue) {
             expNode.prototype.getValue.call(this)
@@ -274,15 +272,10 @@ export class callNode extends expNode {
     }
 }
 export class constantNode extends expNode {
-    constructor(loc, sourceStr) {
+    constructor(loc, sourceStr='') {
         super(loc)
         // 转义字符串中的 \n 等特殊字符
-        this.source = sourceStr.replace(/\\/g, '\\\\').replace(/\n/g, '\\n')
-        //判断这个常量是数字还是字符串
-        if (!Number.isNaN(Number(sourceStr))) {
-            this._value = Number(sourceStr)
-        }
-        this._value = sourceStr
+        this.source = (sourceStr+'').replace(/\\/g, '\\\\').replace(/\n/g, '\\n')
     }
 }
 /********************************************************/
@@ -291,7 +284,7 @@ export class constantNode extends expNode {
 export class operNode extends Node {
     constructor(loc) {
         super(loc)
-        definePrivate(this, 'outputs')
+        this.outputs = []
     }
 }
 export class compositeCallNode extends operNode {
@@ -310,7 +303,7 @@ export class compositeCallNode extends operNode {
                 op4: ')'
             })
         }
-        definePrivate(this,'actual_composite')
+        definePrivate(this, 'actual_composite')
     }
 }
 export class operatorNode extends operNode {
@@ -320,10 +313,10 @@ export class operatorNode extends operNode {
     }
 }
 export class splitjoinNode extends operNode {
-    constructor(loc, options) {
+    constructor(loc, options = {}) {
         super(loc)
-        this.compName = options.compName 
-        this.inputs = options.inputs     
+        this.compName = options.compName
+        this.inputs = options.inputs
         this.stmt_list = options.stmt_list
         this.split = options.split
         this.body_stmts = options.body_stmts
@@ -332,7 +325,7 @@ export class splitjoinNode extends operNode {
     }
 }
 export class pipelineNode extends operNode {
-    constructor(loc, options) {
+    constructor(loc, options = {}) {
         super(loc)
         this.compName = options.compName
         this.inputs = options.inputs
@@ -341,7 +334,7 @@ export class pipelineNode extends operNode {
     }
 }
 export class splitNode extends Node {
-    constructor(loc, node) {
+    constructor(loc, node = {}) {
         super(loc)
         this.name = "split"
         this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin"
@@ -351,7 +344,7 @@ export class splitNode extends Node {
     }
 }
 export class joinNode extends Node {
-    constructor(loc, node) {
+    constructor(loc, node = {}) {
         super(loc)
         this.name = "join"
         this.type = node instanceof duplicateNode ? "duplicate" : "roundrobin"
