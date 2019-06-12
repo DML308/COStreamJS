@@ -237,31 +237,31 @@ export class castNode extends expNode {
 
 export class binopNode extends expNode {
     left: exp
-    op:string
-    right:exp
-    constructor(loc: YYLTYPE, left:exp, op:string, right:exp)
+    op: string
+    right: exp
+    constructor(loc: YYLTYPE, left: exp, op: string, right: exp)
 }
 
 export class ternaryNode extends expNode {
-    first:exp
-    second:exp
-    third:exp
+    first: exp
+    second: exp
+    third: exp
 
-    constructor(loc: YYLTYPE, first:exp, second:exp, third:exp) 
+    constructor(loc: YYLTYPE, first: exp, second: exp, third: exp)
 }
 
 export class parenNode extends expNode {
-    op1:'('
-    exp:exp
-    op2:')'
+    op1: '('
+    exp: exp
+    op2: ')'
 
-    constructor(loc: YYLTYPE, exp:exp)
+    constructor(loc: YYLTYPE, exp: exp)
 }
 export class arrayNode extends expNode {
-    exp: string | arrayNode 
-    arg_list:expression[]
+    exp: string | arrayNode
+    arg_list: expression[]
     //TODO: index: string | constantNode | binopNode
-    constructor(loc: YYLTYPE, exp: exp | arrayNode, arg: expression) 
+    constructor(loc: YYLTYPE, exp: exp | arrayNode, arg: expression)
 }
 export class callNode extends expNode {
     constructor(loc, name, arg_list) {
@@ -306,10 +306,10 @@ export class compositeCallNode extends operNode {
     }
 }
 export class operatorNode extends operNode {
-    constructor(loc, operName, inputs, operBody) {
-        super(loc)
-        Object.assign(this, { operName, inputs, operBody })
-    }
+    operName: string
+    inputs: string[]
+    operBody: operBodyNode
+    constructor(loc: YYLTYPE, operName: string, inputs: string[], operBody: operBodyNode)
 }
 export class splitjoinNode extends operNode {
     constructor(loc, options) {
