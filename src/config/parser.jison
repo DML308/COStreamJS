@@ -456,7 +456,7 @@ assignment_expression:
       {
           if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode].some(x=> $3 instanceof x)){
               if($1 instanceof parenNode){
-                  $3.outputs = $1.exp
+                  $3.outputs = $1.exp.slice()
               }else if(typeof $1 == "string"){
                   $3.outputs = [$1]
               }else{
