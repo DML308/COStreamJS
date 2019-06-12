@@ -30,17 +30,17 @@ export var unfold = new UnfoldComposite()
  *    S0 = AssignmentX(Source){ }
  * }
  */
-UnfoldComposite.prototype.streamReplace = function (/*compositeNode **/ comp,/* String[] */ inputs, outputs,/* int*/ flag) {
+UnfoldComposite.prototype.streamReplace = function (/*compositeNode **/ comp,/* String[] */ inputs, outputs, flag) {
     let stmt_list = comp.body.stmt_list
-    operaterStreamReplace(stmt_list[0], inputs, 'inputs')
-    operaterStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs')
+    operatorStreamReplace(stmt_list[0], inputs, 'inputs')
+    operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs')
     return comp
 
-    function operaterStreamReplace(stmt, streamNames, tag) {
+    function operatorStreamReplace(stmt, streamNames, tag) {
         let oper = stmt instanceof binopNode ? stmt.right : stmt
         if (oper instanceof operatorNode) {
             if (flag) {
-                UnfoldComposite.prototype.modifyStreamName(oper, streamNames, true)
+                UnfoldComposite.prototype.modifyStreamName(oper, streamNames, tag=="inputs")
             }
             oper[tag] = streamNames
         } else if (oper instanceof splitjoinNode || oper instanceof pipelineNode) {
