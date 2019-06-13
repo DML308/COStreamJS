@@ -5,20 +5,19 @@ export class UnfoldComposite {
     constructor() {
         this.num = 0
     }
-
     /* 给与每一个不同的splitjoin或者pipeline节点不同的名字 */
     MakeCompositeName(/*string*/ name) {
         return name + "_" + this.num++;
     }
-
-    modifyWorkName(/*Node **/ u,/* string */ replaceName, /* string */ name) { }
 }
 export var unfold = new UnfoldComposite()
-
 
 /**
  * @description 对于composite节点内的operatorNode进行流替换
  * 只替换第一个和最后一个oper 的原因是: 对第一个修改 IN, 对最后一个修改 Out, 对简单串行的 comp 是没问题的
+ * @param {compositeNode} comp
+ * @param {void|string[]} inputs
+ * @param {void|string[]} outputs
  * @param { bool } flag - flag 为1则同时替换内部的 work 和 win 的 stream 变量名, 为0则说明之前已调用过 modifyStreamName
  * @example
  * 例如对于 
@@ -30,10 +29,10 @@ export var unfold = new UnfoldComposite()
  *    S0 = AssignmentX(Source){ }
  * }
  */
-UnfoldComposite.prototype.streamReplace = function (/*compositeNode **/ comp,/* String[] */ inputs, outputs, flag) {
+UnfoldComposite.prototype.streamReplace = function (comp,inputs, outputs, flag) {
     let stmt_list = comp.body.stmt_list
-    operatorStreamReplace(stmt_list[0], inputs, 'inputs')
-    operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs')
+    inputs && operatorStreamReplace(stmt_list[0], inputs, 'inputs')
+    outputs && operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs')
     return comp
 
     function operatorStreamReplace(stmt, streamNames, tag) {

@@ -290,13 +290,13 @@ export class compositeCallNode extends operNode {
 }
 export class operatorNode extends operNode {
     operName: string
-    inputs: string[]
+    inputs?: string[]
     operBody: operBodyNode
     constructor(loc: YYLTYPE, operName: string, inputs: string[], operBody: operBodyNode)
 }
 export class splitjoinNode extends operNode {
     compName: string
-    inputs: string[]
+    inputs?: string[]
     stmt_list: statement[]
     split: splitNode
     body_stmts: statement[]
@@ -307,7 +307,7 @@ export class splitjoinNode extends operNode {
 }
 export class pipelineNode extends operNode {
     compName: "pipeline"
-    inputs: string[]
+    inputs?: string[]
     body_stmts: statement[]
 }
 
