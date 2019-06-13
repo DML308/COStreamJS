@@ -42,15 +42,18 @@ export function actorTopologicalorder(flatNodes) {
  * @param { map<FlatNode,int> } map - mp.FlatNode2PartitionNum
  */
 export function actorStageMap(map, topologic){
-    let stage = 0 //初始阶段号
+    let maxstage = 0 //初始阶段号
     topologic.forEach(flat=>{
         //判断该节点是否和其输入节点都在一个划分子图
         let isInSameSubGraph = flat.inFlatNodes.every(src=> map.get(src) == map.get(flat))
 
+        //获取它的入节点的最大阶段号
+        maxstage = Math.max(maxstage, ...flat.inFlatNodes.map(f => f.stageNum))
+        
         //如果有上端和自己不在同一子图的话,就要让阶段号+1
-        flat.stageNum = isInSameSubGraph ? stage : ++stage
+        flat.stageNum = isInSameSubGraph ? maxstage : maxstage+1
     })
 
     //返回总共有几个阶段, 例如阶段号分别是0,1,2,3,那么要返回一共有"4"个阶段
-    return stage + 1
+    return maxstage + 1
 }
