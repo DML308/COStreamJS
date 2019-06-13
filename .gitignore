@@ -5,6 +5,7 @@ package-lock.json
 yarn-error.log
 .vscode
 dist/*.js
+dist/*.css
 test.js
 /*.jison
 /*.dot

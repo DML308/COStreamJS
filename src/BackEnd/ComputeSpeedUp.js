@@ -31,7 +31,6 @@ export function GetSpeedUpInfo(ssg, mp, sourceFileName = "default.cos", pSelecte
         totalWorkload: mp.totalWork,
     }
     TotalInfo.totalCommunication = PartitionInfo.reduce((sum,info) => sum + info.communication, 0)
-    debugger
     TotalInfo.maxWorkload = PartitionInfo.reduce((max,info) => info.workload > max.workload ? info : max).workload
     TotalInfo.maxSpeedUp = (TotalInfo.totalWorkload / TotalInfo.maxWorkload).toFixed(2)
 

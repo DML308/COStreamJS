@@ -6,25 +6,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="https://i.loli.net/2019/05/23/5ce65c6a0153242368.png" type="image/x-icon" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>COStreamJS-v0.2.6</title>
-    <style>
-        .container div {
-            flex: 1 0;
-        }
-    </style>
+    <link rel="stylesheet" type="text/stylus" href="/main.css">
+    <link href="https://cdn.bootcss.com/vuetify/2.0.0-alpha.20/vuetify.min.css" rel="stylesheet">
+    <title>COStreamJS-v0.3.0</title>
 </head>
 
 <body>
     <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">
     </div>
-    <div class="container" style="position: absolute;top: 0; bottom: 0;left: 400px;">
-        <div id="ast-svg"></div>
-    </div>
-    <div style="position:absolute;top:0;left:420px">
+    
+    <div id="app" style="position:absolute;top:0;left:420px">
+        <section id="buttons">
+
+        </section>
+        <section class="left">
+            <div class="ast"></div>
+            <div class="table"></div>
+            <div class="txt"></div>
+        </section>
+        <section class="right">
+            <div class="container" style="position: absolute;top: 0; bottom: 0;left: 400px;">
+                <div id="ast-svg"></div>
+            </div>
+        </section>
         <button onclick="updateSVG()">绘制语法树</button>
         <button onclick="updateSSG()">语法树转数据流图</button>
         <button onclick="updateSDF()">flatgraph.dot</button>
     </div>
+
     <script src="./COStreamJS.js"></script>
     <script src="./data.js"></script>
     <script src="https://cdn.bootcss.com/vue/2.6.10/vue.js"></script>
@@ -81,6 +90,12 @@
             astSvg.id = "ast-svg"
             document.querySelector(".container").replaceChild(astSvg, document.getElementById("ast-svg"))
         }
+    </script>
+
+    <script src="https://cdn.staticfile.org/stylus/0.32.1/stylus.min.js"></script>
+    <script src="https://cdn.bootcss.com/vuetify/2.0.0-alpha.20/vuetify.min.js"></script>
+    <script>
+    
     </script>
 </body>
 

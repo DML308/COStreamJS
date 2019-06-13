@@ -61,7 +61,6 @@ GreedyPartition.prototype.SssgPartition = function (ssg) {
         this.X = [ssg.flatNodes] // 此时 X 的长度为1, 下标0对应了全部的 flatNodes
     } else {
         this.nvtxs = ssg.flatNodes.length
-        debugger
         this.setActorWorkload(ssg)
         this.doPartition(ssg)
         this.orderPartitionResult()

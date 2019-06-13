@@ -8,7 +8,7 @@ export function ShedulingSSG(ssg){
     InitScheduling(ssg)
     SteadyScheduling(ssg)
     debug("---稳态调度序列---\n")
-    console.table(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})))
+    console.log(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})))
 }
 function InitScheduling(ssg){
     ssg.flatNodes.forEach(n => n.initCount = 1)
