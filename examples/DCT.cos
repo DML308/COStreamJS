@@ -123,12 +123,12 @@ composite DCT_2D_X(output stream<double x>Out,input stream<double x>In)
 	Out=splitjoin(In)
 	{
 		int i;
-		split roundrobin(8);
+		split roundrobin();
 		for (i = 0; i < 8; i++)
 		{
 			add DCT_1D(8); 
 		}
-		join roundrobin(8);
+		join roundrobin();
 	};
 }
 
@@ -139,12 +139,12 @@ composite DCT_2D_Y(output stream<double x>Out,input stream<double x>In)
 	Out = splitjoin(In)
 	{	
 		int i;
-		split roundrobin(1);
+		split roundrobin();
 		for (i = 0; i < 8; i++)
 		{
 			add DCT_1D(8); 
 		}
-		join roundrobin(1);
+		join roundrobin();
 	};
 }
 
