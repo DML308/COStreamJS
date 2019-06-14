@@ -15,7 +15,7 @@ import { GreedyPartition } from "./src/BackEnd/GreedyPartition"
 import { GetSpeedUpInfo, PrintSpeedUpInfo } from "./src/BackEnd/ComputeSpeedUp"
 import { StageAssignment } from "./src/BackEnd/StageAssignment"
 
-Object.assign(COStreamJS, {
+Object.assign(COStreamJS.__proto__, {
     parser,
     AST2FlatStaticStreamGraph,
     unfold,
