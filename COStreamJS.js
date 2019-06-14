@@ -1997,7 +1997,7 @@ var COStreamJS = (function () {
         S : null,
         gMainComposite : null
     }; 
-
+    COStreamJS.__proto__ = {};
     //vector<Node *> compositeCall_list; 存储splitjoin/pipeline中的compositeCall调用
     var compositeCall_list = [];
 
@@ -3050,7 +3050,7 @@ part               actor             workload           percent\n`;
         return maxstage + 1
     }
 
-    Object.assign(COStreamJS, {
+    Object.assign(COStreamJS.__proto__, {
         parser,
         AST2FlatStaticStreamGraph,
         unfold,
