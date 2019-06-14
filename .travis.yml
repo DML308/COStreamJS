@@ -2,6 +2,7 @@ language: node_js
 node_js:
   - "10"
 before_deploy:
+  - npx stylus ./dist/main.styl
   - npm run build
   - echo "demo.costream.org" >> dist/CNAME
 deploy:

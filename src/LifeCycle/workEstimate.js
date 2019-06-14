@@ -13,7 +13,7 @@ export function WorkEstimate(ssg)
         /* 检查每一个operatorNode的body（包括init，work和window)*/
         var body = flat.contents.operBody;
         var w_init = 0//body.init ? body.init.WorkEstimate(): 0 ;
-        var w_steady = 60 //body.work ? body.work.WorkEstimate() : 0;
+        var w_steady = (body.work + '').match(/\w+|[-+*/=<>?:]/g).length *10 //body.work ? body.work.WorkEstimate() : 0;
         w_steady += (flat.outFlatNodes.length + flat.inFlatNodes.length) * 20; //多核下调整缓冲区head和tail
         ssg.mapInitWork2FlatNode.set(flat, w_init)
         ssg.mapSteadyWork2FlatNode.set(flat, w_steady)
