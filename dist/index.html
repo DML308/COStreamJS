@@ -6,32 +6,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="https://i.loli.net/2019/05/23/5ce65c6a0153242368.png" type="image/x-icon" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <link rel="stylesheet" type="text/stylus" href="/main.css">
-    <link href="https://cdn.bootcss.com/vuetify/2.0.0-alpha.20/vuetify.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,400italic|Material+Icons">
+    <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/vue-material.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
+    <link rel="stylesheet" type="text/css" href="/main.css">
     <title>COStreamJS-v0.3.0</title>
 </head>
 
 <body>
     <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">
     </div>
-    
-    <div id="app" style="position:absolute;top:0;left:420px">
-        <section id="buttons">
 
+    <div id="app" style="position:absolute;top:0;left:420px;width:500px;" data-app class="application application--light">
+        <section class="buttons">
+            <md-button class="md-raised md-primary" @click="updateSVG">打印语法树</md-button>
+            <md-button class="md-raised md-primary" disabled>AST->SSG</md-button>
+            <md-button class="md-raised md-primary" disabled>工作量估计</md-button>
+            <md-button class="md-raised md-primary" disabled>调度</md-button>
+            <md-button class="md-raised md-primary" disabled>流图划分</md-button>
+            <md-button class="md-raised md-primary" disabled>打印加速比</md-button>
+            <md-button class="md-raised md-primary" disabled>阶段赋值</md-button>
+            <md-button class="md-raised md-primary" @click="onAll">一键执行</md-button>
+            <md-button class="md-raised md-primary" @click="updateSDF">画SDF图</md-button>
+            <transition>
+                <md-button class="md-raised md-primary" v-show="isDOT" @click="updateDOT">渲染dot</md-button>
+            </transition>
         </section>
-        <section class="left">
-            <div class="ast"></div>
-            <div class="table"></div>
-            <div class="txt"></div>
-        </section>
-        <section class="right">
-            <div class="container" style="position: absolute;top: 0; bottom: 0;left: 400px;">
-                <div id="ast-svg"></div>
-            </div>
-        </section>
-        <button onclick="updateSVG()">绘制语法树</button>
-        <button onclick="updateSSG()">语法树转数据流图</button>
-        <button onclick="updateSDF()">flatgraph.dot</button>
+
+        <md-table md-card>
+            <md-table-toolbar>
+                <h1 class="md-title">FlatNodes</h1>
+            </md-table-toolbar>
+            <md-table-row>
+                <md-table-head md-numeric>NAME</md-table-head>
+                <md-table-head>工作量</md-table-head>
+                <md-table-head>调度次数</md-table-head>
+                <md-table-head>划分核号</md-table-head>
+                <md-table-head>阶段号</md-table-head>
+            </md-table-row>
+
+            <md-table-row v-for="flat in flats" :key="flat.name" :class="{ 'row-grey' : flat.stageNum%2 }">
+                <md-table-cell md-numeric>{{flat.name}}</md-table-cell>
+                <md-table-cell>{{flat.workEstimate}}</md-table-cell>
+                <md-table-cell>{{flat.steadyCount}}</md-table-cell>
+                <md-table-cell :style="'background:'+coreNum2Color(flat.coreNum)">{{flat.coreNum}}</md-table-cell>
+                <md-table-cell>{{flat.stageNum}}</md-table-cell>
+            </md-table-row>
+        </md-table>
+        <md-snackbar md-position="left" :md-active.sync="showSnackbar"
+            md-persistent>
+            <span>{{snackBarMessage}}</span>
+            <md-button class="md-primary" @click="showSnackbar = false">ㄨ</md-button>
+        </md-snackbar>
+    </div>
+
+    <!-- 右边 dot 图部分 -->
+    <div id="container" style="position: absolute;top: 0; bottom: 0;left: 900px;">
+        <div id="ast-svg"></div>
     </div>
 
     <script src="./COStreamJS.js"></script>
@@ -44,7 +75,10 @@
         window.renderDot = async function (str) {
             var viz = new Viz();
             try {
-                return await viz.renderSVGElement(str)
+                var astSvg = await viz.renderSVGElement(str)
+                astSvg.id = "ast-svg"
+                document.querySelector("#container").replaceChild(astSvg, document.getElementById("ast-svg"))
+                document.querySelector("#container svg polygon").setAttribute('fill', '#fafafa')
             } catch (error) {
                 console.error(error);
                 console.log("要渲染的 dot 字符串内容为", str)
@@ -56,46 +90,79 @@
         var editor = ace.edit("editor");
         editor.setTheme("ace/theme/tomorrow");
         editor.session.setMode("ace/mode/c_cpp");
-        
-
-        if(! window.str){
+        editor.session.setUseWrapMode(true);
+        editor.session.on('change', function (delta) {
+            var str = editor.getValue();
+            window.app.isDOT = /^\s*digraph/.test(str)
+        });
+        if (!window.str) {
             var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/multiOutputs.cos'
             editor.session.setValue(`//...正在加载` + url);
-            window.onload = function(){
+            window.onload = function () {
                 axios.get('https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/multiOutputs.cos').then(res => editor.session.setValue(res.data))
-            }   
-        }else{
+            }
+        } else {
             editor.session.setValue(str);
         }
-        
-        async function updateSVG(str) {
-            str = str || editor.getValue()
-            window.ast = COStreamJS.parser.parse(str)
-            var dotStr = ast2dot(ast)
-            var astSvg = await window.renderDot(dotStr)
-            astSvg.id = "ast-svg"
-            debug("构建的语法树为:", ast)
-            //debugger
-            document.querySelector(".container").replaceChild(astSvg, document.getElementById("ast-svg"))
-        }
-        //updateSVG();
 
-        function updateSSG() {
-            var str = editor.getValue()
-            window.COStreamJS.main(str)
-        }
-        async function updateSDF(){
-            var dotStr = COStreamJS.DumpStreamGraph(COStreamJS.ssg,COStreamJS.mp)
-            var astSvg = await window.renderDot(dotStr)
-            astSvg.id = "ast-svg"
-            document.querySelector(".container").replaceChild(astSvg, document.getElementById("ast-svg"))
-        }
+
     </script>
 
     <script src="https://cdn.staticfile.org/stylus/0.32.1/stylus.min.js"></script>
-    <script src="https://cdn.bootcss.com/vuetify/2.0.0-alpha.20/vuetify.min.js"></script>
+    <script src="https://unpkg.com/vue-material"></script>
     <script>
-    
+        Vue.use(VueMaterial.default)
+
+        var app = new Vue({
+            el: '#app',
+            data() {
+                return {
+                    flats: [],
+                    isDOT: false,
+                    showSnackbar:false,
+                    snackBarMessage:''
+                }
+            },
+            methods: {
+                onAll() {
+                    var str = editor.getValue()
+                    try{
+                        window.COStreamJS.main(str)
+                        this.flats = COStreamJS.ssg.flatNodes
+                        this.flats.forEach(flat => {
+                            Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat))
+                            Vue.set(flat, 'coreNum', COStreamJS.mp.FlatNode2PartitionNum.get(flat))
+                        })
+                    }catch(err){
+                        console.warn(err)
+                        this.snackBarMessage = err
+                        this.showSnackbar = true
+                    }
+                },
+                async updateSDF() {
+                    var dotStr = COStreamJS.DumpStreamGraph(COStreamJS.ssg, COStreamJS.mp)
+                    await window.renderDot(dotStr)
+                },
+                coreNum2Color(num) {
+                    return ['#f2f8ff', '#f6ebd8', '#aaca3e', '#b1fbd5'][num]
+                },
+                async updateSVG() {
+                    try {
+                        str = editor.getValue()
+                        window.ast = COStreamJS.parser.parse(str)
+                        var dotStr = ast2dot(ast)
+                        await window.renderDot(dotStr)
+                    } catch (err) {
+                        console.warn(err)
+                        this.snackBarMessage = err
+                        this.showSnackbar = true
+                    }
+                },
+                async updateDOT() {
+                    await window.renderDot(editor.getValue())
+                },
+            }
+        })
     </script>
 </body>
 

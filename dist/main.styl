@@ -2,10 +2,60 @@
     flex 1 0
 }
 
-section {
-    div {
-        background-color red
-        width 20px
-        height 20px
+// SDF 图部分
+#container svg{
+    transform scale(0.7)
+    transform-origin 0 0 
+}
+
+#app {
+    display flex
+    flex-flow row nowrap
+    padding-top 10px
+}
+
+.buttons {
+    display flex
+    flex-flow column nowrap
+    min-height 474px
+    
+    button:first-of-type {
+        margin-left 0
+        margin-top 0
     }
+}
+
+.md-table-head-container {
+    line-height 10px
+}
+
+.md-table-cell-container {
+    padding 0
+    text-align center
+}
+.md-numeric .md-table-cell-container {
+    text-align right
+}
+
+.md-table-head-label {
+    padding 0
+    width 60px
+    text-align center
+}
+.md-table-head:last-child:not(:first-child) .md-table-head-label{
+    padding-right 0
+}
+.md-card.md-table{
+    min-width:340px;
+}
+
+.md-table-row.row-grey{
+    background-color rgba(235,235,235,0.7)
+}
+.v-enter,.v-leave-to{
+    transform translateY(100%)
+    opacity 0
+}
+.v-enter-active,.v-leave-active{
+    transition all 1s ease
 }
