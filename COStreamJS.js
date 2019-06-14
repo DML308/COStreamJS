@@ -2005,20 +2005,19 @@ var COStreamJS = (function () {
         constructor() {
             this.num = 0;
         }
-
         /* 给与每一个不同的splitjoin或者pipeline节点不同的名字 */
         MakeCompositeName(/*string*/ name) {
             return name + "_" + this.num++;
         }
-
-        modifyWorkName(/*Node **/ u,/* string */ replaceName, /* string */ name) { }
     }
     var unfold = new UnfoldComposite();
-
 
     /**
      * @description 对于composite节点内的operatorNode进行流替换
      * 只替换第一个和最后一个oper 的原因是: 对第一个修改 IN, 对最后一个修改 Out, 对简单串行的 comp 是没问题的
+     * @param {compositeNode} comp
+     * @param {void|string[]} inputs
+     * @param {void|string[]} outputs
      * @param { bool } flag - flag 为1则同时替换内部的 work 和 win 的 stream 变量名, 为0则说明之前已调用过 modifyStreamName
      * @example
      * 例如对于 
@@ -2030,10 +2029,10 @@ var COStreamJS = (function () {
      *    S0 = AssignmentX(Source){ }
      * }
      */
-    UnfoldComposite.prototype.streamReplace = function (/*compositeNode **/ comp,/* String[] */ inputs, outputs, flag) {
+    UnfoldComposite.prototype.streamReplace = function (comp,inputs, outputs, flag) {
         let stmt_list = comp.body.stmt_list;
-        operatorStreamReplace(stmt_list[0], inputs, 'inputs');
-        operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs');
+        inputs && operatorStreamReplace(stmt_list[0], inputs, 'inputs');
+        outputs && operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs');
         return comp
 
         function operatorStreamReplace(stmt, streamNames, tag) {
@@ -2547,7 +2546,7 @@ var COStreamJS = (function () {
             /* 检查每一个operatorNode的body（包括init，work和window)*/
             var body = flat.contents.operBody;
             var w_init = 0;//body.init ? body.init.WorkEstimate(): 0 ;
-            var w_steady = 60; //body.work ? body.work.WorkEstimate() : 0;
+            var w_steady = (body.work + '').match(/\w+|[-+*/=<>?:]/g).length *10; //body.work ? body.work.WorkEstimate() : 0;
             w_steady += (flat.outFlatNodes.length + flat.inFlatNodes.length) * 20; //多核下调整缓冲区head和tail
             ssg.mapInitWork2FlatNode.set(flat, w_init);
             ssg.mapSteadyWork2FlatNode.set(flat, w_steady);
@@ -2562,7 +2561,7 @@ var COStreamJS = (function () {
         InitScheduling(ssg);
         SteadyScheduling(ssg);
         debug$1("---稳态调度序列---\n");
-        console.table(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})));
+        console.log(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})));
     }
     function InitScheduling(ssg){
         ssg.flatNodes.forEach(n => n.initCount = 1);
@@ -2803,7 +2802,6 @@ var COStreamJS = (function () {
             this.X = [ssg.flatNodes]; // 此时 X 的长度为1, 下标0对应了全部的 flatNodes
         } else {
             this.nvtxs = ssg.flatNodes.length;
-            debugger
             this.setActorWorkload(ssg);
             this.doPartition(ssg);
             this.orderPartitionResult();
@@ -2937,7 +2935,6 @@ var COStreamJS = (function () {
             totalWorkload: mp.totalWork,
         };
         TotalInfo.totalCommunication = PartitionInfo.reduce((sum,info) => sum + info.communication, 0);
-        debugger
         TotalInfo.maxWorkload = PartitionInfo.reduce((max,info) => info.workload > max.workload ? info : max).workload;
         TotalInfo.maxSpeedUp = (TotalInfo.totalWorkload / TotalInfo.maxWorkload).toFixed(2);
 
@@ -3037,17 +3034,20 @@ part               actor             workload           percent\n`;
      * @param { map<FlatNode,int> } map - mp.FlatNode2PartitionNum
      */
     function actorStageMap(map, topologic){
-        let stage = 0; //初始阶段号
+        let maxstage = 0; //初始阶段号
         topologic.forEach(flat=>{
             //判断该节点是否和其输入节点都在一个划分子图
             let isInSameSubGraph = flat.inFlatNodes.every(src=> map.get(src) == map.get(flat));
 
+            //获取它的入节点的最大阶段号
+            maxstage = Math.max(maxstage, ...flat.inFlatNodes.map(f => f.stageNum));
+            
             //如果有上端和自己不在同一子图的话,就要让阶段号+1
-            flat.stageNum = isInSameSubGraph ? stage : ++stage;
+            flat.stageNum = isInSameSubGraph ? maxstage : maxstage+1;
         });
 
         //返回总共有几个阶段, 例如阶段号分别是0,1,2,3,那么要返回一共有"4"个阶段
-        return stage + 1
+        return maxstage + 1
     }
 
     Object.assign(COStreamJS, {
