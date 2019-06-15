@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, parameter_declaration, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "./node.js"
+import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, parameter_declaration, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "./node.js"
 
 export function ast2String(root) {
     var result = ''
@@ -27,15 +27,16 @@ function list2String(list, split, start, end) {
 
 declarator.prototype.toString = function () {
     var str = this.identifier.toString() + ''
-    str += this.op1 ? this.op1 : ''
-    str += this.parameter ? this.parameter.toString() : ''
-    str += this.op2 ? this.op2 : ''
+    str += this.op ? this.op : ''
     if (this.initializer instanceof Array) {
         str += list2String(this.initializer, ',', '{', '}')
     } else {
         str += this.initializer ? this.initializer.toString() : ''
     }
     return str
+}
+idNode.prototype.toString = function(){
+    return this.name + this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :''
 }
 declareNode.prototype.toString = function () {
     return this.type + ' ' + list2String(this.init_declarator_list, ', ')

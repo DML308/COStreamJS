@@ -14,14 +14,25 @@ export class Node {
 /*              1.1 declaration                         */
 /********************************************************/
 export class declarator extends Node {
-    identifier: string | declarator
-    op1: string
-    parameter: any
-    op2?: string
-    initializer: null
+    identifier: idNode
+    op?:'='
+    initializer: any
 
-    constructor(loc: YYLTYPE, identifier: string, op1: string, parameter: any, op2: string, initializer: any)
+    constructor(loc: YYLTYPE, identifier: idNode, initializer: any)
 
+}
+export class idNode extends Node{
+    name:string //例如处理 int foo[10]={1,2,3} 时, name 存储的是 foo
+    isArray:bool
+    /* 对于 a[1][2],arg_list 的值为[1,2]
+     * 对于 a[], arg_list 值为 [0] //如果做了语义检查后还存在数组的长度为0,则抛出错误
+     * 对于 a[][5],arg_list 的值为[0,5]
+     * 对于 a[x] , 则在常量传播的步骤中为 x 确定具体值
+     * 对于 a[] = {0,1,2}, 则在语义检查的步骤中动态计算出长度3,然后设置 arg_list=[3]
+     */
+    arg_list: Array<number,string> 
+
+    constructor(loc:YYLTYPE,name:string,arg?:number|string)
 }
 export class declareNode extends Node {
     type: string

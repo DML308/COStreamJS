@@ -125,21 +125,18 @@ init_declarator_list:
 
 init_declarator:
       declarator                                  { $$ = $1      }
-    | declarator '=' initializer                  { $$ = new declarator(@$,$1,$2);$$.initializer = $3 }
+    | declarator '=' initializer                  { $$ = new declarator(@$,$1,$3) }
     ;
 
 declarator:
-      IDENTIFIER                                  { $$ = $1                                                 }
-    | '(' declarator ')'                          { error("暂未支持该种declarator的写法")                      }
-    | declarator '[' constant_expression ']'      { $$ = new declarator(@$,$1,$2,$3,$4)        }
-    | declarator '[' ']'                          { $$ = new declarator(@$,$1,$2,undefined,$3) }
-    | declarator '(' parameter_type_list ')'      { $$ = new declarator(@$,$1,$2,$3,$4)        }
-    | declarator '(' identifier_list ')'          { $$ = new declarator(@$,$1,$2,$3,$4)        }
-    | declarator '(' ')'                          { $$ = new declarator(@$,$1,$2,undefined,$3) }
+      IDENTIFIER                                  { $$ = new idNode(@$,$1)                     }
+    | '(' declarator ')'                          { error("暂未支持该种declarator的写法")         }
+    | declarator '[' constant_expression ']'      { $1.arg_list.push($3)                       }
+    | declarator '[' ']'                          { $1.arg_list.push(0)                        }
     ;
 identifier_list:
-      IDENTIFIER                                  { $$ = $1 }
-    | identifier_list ',' IDENTIFIER              { $$ = $1 instanceof Array ? $1.concat($3) : [$1,$3] }
+      IDENTIFIER                                  { $$ = [$1] }
+    | identifier_list ',' IDENTIFIER              { $$ = $1.concat($3) }
     ;    
 /*************************************************************************/
 /*                      1.1.2 stream_declaring_list                      */
@@ -167,7 +164,8 @@ initializer_list:
 /*                      1.2.1 function_body                              */
 /*************************************************************************/
 function_definition:
-      type_specifier declarator compound_statement { $$ = new function_definition(@$,$1,$2,$3); }
+      type_specifier declarator '(' parameter_type_list ')' compound_statement { $$ = new function_definition(@$,$1,$2,$4,$6); }
+    | type_specifier declarator '(' ')' compound_statement { $$ = new function_definition(@$,$1,$2,[],$5); }
     ;
 
 parameter_type_list:

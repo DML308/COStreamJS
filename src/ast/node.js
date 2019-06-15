@@ -19,28 +19,35 @@ export class declareNode extends Node {
         this.init_declarator_list = [].concat(init_declarator_list)
     }
 }
-
-export class declarator extends Node {
-    constructor(loc, identifier, op1, parameter, op2, initializer) {
+export class idNode extends Node{
+    constructor(loc, name, arg){
         super(loc)
-        Object.assign(this, {
-            identifier,
-            op1, parameter,
-            op2,
-            initializer
-        })
+        this.name = name
+        this.arg_list = []
+        if(arg){
+            this.isArray = true
+            this.arg_list.push(arg)
+        } 
+    }
+}
+export class declarator extends Node {
+    constructor(loc, identifier, initializer) {
+        super(loc)
+        this.identifier = identifier
+        initializer && (this.op = '=')
+        this.initializer = initializer
     }
 }
 /********************************************************/
 /*              1.2 function.definition 函数声明          */
 /********************************************************/
 export class function_definition extends Node {
-    constructor(loc, type, declarator, compound) {
+    constructor(loc, type, declarator,param_list, compound) {
         super(loc)
         this.type = type
-        this.name = declarator.identifier
+        this.name = declarator.name
         this.op1 = '('
-        this.param_list = declarator.parameter
+        this.param_list = param_list
         this.op2 = ')'
         this.funcBody = compound
     }
