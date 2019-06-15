@@ -77,5 +77,5 @@ X86CodeGeneration.prototype.CGGlobalvarHeader = function () {
             buf += "extern " + str + ';\n'
         }
     }
-    COStreamJS.files['GLobalVar.h'] = buf
+    COStreamJS.files['GLobalVar.h'] = buf+`#endif`
 }
