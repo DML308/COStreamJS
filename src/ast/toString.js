@@ -26,7 +26,7 @@ function list2String(list, split, start, end) {
 */
 
 declarator.prototype.toString = function () {
-    var str = this.identifier.toString() + ' '
+    var str = this.identifier.toString() + ''
     str += this.op1 ? this.op1 : ''
     str += this.parameter ? this.parameter.toString() : ''
     str += this.op2 ? this.op2 : ''
@@ -38,7 +38,7 @@ declarator.prototype.toString = function () {
     return str
 }
 declareNode.prototype.toString = function () {
-    return this.type + ' ' + list2String(this.init_declarator_list, ',')
+    return this.type + ' ' + list2String(this.init_declarator_list, ', ')
 }
 compositeNode.prototype.toString = function () {
     var str = 'composite ' + this.compName + '('

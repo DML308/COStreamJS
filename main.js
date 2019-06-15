@@ -14,6 +14,7 @@ import { DumpStreamGraph } from "./src/LifeCycle/DumpStreamGraph"
 import { GreedyPartition } from "./src/BackEnd/GreedyPartition"
 import { GetSpeedUpInfo, PrintSpeedUpInfo } from "./src/BackEnd/ComputeSpeedUp"
 import { StageAssignment } from "./src/BackEnd/StageAssignment"
+import { codeGeneration } from "./src/LifeCycle/codeGeneration"
 
 Object.assign(COStreamJS.__proto__, {
     parser,
@@ -24,7 +25,8 @@ Object.assign(COStreamJS.__proto__, {
     GreedyPartition,
     GetSpeedUpInfo,
     PrintSpeedUpInfo,
-    StageAssignment
+    StageAssignment,
+    codeGeneration
 })
 COStreamJS.main = function(str){
     debugger
@@ -41,6 +43,8 @@ COStreamJS.main = function(str){
     let SI = this.GetSpeedUpInfo(this.ssg,this.mp)
     debug(this.PrintSpeedUpInfo(SI))
     this.MaxStageNum = this.StageAssignment(this.ssg,this.mp)
+    this.files = {}
+    this.codeGeneration(this.mp.finalParts,this.ssg,this.mp)
 }
 
 //下面代码是为了在浏览器的 window 作用域下调试而做的妥协
