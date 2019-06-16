@@ -2,20 +2,21 @@ import { FlatNode } from "./FlatNode";
 
 export class StaticStreamGraph {
     constructor() {
-        this.topNode = null // SDF图的起始节点，假设只有一个输入为0的节点
+        /** @type {FlatNode} SDF图的起始节点，假设只有一个输入为0的节点 */
+        this.topNode = null 
 
-        //@type {FlatNode[]} 静态数据流图所有节点集合
+        /** @type {FlatNode[]} 静态数据流图所有节点集合 */
         this.flatNodes = []
 
-        // map < string, FlatNode *> mapEdge2UpFlatNode; // 将有向边与其上端绑定
+        /** @type {Map<string, FlatNode>} 将有向边与其上端绑定*/   
         this.mapEdge2UpFlatNode = new Map()
-        // map < string, FlatNode *> mapEdge2DownFlatNode; //将有向边与其下端绑定
+        /** @type {Map<string, FlatNode>}将有向边与其下端绑定*/   
         this.mapEdge2DownFlatNode = new Map()
 
-        // map < FlatNode *, int > mapSteadyWork2FlatNode;  // 存放各个operator的workestimate（稳态工作量估计)
+        /** @type {Map<FlatNode,number>}  存放各个operator的workestimate（稳态工作量估计) */
         this.mapSteadyWork2FlatNode = new Map()
 
-        //map < FlatNode *, int > mapInitWork2FlatNode;    // 存放各个operator的workestimate（初态）
+        /** @type {Ma<FlatNode,number>}    存放各个operator的workestimate初态）*/
         this.mapInitWork2FlatNode = new Map()
 
     };

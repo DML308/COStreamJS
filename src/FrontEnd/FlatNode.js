@@ -5,7 +5,7 @@ export class FlatNode {
         this.PreName = node.operName    // cwb记录Operator被重命名前的名字
         this.visitTimes = 0             // 表示该结点是否已经被访问过,与dumpdot有关
 
-        //@type {operatorNode} 指向operator(经常量传播后的).
+        /** @type {operatorNode} 指向operator(经常量传播后的) */
         this.contents = node
         // 指向原始operator
         this.oldContents = node
@@ -24,19 +24,27 @@ export class FlatNode {
         // opeator在ssg的flatnodes中的顺序编号
         this.num = 0
 
-        //@type {FlatNode[]}
-        this.outFlatNodes = [] // 输 出 边各operator
-        this.inFlatNodes = []  // 输 入 边各operator
+        /** @type {FlatNode[]} 输出边各operator */
+        this.outFlatNodes = []  
+        /** @type {FlatNode[]} 输入边各operator */
+        this.inFlatNodes = []
 
-        //@type{number[]}
+        /** @type {number[]} */
         this.outPushWeights = [] // 输 出 边各权重
         this.inPopWeights = []   // 输 入 边各权重
         this.inPeekWeights = []  // 输 入 边各权重
 
-        //@type{string[]}
+        /** @type {string[]} */
         this.outPushString = []
         this.inPopString = []
         this.inPeekString = []
+
+        /** init调度次数 */
+        this.initCount = 0
+        /** 稳态调度次数 */
+        this.steadyCount = 0
+        /** 阶段号 */
+        this.stageNum = 0
     }
 
     AddOutEdges(/*FlatNode */ dest) {
@@ -48,10 +56,10 @@ export class FlatNode {
         this.nIn++
     }
     // 访问该结点
-    VisitNode(){
-        this.visitTimes ++
-    }   
-    ResetVisitTimes(){
+    VisitNode() {
+        this.visitTimes++
+    }
+    ResetVisitTimes() {
         this.visitTimes = 0
     }
 
