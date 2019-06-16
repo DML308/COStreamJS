@@ -1,3 +1,4 @@
+import { COStreamJS } from "../FrontEnd/global"
 /**
  * 执行阶段赋值, 为ssg 中的每个 flatNode 添加 stageNum 字段
  * @param { StaticStreamGraph } ssg
@@ -6,9 +7,9 @@
  */
 export function StageAssignment(ssg, mp) {
     //第一步根据SDF图的输入边得到拓扑序列，并打印输出
-    let topologic = actorTopologicalorder(ssg.flatNodes);
+    COStreamJS.topologic = actorTopologicalorder(ssg.flatNodes);
     //第二步根据以上步骤的节点划分结果，得到阶段赋值结果
-    return actorStageMap(mp.FlatNode2PartitionNum, topologic);
+    return actorStageMap(mp.FlatNode2PartitionNum, COStreamJS.topologic);
 }
 
 /**
@@ -24,13 +25,13 @@ export function actorTopologicalorder(flatNodes) {
             return flat.inFlatNodes.length == 0 ||
                 flat.inFlatNodes.every(src => topologic.has(src))
         })
-        if(!head){
+        if (!head) {
             throw new Error("[StageAssignment.js] 算法或SDF图出错,这里 head 不应该为空")
         }
         //找到该前驱节点后,将它加入 topologic 拓扑排序序列,并从初始集合中移出
         topologic.add(head)
-        flats.splice(flats.indexOf(head),1)
-        
+        flats.splice(flats.indexOf(head), 1)
+
     }
 
     return [...topologic]
@@ -41,17 +42,17 @@ export function actorTopologicalorder(flatNodes) {
  * 若节点和其输入节点在一个划分子图，则其阶段号一致; 否则阶段号=上端最大阶段号+1
  * @param { map<FlatNode,int> } map - mp.FlatNode2PartitionNum
  */
-export function actorStageMap(map, topologic){
+export function actorStageMap(map, topologic) {
     let maxstage = 0 //初始阶段号
-    topologic.forEach(flat=>{
+    topologic.forEach(flat => {
         //判断该节点是否和其输入节点都在一个划分子图
-        let isInSameSubGraph = flat.inFlatNodes.every(src=> map.get(src) == map.get(flat))
+        let isInSameSubGraph = flat.inFlatNodes.every(src => map.get(src) == map.get(flat))
 
         //获取它的入节点的最大阶段号
         maxstage = Math.max(maxstage, ...flat.inFlatNodes.map(f => f.stageNum))
-        
+
         //如果有上端和自己不在同一子图的话,就要让阶段号+1
-        flat.stageNum = isInSameSubGraph ? maxstage : maxstage+1
+        flat.stageNum = isInSameSubGraph ? maxstage : maxstage + 1
     })
 
     //返回总共有几个阶段, 例如阶段号分别是0,1,2,3,那么要返回一共有"4"个阶段
