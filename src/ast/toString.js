@@ -36,7 +36,7 @@ declarator.prototype.toString = function () {
     return str
 }
 idNode.prototype.toString = function(){
-    return this.name + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'')
+    return this.name + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
 }
 declareNode.prototype.toString = function () {
     return this.type + ' ' + list2String(this.init_declarator_list, ', ')
