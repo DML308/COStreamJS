@@ -11,7 +11,7 @@ export function ShedulingSSG(ssg){
     console.log(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})))
 }
 function InitScheduling(ssg){
-    ssg.flatNodes.forEach(n => n.initCount = 1)
+    ssg.flatNodes.forEach(n => n.initCount = 0)
 }
 function SteadyScheduling(ssg){
     // 默认第一个节点是源，也就是说peek和pop均为0,在图的表示上暂不允许有多个源，但可以有多个peek = pop = 0节点

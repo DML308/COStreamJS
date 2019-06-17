@@ -49,7 +49,7 @@ export function actorStageMap(map, topologic) {
         let isInSameSubGraph = flat.inFlatNodes.every(src => map.get(src) == map.get(flat))
 
         //获取它的入节点的最大阶段号
-        maxstage = Math.max(maxstage, ...flat.inFlatNodes.map(f => f.stageNum))
+        maxstage = flat.inFlatNodes.length > 0 ? Math.max(...flat.inFlatNodes.map(f => f.stageNum)) : 0
 
         //如果有上端和自己不在同一子图的话,就要让阶段号+1
         flat.stageNum = isInSameSubGraph ? maxstage : maxstage + 1
