@@ -27,7 +27,7 @@ export class X86CodeGeneration {
 }
 
 class bufferSpace {
-    constructor(original, instance, buffersize, buffertype) {
+    constructor(original, instance, buffersize, buffertype, copySize = 0, copyStartPos = 0) {
         /** @type {string} 原始缓冲区的名称 */
         this.original = original
         /** @type {string} 实际对应的缓冲区名称 */
@@ -36,6 +36,10 @@ class bufferSpace {
         this.buffersize = buffersize
         /** @type {int} 分配缓冲区的类型，是否可复用，0代表未分配，1代表不可复用，2代表可复用 */
         this.buffertype = buffertype
+        /** FIXME用来标识流的类型,未完成 */
+        this.classification = 'int_x'
+        this.copySize = copySize
+        this.copyStartPos = copyStartPos
     }
 }
 
@@ -139,7 +143,7 @@ X86CodeGeneration.prototype.CGGlobal = function () {
 #include "Buffer.h"
 #include "Global.h"
 #include <vector>
-using namespace std;
+using namespace std;\n
     `
     for (let flat of this.ssg.flatNodes) {
         for (let out of flat.outFlatNodes) {
@@ -150,7 +154,7 @@ using namespace std;
 
             let inEdgeIndex = out.inFlatNodes.indexOf(flat) // out节点中 flat 对应的这条边的下标
             let perWorkPeekCount = out.inPeekWeights[inEdgeIndex] //接收边actor每次peek的个数,b
-            let perWorkPopCount = out.inPopWeights[inEdgeIndex];                   //接收边actor每次调用work需要pop的个数
+            let perWorkPopCount = out.inPopWeights[inEdgeIndex];  //接收边actor每次调用work需要pop的个数
             let init1 = flat.initCount * flat.outPushWeights[edgePos] //发送actor调用initwork产生的数据量
             let init2 = out.initCount * perWorkPopCount //接受actor的数据量
             let size = init1 + perSteadyPushCount * (stageminus + 2) //缓冲区的大小
@@ -174,7 +178,7 @@ using namespace std;
              * 3. 上下游有阶段差的 */
             if (perWorkPeekCount != perWorkPopCount || copySize || copyStartPos || stageminus) {
                 let edgename = flat.name + '_' + out.name //边的名称
-                this.bufferMatch.set(edgename, new bufferSpace(edgename, edgename, size, 1))
+                this.bufferMatch.set(edgename, new bufferSpace(edgename, edgename, size, 1,copySize,copyStartPos))
             }
         }
     }
@@ -190,7 +194,7 @@ using namespace std;
                 throw new Error('有缓冲区未分配, 程序异常, 请联系管理员')
             } else {
                 let b = this.bufferMatch.get(edgename)
-                let str = `"Buffer<streamData>${edgename}(${b.buffersize},0,0);`
+                let str = `Buffer<streamData>${edgename}(${b.buffersize},${b.copySize},${b.copyStartPos});`
                 if (b.original !== b.instance) {
                     str = '//' + str + `  该缓冲区复用了${b.instance}的内存`
                 }
@@ -199,6 +203,8 @@ using namespace std;
         }
     }
     COStreamJS.files['Global.cpp'] = buf.beautify()
+    debugger
+
 }
 
 /**
@@ -210,34 +216,51 @@ X86CodeGeneration.prototype.shareBuffers = function () {
     let processor2topoactors = this.GetProcessor2topoactors(this.mp.FlatNode2PartitionNum)
     for (let nodes of processor2topoactors.values()) {
         let vb = [] //用来存储在一次稳态调度中已经使用完的缓冲区
-        let alloc = [] //用来存储实际分配的缓冲区，string代表缓冲区名称，利用bufferMatch找到实际的缓冲区
-        let allocRecord = [] //与alloc一一对应，存储缓冲区的copySize和copyStartPos
 
         //按拓扑排序访问各个节点
-        nodes.forEach((i, flat) => {
-            flat.outFlatNodes.forEach((edgePos, out) => {
+        nodes.forEach(flat => {
+            flat.outFlatNodes.forEach((out, edgePos) => {
                 let edgename = flat.name + '_' + out.name
                 if (this.bufferMatch.has(edgename)) { return }//如果该边为特殊缓冲区在之前已经分配完成则进入下一条边的分配
 
-                //计算所需要占用的缓冲区大小-开始
+                //计算所需要占用的缓冲区大小
                 let stageminus = out.stageNum - flat.stageNum
                 let perSteadyPushCount = flat.steadyCount * flat.outPushWeights[edgePos]//稳态时产生的数据量
-                let copySize = 0, copyStartPos = 0
                 let size = perSteadyPushCount * (stageminus + 2);
 
                 //分配时首先搜索队列中是否有已经使用完的缓冲区,没有再自己分配内存，使用队列中的缓冲区要将其从队列中删除
-                if(false){
-                    /* FIXME:
-                     * 寻找有效的缓冲区来进行复用, 
-                     * 若有"合适的"则复用, 若大小偏小则将其扩大
-                     * 但是!!!类型检查放哪里呢? 李平然在 COStreamPP 中没写类型检查, 要问一下他
-                     * 还有!!!不对 vb 按每核执行一次清空真的好吗!!! */
-                }else{
+                if (vb.length) {
+                    let sameClassification = vb.filter(b => b.classification === 'int_x')
+                    if (sameClassification) {
+                        let availableBuffer = sameClassification.find(b => b.buffersize >= size)
+                        if (availableBuffer) {
+                            //对当前可用缓冲区中最小的进行内存共享
+                            let buffer = new bufferSpace()
+                            buffer.original = edgename
+                            buffer.instance = availableBuffer.instance
+                            buffer.buffersize = availableBuffer.buffersize
+                            buffer.buffertype = 2
+                            this.bufferMatch.set(edgename, buffer)
+                            vb.splice(vb.indexOf(availableBuffer), 1)
+                        } else {
+                            //若当前可用缓冲区大小都不符合要求则对最大缓冲区进行扩容
+                            let maxBuffer = sameClassification.pop()
+                            this.bufferMatch.get(maxBuffer.instance).buffersize = size
+                            this.bufferMatch.get(maxBuffer.original).buffersize = size
+
+                            let buffer = new bufferSpace()
+                            buffer.original = edgename
+                            buffer.instance = maxBuffer.instance
+                            buffer.buffersize = size
+                            buffer.buffertype = 2
+                            this.bufferMatch.set(edgename, buffer)
+                            vb.splice(vb.indexOf(availableBuffer), 1)
+                        }
+                    }
+                } else {
                     //找不到可以复用的缓冲区，自己进行分配
-                    let buffer = new bufferSpace(edgename,edgename,size,2)
-                    alloc.push(edgename)
-                    allocRecord.push([copySize,copyStartPos])
-                    this.bufferMatch.set(edgename,buffer)
+                    let buffer = new bufferSpace(edgename, edgename, size, 2)
+                    this.bufferMatch.set(edgename, buffer)
                 }
             })
 
