@@ -47,7 +47,7 @@ function MyVisitNode(node,ssg,mp){
 
     //链接输出边
     node.outFlatNodes.forEach((out,idx) =>{
-        str += node.name + '->' + out.name + `[label="${node.outPushWeights[idx]}"];\n\n`;
+        str += node.name + '->' + out.name + `[label="${node.outPushWeights[idx]*node.steadyCount}"];\n\n`;
     })
     return str
 }
