@@ -116,7 +116,7 @@ declaration:
     | stream_declaring_list ';'                   { $$ = $1 }
     ;
 declaring_list:
-      type_specifier   init_declarator_list       { $$ = new declareNode(@$,$1,$2) }
+      type_specifier   init_declarator_list       { $$ = new declareNode(@$,$1,$2); $2.forEach(d=>d.type=$1) }
     ;
 init_declarator_list:
       init_declarator                             { $$ = [$1] }
@@ -124,8 +124,8 @@ init_declarator_list:
     ;
 
 init_declarator:
-      declarator                                  { $$ = $1      }
-    | declarator '=' initializer                  { $$ = new declarator(@$,$1,$3) }
+      declarator                                  { $$ = new declarator(@$,$1,undefined) }
+    | declarator '=' initializer                  { $$ = new declarator(@$,$1,$3)        }
     ;
 
 declarator:

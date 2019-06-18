@@ -17,7 +17,7 @@ export class declarator extends Node {
     identifier: idNode
     op?:'='
     initializer: any
-
+    type:string
     constructor(loc: YYLTYPE, identifier: idNode, initializer: any)
 
 }

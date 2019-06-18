@@ -36,6 +36,7 @@ export class declarator extends Node {
         this.identifier = identifier
         initializer && (this.op = '=')
         this.initializer = initializer
+        definePrivate(this, 'type')
     }
 }
 /********************************************************/
