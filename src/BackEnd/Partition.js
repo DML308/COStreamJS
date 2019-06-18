@@ -1,15 +1,16 @@
+import { FlatNode } from "../FrontEnd/FlatNode"
 /**
  * SDF 图划分算法的基类, 子类需要继承此类并实现对应方法
  */
 export class Partition {
     constructor() {
-        /** @type {map<FlatNode,number>} 节点到划分编号的映射 */
+        /** @type {Map<FlatNode,number>} 节点到划分编号的映射 */
         this.FlatNode2PartitionNum = new Map()
 
-        /** @type {map<number,FlatNode[]>} 划分编号到节点集合的映射 */
+        /** @type {Map<number,FlatNode[]>} 划分编号到节点集合的映射 */
         this.PartitonNum2FlatNode = new Map()
 
-        /** @type {map<number, number>} 划分编号到通信量的映射 */
+        /** @type {Map<number, number>} 划分编号到通信量的映射 */
         this.PartitonNum2Communication = new Map()
 
         /** @type {number} 核数 */

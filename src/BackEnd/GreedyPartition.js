@@ -158,5 +158,6 @@ GreedyPartition.prototype.orderPartitionResult = function () {
     this.X.sort((a, b) => b.w - a.w)
     this.w.sort((a, b) => b - a)
     this.X = this.X.filter(flats => flats.length != 0) //过滤掉不含节点的子图
+    this.X.forEach(flats=>flats.sort((a,b)=>a.name.match(/\d+/)[0] - b.name.match(/\d+/)[0])) //对一个子图按照名字序号升序排序
     this.finalParts = this.X.length
 }
