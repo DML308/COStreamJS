@@ -21,8 +21,15 @@ export class X86CodeGeneration {
         /** @type {Map<string,int>} 缓冲区到对应缓冲区类型的映射，通过这个来判断调用consumer和producer哪种方法 */
         this.bufferType = new Map()
 
-        /** @type {Map<number,number[]>} 处理器编号到 阶段号集合 的对应关系, 例如 0号核上有 0,2 两个阶段*/
+        /** @type {Map<number,Set<number>} 处理器编号到 阶段号集合 的对应关系, 例如 0号核上有 0,2 两个阶段*/
         this.mapNum2Stage = new Map()
+
+        //构造每个线程上的stage集合mapNum2Stage
+        for (let i = 0; i < nCpucore; i++) {
+            let stageNums = new Set() //使用Set来对阶段号做"数组去重"操作
+            this.mp.PartitonNum2FlatNode.get(i).forEach(flat => stageNums.add(flat.stageNum))
+            this.mapNum2Stage.set(i, stageNums) //Set 转回数组
+        }
     }
 }
 
@@ -178,7 +185,7 @@ using namespace std;\n
              * 3. 上下游有阶段差的 */
             if (perWorkPeekCount != perWorkPopCount || copySize || copyStartPos || stageminus) {
                 let edgename = flat.name + '_' + out.name //边的名称
-                this.bufferMatch.set(edgename, new bufferSpace(edgename, edgename, size, 1,copySize,copyStartPos))
+                this.bufferMatch.set(edgename, new bufferSpace(edgename, edgename, size, 1, copySize, copyStartPos))
             }
         }
     }
@@ -376,4 +383,119 @@ void setRunIterCount(int argc,char **argv)
         buf = buf.replace(/#SLOT4/, IOHandler_strings[3])
     }
     COStreamJS.files['main.cpp'] = buf.beautify()
+}
+
+/**
+ * 生成包含所有 actor 头文件的 AllActorHeader.h
+ */
+X86CodeGeneration.prototype.CGAllActorHeader = function () {
+    var buf = ''
+    this.ssg.flatNodes.forEach(flat => {
+        buf += `#include "${flat.name}.h"\n`
+    })
+    COStreamJS.files['AllActorHeader.h'] = buf
+}
+
+/**
+ * 生成所有线程文件
+ */
+X86CodeGeneration.prototype.CGThreads = function () {
+    for (let i = 0; i < this.nCpucore; i++) {
+        var buf = ''
+        let MaxStageNum = COStreamJS.MaxStageNum
+        buf = `
+/*该文件定义各thread的入口函数，在函数内部完成软件流水迭代*/
+#include "Buffer.h"
+#include "Producer.h"
+#include "Consumer.h"
+#include "Global.h"
+#include "AllActorHeader.h"	//包含所有actor的头文件
+#include "lock_free_barrier.h"	//包含barrier函数
+#include "rdtsc.h"
+#include <fstream>
+extern int MAX_ITER;
+        `
+        buf += `void thread_${i}_func()\n{\n`
+        let syncString = (i > 0 ? `workerSync(` + i : `masterSync(` + this.nCpucore) + `);\n`
+        buf += syncString
+
+        let actorSet = this.mp.PartitonNum2FlatNode.get(i) //获取到当前线程上所有flatNode
+        actorSet.forEach(flat => {
+            //准备构造如下格式的声明语句: Name Name_obj(in1,in2,in3,out1);
+            buf += flat.name + ' ' + flat.name + '_obj('
+            let streamNames = [], comments = []
+            flat.inFlatNodes.forEach(src => {
+                let edgename = src.name + '_' + flat.name
+                let buffer = this.bufferMatch.get(edgename)
+                if(buffer.instance !== buffer.original) { 
+                    comments.push(buffer.original +'使用了'+ buffer.instance+'的缓冲区') 
+                }
+                streamNames.push(buffer.instance) //使用实际的缓冲区
+            })
+            flat.outFlatNodes.forEach(out => {
+                let edgename = flat.name + '_' + out.name
+                let buffer = this.bufferMatch.get(edgename)
+                if (buffer.instance !== buffer.original) {
+                    comments.push(buffer.original + '使用了' + buffer.instance + '的缓冲区')
+                }
+                streamNames.push(buffer.instance) //使用实际的缓冲区
+            })
+            buf += streamNames.join(',') + ');'
+            comments.length && (buf += ' //' + comments.join(','))
+            buf+='\n'
+        })
+
+        buf += 'char stage[' + MaxStageNum + '];\n'
+        buf += 'stage[0] = 1;\n'
+
+        //生成初态的 initWork 对应的 for 循环
+        let initFor = `
+        for(int _stageNum = 0; _stageNum < ${MaxStageNum}; _stageNum++){
+            #SLOT
+            ${syncString}
+        }
+        `
+        var forBody = ''
+        let stageSet = this.mapNum2Stage.get(i)    //查找该thread对应的阶段号集合
+        for(let stage = MaxStageNum - 1; stage >=0 ;stage--){
+            if(stageSet.has(stage)){
+                //如果该线程在阶段i有actor
+                let ifStr = `if(stage[${stage}] == _stageNum){`
+                //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
+                let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat=>flat.stageNum == stage)
+                ifStr += flatVec.map(flat=>flat.name+'_obj.runInitScheduleWork();\n').join('') + '}\n'
+                forBody += ifStr
+            }
+        }
+        buf += initFor.replace('#SLOT', forBody)
+        //初态的 initWork 对应的 for 循环生成完毕
+
+        //生成稳态的 steadyWork 对应的 for 循环
+        let steadyFor = `
+        for(int _stageNum = ${MaxStageNum}; _stageNum < 2*${MaxStageNum}+MAX_ITER-1; _stageNum++){
+            #SLOT
+            ${syncString}
+        }
+        `
+        var forBody = ''
+        for (let stage = MaxStageNum - 1; stage >= 0; stage--) {
+            if (stageSet.has(stage)) {
+                //如果该线程在阶段i有actor
+                let ifStr = `if(stage[${stage}] == _stageNum){`
+                //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
+                let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage)
+                ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n'
+                forBody += ifStr
+            }
+        }
+        buf += steadyFor.replace('#SLOT', forBody)
+        //稳态的 steadyWork 对应的 for 循环生成完毕
+
+        buf+='}'
+        COStreamJS.files[`thread_${i}.cpp`] = buf.beautify()
+    }
+}
+
+X86CodeGeneration.prototype.CGactors = function () {
+
 }
