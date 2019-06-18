@@ -1,6 +1,7 @@
+import { operatorNode } from "../ast/node"
 
 export class FlatNode {
-    constructor(/* operatorNode */ node) {
+    constructor(/** @type {operatorNode} */ node) {
         this.name = node.operName       // opeator名字
         this.PreName = node.operName    // cwb记录Operator被重命名前的名字
         this.visitTimes = 0             // 表示该结点是否已经被访问过,与dumpdot有关
