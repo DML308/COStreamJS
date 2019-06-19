@@ -174,7 +174,7 @@ parameter_type_list:
     ;
 
 parameter_declaration:
-      type_specifier declarator         { $$ = new parameter_declaration(@$,$1,$2) }
+      type_specifier declarator         { $$ = new declarator(@$,$2); $$.type=$1 }
     ;
 /*************************************************************************/
 /*              1.3 composite.definition 数据流计算单元声明                */

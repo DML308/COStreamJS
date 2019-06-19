@@ -53,13 +53,6 @@ export class function_definition extends Node {
         this.funcBody = compound
     }
 }
-export class parameter_declaration extends Node {
-    constructor(loc, type, declarator) {
-        super(loc)
-        this.type = type
-        this.declarator = declarator
-    }
-}
 /********************************************************/
 /*        2. composite                                  */
 /********************************************************/

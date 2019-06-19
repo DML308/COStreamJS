@@ -40,6 +40,7 @@ export class declareNode extends Node {
 
     constructor(loc: YYLTYPE, type: string, init_declarator_list: declarator[])
 }
+type parameter_type_list = declarator[]
 /********************************************************/
 /*              1.2 function.definition 函数声明          */
 /********************************************************/
@@ -52,13 +53,6 @@ export class function_definition extends Node {
         this.param_list = declarator.parameter
         this.op2 = ')'
         this.funcBody = compound
-    }
-}
-export class parameter_declaration extends Node {
-    constructor(loc, type, declarator) {
-        super(loc)
-        this.type = type
-        this.declarator = declarator
     }
 }
 /********************************************************/
@@ -115,13 +109,10 @@ export class compBodyNode extends Node {
     }
 }
 export class paramNode extends Node {
-    constructor(loc, param_list) {
-        super(loc)
-        if (param_list) {
-            this.op = 'param'
-        }
-        this.param_list = param_list
-    }
+    op?:'param'
+    param_list?:parameter_type_list
+    
+    constructor(loc:YYLTYPE, param_list?:parameter_type_list) 
 }
 export class operBodyNode extends Node {
     constructor(loc, stmt_list, init, work, win) {

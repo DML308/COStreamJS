@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, parameter_declaration, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "./node.js"
+import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "./node.js"
 
 export function ast2String(root) {
     var result = ''
@@ -69,9 +69,7 @@ compBodyNode.prototype.toString = function () {
 paramNode.prototype.toString = function () {
     return 'param\n  ' + list2String(this.param_list, ',') + ';\n'
 }
-parameter_declaration.prototype.toString = function () {
-    return this.type + ' ' + this.declarator.toString()
-}
+
 //将每一行 statement 的';'上提至 blockNode 处理
 blockNode.prototype.toString = function () {
     var str = '{\n';
