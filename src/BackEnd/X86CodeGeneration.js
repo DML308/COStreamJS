@@ -30,6 +30,9 @@ export class X86CodeGeneration {
             this.mp.PartitonNum2FlatNode.get(i).forEach(flat => stageNums.add(flat.stageNum))
             this.mapNum2Stage.set(i, stageNums) //Set 转回数组
         }
+
+        //头节点执行一次work所需读入的数据量
+        this.workLen = 0
     }
 }
 
@@ -315,7 +318,6 @@ function circleRender(str, start, end) {
     return result
 }
 
-const workLen = 262144
 const IOHandler = true
 X86CodeGeneration.prototype.CGMain = function () {
     var buf = `
@@ -376,7 +378,7 @@ void setRunIterCount(int argc,char **argv)
         buf = buf.replace(/#SLOT\d/g, '')
     } else {
         let workcount = this.ssg.flatNodes[0].steadyCount
-        let IOHandler_strings = getIOHandlerStrings(workLen, 0, workcount)
+        let IOHandler_strings = getIOHandlerStrings(this.workLen, 0, workcount)
         buf = buf.replace(/#SLOT1/, IOHandler_strings[0])
         buf = buf.replace(/#SLOT2/, IOHandler_strings[1])
         buf = buf.replace(/#SLOT3/, IOHandler_strings[2])
@@ -427,8 +429,8 @@ extern int MAX_ITER;
             flat.inFlatNodes.forEach(src => {
                 let edgename = src.name + '_' + flat.name
                 let buffer = this.bufferMatch.get(edgename)
-                if(buffer.instance !== buffer.original) { 
-                    comments.push(buffer.original +'使用了'+ buffer.instance+'的缓冲区') 
+                if (buffer.instance !== buffer.original) {
+                    comments.push(buffer.original + '使用了' + buffer.instance + '的缓冲区')
                 }
                 streamNames.push(buffer.instance) //使用实际的缓冲区
             })
@@ -442,7 +444,7 @@ extern int MAX_ITER;
             })
             buf += streamNames.join(',') + ');'
             comments.length && (buf += ' //' + comments.join(','))
-            buf+='\n'
+            buf += '\n'
         })
 
         buf += 'char stage[' + MaxStageNum + '];\n'
@@ -457,13 +459,13 @@ extern int MAX_ITER;
         `
         var forBody = ''
         let stageSet = this.mapNum2Stage.get(i)    //查找该thread对应的阶段号集合
-        for(let stage = MaxStageNum - 1; stage >=0 ;stage--){
-            if(stageSet.has(stage)){
+        for (let stage = MaxStageNum - 1; stage >= 0; stage--) {
+            if (stageSet.has(stage)) {
                 //如果该线程在阶段i有actor
                 let ifStr = `if(stage[${stage}] == _stageNum){`
                 //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
-                let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat=>flat.stageNum == stage)
-                ifStr += flatVec.map(flat=>flat.name+'_obj.runInitScheduleWork();\n').join('') + '}\n'
+                let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage)
+                ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n'
                 forBody += ifStr
             }
         }
@@ -491,11 +493,123 @@ extern int MAX_ITER;
         buf += steadyFor.replace('#SLOT', forBody)
         //稳态的 steadyWork 对应的 for 循环生成完毕
 
-        buf+='}'
+        buf += '}'
         COStreamJS.files[`thread_${i}.cpp`] = buf.beautify()
     }
 }
 
+/**
+ * 生成各个计算节点, 例如 source.h sink.h
+ */
 X86CodeGeneration.prototype.CGactors = function () {
+    var hasGenerated = new Set() //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
+    this.ssg.flatNodes.forEach(flat => {
+        if (hasGenerated.has(flat.PreName)) return
+        hasGenerated.add(flat.PreName)
 
+        var buf = `
+        #ifndef _${flat.PreName}_
+        #define _${flat.PreName}_
+        #include <string>
+        #include <iostream>
+        #include "Buffer.h"
+        #include "Consumer.h"
+        #include "Producer.h"
+        #include "Global.h"
+        #include "GlobalVar.h"
+        using namespace std;
+        `
+        //如果当前节点为IO节点
+        if (flat.name.match(/FILEREADER/i)) {
+            buf += "#include \"RingBuffer.h\"\n";
+            this.workLen = flat.outPushWeights[0];
+            //由于目前不支持多类型流变量，这里先强制设置为int
+            buf += `
+            struct source{
+                int buffer[${this.workLen}];
+            };
+            extern RingBuffer<source> ringBuffer;
+            `
+        }
+
+        //开始构建 class
+        buf += `class ${flat.PreName}{\n`
+        buf += `public:\n`
+        /*写入类成员函数*/
+        let inEdgeNames = flat.inFlatNodes.map(src => src.name + '_' + flat.name)
+        let outEdgeNames = flat.outFlatNodes.map(out => flat.name + '_' + out.name)
+        buf += this.CGactorsConstructor(flat, inEdgeNames, outEdgeNames);
+        buf += this.CGactorsRunInitScheduleWork(flat, inEdgeNames, outEdgeNames);
+        buf += this.CGactorsRunSteadyScheduleWork(flat, inEdgeNames, outEdgeNames);
+        debugger
+
+
+    })
+}
+
+/**
+ * 生成actors constructor
+ * @example
+ * rtest_3(Buffer<streamData>& Rstream0_0,Buffer<streamData>& round1_0):Rstream0_0(Rstream0_0),round1_0(round1_0){
+ *		steadyScheduleCount = 1;
+ *		initScheduleCount = 0;
+ * }
+ */
+X86CodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, outEdgeNames) {
+    var OutAndInEdges = (outEdgeNames || []).concat(inEdgeNames) // 把 out 放前面, in 放后面
+    var buf = flat.PreName + '('
+    buf += OutAndInEdges.map(s => 'Buffer<streamData>& ' + s).join(',') + '):'
+    buf += OutAndInEdges.map(s => s + '(' + s + ')').join(',') + '{'
+    buf += `
+        steadyScheduleCount = ${flat.steadyCount};
+		initScheduleCount = ${flat.initCount};
+	}
+    `
+    return buf
+}
+/**
+ * @example
+ * void runInitScheduleWork() {
+ *		initVarAndState();
+ *		init();
+ *		for(int i=0;i<initScheduleCount;i++)
+ *			work();
+ *		round1_0.resetTail();
+ *		round1_1.resetTail();
+ *		dup0_0.resetHead();
+ *	}
+ */
+X86CodeGeneration.prototype.CGactorsRunInitScheduleWork = function (flat, inEdgeNames, outEdgeNames) {
+    var buf = `
+    void runInitScheduleWork() {
+		initVarAndState();
+		init();
+		for(int i=0;i<initScheduleCount;i++)
+            work();`;
+    (outEdgeNames || []).forEach(out => buf += out + '.resetTail();\n');
+    (inEdgeNames || []).forEach(src => buf += src + '.resetHead();\n');
+    return buf + '}\n'
+}
+
+/**
+ * @example
+ * void runSteadyScheduleWork() {
+ *		for(int i=0;i<steadyScheduleCount;i++)
+ *			work();
+ *		round1_0.resetTail2();
+ *		round1_1.resetTail();
+ *		dup0_0.resetHead2();
+ *	}
+ */
+X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(flat, inEdgeNames, outEdgeNames) {
+    var buf = `
+    void runSteadyScheduleWork() {
+		initVarAndState();
+		init();
+		for(int i=0;i<initScheduleCount;i++)
+            work();`;
+    var use1Or2 = str => this.bufferMatch.get(str).bufferType == 1 ? '' : '2';
+    (outEdgeNames || []).forEach(out => buf += out + '.resetTail' + use1Or2(out) + '();\n');
+    (inEdgeNames || []).forEach(src => buf += src + '.resetHead' + use1Or2(out) + '();\n');
+    return buf + '}\n'
 }
