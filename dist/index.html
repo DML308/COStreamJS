@@ -87,6 +87,7 @@
     </script>
     <script src="https://cdn.bootcss.com/axios/0.19.0/axios.min.js"></script>
     <script>
+        let old_code = '';
         var editor = ace.edit("editor");
         editor.setTheme("ace/theme/tomorrow");
         editor.session.setMode("ace/mode/c_cpp");
@@ -104,7 +105,14 @@
         } else {
             editor.session.setValue(str);
         }
-
+        editor.selection.on('changeCursor', function(e) {
+            if(editor.getValue()!==old_code){
+                return;
+            }
+            let current_line = editor.getCursorPosition().row+1;
+            let symbol_table = window.COStreamJS.SymbolTable.FindRightSymbolTable(current_line);
+            console.log(symbol_table.printSymbol());
+        });
 
     </script>
 
@@ -126,6 +134,7 @@
             methods: {
                 onAll() {
                     var str = editor.getValue()
+                    old_code = str;
                     try{
                         window.COStreamJS.main(str)
                         this.flats = COStreamJS.ssg.flatNodes
