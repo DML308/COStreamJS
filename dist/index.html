@@ -58,6 +58,23 @@
             <span>{{snackBarMessage}}</span>
             <md-button class="md-primary" @click="showSnackbar = false">ㄨ</md-button>
         </md-snackbar>
+
+        <md-table md-card>
+            <md-table-toolbar>
+                <h1 class="md-title">当前作用域</h1>
+            </md-table-toolbar>
+            <md-table-row>
+                <md-table-head md-numeric>NAME</md-table-head>
+            </md-table-row>
+            <md-table-cell >变量</md-table-cell>
+            <md-table-row v-for="id in symbol_table.idTable" :key="id">
+                <md-table-cell md-numeric>{{id}}</md-table-cell>
+            </md-table-row>
+            <md-table-cell >composite</md-table-cell>
+            <md-table-row v-for="id in symbol_table.compTable" :key="id">
+                <md-table-cell md-numeric>{{id}}</md-table-cell>
+            </md-table-row>
+        </md-table>
     </div>
 
     <!-- 右边 dot 图部分 -->
@@ -110,8 +127,10 @@
                 return;
             }
             let current_line = editor.getCursorPosition().row+1;
-            let symbol_table = window.COStreamJS.SymbolTable.FindRightSymbolTable(current_line);
-            console.log(symbol_table.printSymbol());
+            let symbol_table = window.COStreamJS.SymbolTable.FindRightSymbolTable(current_line,COStreamJS.S);
+            let print_table = symbol_table.printSymbol();
+            Vue.set(app._data.symbol_table,'compTable',print_table.compTable);
+            Vue.set(app._data.symbol_table,'idTable',print_table.idTable);
         });
 
     </script>
@@ -128,7 +147,8 @@
                     flats: [],
                     isDOT: false,
                     showSnackbar:false,
-                    snackBarMessage:''
+                    snackBarMessage:'',
+                    symbol_table:{},
                 }
             },
             methods: {
