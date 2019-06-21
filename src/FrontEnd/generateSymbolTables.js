@@ -1,4 +1,4 @@
-import { SymbolTable, symbol_tables } from "./symbol";
+import { SymbolTable, symbol_tables,initIsSort } from "./symbol";
 import * as Node from "../ast/node";
 
 let top;
@@ -17,11 +17,12 @@ function ExitScope(){
  * 生成符号表
  */
 export function generateSymbolTables(program){
+    initIsSort();
     symbol_tables.length = 0;
     let S = new SymbolTable();
     S.pre = null;
-    S.loc = {first_line:0};
-    symbol_tables.push(S);
+    S.loc = {first_line:0,last_line:Infinity};
+    //symbol_tables.push(S);
     top = S;
     
     program.forEach(node => {
@@ -38,7 +39,6 @@ export function generateSymbolTables(program){
             top.InsertFunctionSymbol(node);
         }       
     });
-    symbol_tables.sort((a,b)=>a.loc.first_line - b.loc.first_line)
     return S;
 }
 

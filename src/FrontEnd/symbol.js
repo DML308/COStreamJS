@@ -1,6 +1,3 @@
-import {
-    compositeNode
-} from "../ast/node";
 export let symbol_tables = [];
 
 export class SymbolTable {
@@ -77,9 +74,27 @@ export class SymbolTable {
     }
 }
 
-SymbolTable.FindRightSymbolTable = function (target) {
+// 查找第一个大于 target 的 值
+function getFirstBigger(target,symbol_tables) {
     var left = 0,
         right = symbol_tables.length - 1,
+        middle = 0;
+    while (left <= right) {
+        middle = Math.floor((left + right) / 2);
+        if (symbol_tables[middle].loc.last_line > target)
+            right = middle - 1;
+        else if (symbol_tables[middle].loc.last_line < target)
+            left = middle + 1;
+        else
+            return middle;
+    }
+    return left;
+}
+
+// 查找最后 一个小于 target 的 值
+function getLastSmaller(target,symbol_tables) {
+    var left = 0,
+    right = symbol_tables.length - 1,
         middle = 0;
     while (left <= right) {
         middle = Math.floor((left + right) / 2);
@@ -88,7 +103,42 @@ SymbolTable.FindRightSymbolTable = function (target) {
         else if (symbol_tables[middle].loc.first_line < target)
             left = middle + 1;
         else
-            return symbol_tables[middle];
+            return middle;
     }
-    return symbol_tables[right];
+   return right;
+}
+
+
+var isSorted = false;
+
+export function initIsSort(){
+    isSorted = false;
+}
+var first_symbol_tables,last_symbol_tables;
+
+SymbolTable.FindRightSymbolTable = function (target) {
+    if(!isSorted){
+        last_symbol_tables = symbol_tables.slice();
+        first_symbol_tables = symbol_tables.slice();
+        first_symbol_tables.sort((a,b)=>a.loc.first_line - b.loc.first_line);
+        last_symbol_tables.sort((a,b)=>a.loc.last_line - b.loc.last_line);
+        isSorted = true;
+    }
+    var line_start, line_end;
+    line_end = getFirstBigger(target,last_symbol_tables);
+    line_start = getLastSmaller(target,first_symbol_tables);
+
+    var last_loc = last_symbol_tables[line_end].loc;
+    var first_loc = first_symbol_tables[line_start].loc;
+    if(last_loc.first_line<= target && last_loc.last_line >= target){
+        return last_symbol_tables[line_end];
+    }else {
+        return first_symbol_tables[line_start];
+    }
+
+
+
+    
+
+
 }
