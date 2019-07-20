@@ -8,6 +8,7 @@ import { AST2FlatStaticStreamGraph } from "./src/LifeCycle/ast2ssg"
 import { unfold } from "./src/FrontEnd/unfoldComposite"
 import { COStreamJS } from "./src/FrontEnd/global"
 import { SymbolTable } from "./src/FrontEnd/symbol"
+import {generateSymbolTables} from "./src/FrontEnd/generateSymbolTables"
 import { WorkEstimate } from "./src/LifeCycle/workEstimate"
 import { ShedulingSSG } from "./src/LifeCycle/SchedulingSSG"
 import { DumpStreamGraph } from "./src/LifeCycle/DumpStreamGraph"
@@ -26,12 +27,14 @@ Object.assign(COStreamJS.__proto__, {
     GetSpeedUpInfo,
     PrintSpeedUpInfo,
     StageAssignment,
-    codeGeneration
+    codeGeneration,
+    SymbolTable
 })
 COStreamJS.main = function(str){
     debugger
     this.ast = COStreamJS.parser.parse(str)
-    this.S = new SymbolTable(this.ast)
+    //this.S = new SymbolTable(this.ast)
+    this.S = generateSymbolTables(this.ast);
     this.gMainComposite = this.SemCheck.findMainComposite(this.ast)
     this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold)
     WorkEstimate(this.ssg)
