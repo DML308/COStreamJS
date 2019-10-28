@@ -139,6 +139,7 @@ var COStreamJS = (function () {
 
 
     var utils = /*#__PURE__*/Object.freeze({
+        __proto__: null,
         debug: debug$1,
         line: line,
         error: error$1,
@@ -229,13 +230,6 @@ var COStreamJS = (function () {
             this.param_list = param_list;
             this.op2 = ')';
             this.funcBody = compound;
-        }
-    }
-    class parameter_declaration extends Node {
-        constructor(loc, type, declarator) {
-            super(loc);
-            this.type = type;
-            this.declarator = declarator;
         }
     }
     /********************************************************/
@@ -447,7 +441,7 @@ var COStreamJS = (function () {
             }
         }
     }
-    class callNode extends expNode {
+    class callNode$1 extends expNode {
         constructor(loc, name, arg_list) {
             super(loc);
             this.name = name;
@@ -559,12 +553,12 @@ var COStreamJS = (function () {
     }
 
     var NodeTypes = /*#__PURE__*/Object.freeze({
+        __proto__: null,
         Node: Node,
         declareNode: declareNode,
         idNode: idNode,
         declarator: declarator,
         function_definition: function_definition,
-        parameter_declaration: parameter_declaration,
         compositeNode: compositeNode,
         compHeadNode: compHeadNode,
         ComInOutNode: ComInOutNode,
@@ -588,7 +582,7 @@ var COStreamJS = (function () {
         ternaryNode: ternaryNode,
         parenNode: parenNode,
         arrayNode: arrayNode,
-        callNode: callNode,
+        callNode: callNode$1,
         constantNode: constantNode,
         operNode: operNode,
         compositeCallNode: compositeCallNode,
@@ -689,7 +683,6 @@ var COStreamJS = (function () {
     switch (yystate) {
     case 1:
      return $$[$0-1] 
-    break;
     case 2: case 10: case 18:
      this.$ = [$$[$0]]; 
     break;
@@ -748,7 +741,7 @@ var COStreamJS = (function () {
      this.$ = [$$[$0]];   
     break;
     case 31:
-     this.$ = new parameter_declaration(this._$,$$[$0-1],$$[$0]); 
+     this.$ = new declarator(this._$,$$[$0]); this.$.type=$$[$0-1]; 
     break;
     case 32:
      this.$ = new compositeNode(this._$,$$[$0-1],$$[$0]); 
@@ -899,11 +892,11 @@ var COStreamJS = (function () {
     break;
     case 98:
      
-                                                                    if(this.$ instanceof callNode){
+                                                                    if(this.$ instanceof callNode$1){
                                                                         this.$ = new compositeCallNode(this._$,$$[$0-1].name,$$[$0-1].arg_list,$$[$0]);
                                                                     }         
                                                                     else{
-                                                                        this.$ = new callNode(this._$,$$[$0-1],$$[$0]);
+                                                                        this.$ = new callNode$1(this._$,$$[$0-1],$$[$0]);
                                                                     }
                                                                 
     break;
@@ -1046,7 +1039,7 @@ var COStreamJS = (function () {
         } else {
             this.parseError = Object.getPrototypeOf(this).parseError;
         }
-        _token_stack:
+        
             var lex = function () {
                 var token;
                 token = lexer.lex() || EOF;
@@ -1485,95 +1478,50 @@ var COStreamJS = (function () {
     case 2:/* ignore comment */
     break;
     case 3:return 87
-    break;
     case 4:return 88
-    break;
     case 5:return 138
-    break;
     case 6:return 134
-    break;
     case 7:return 137
-    break;
     case 8:return 136
-    break;
     case 9:return 135
-    break;
     case 10:return 133
-    break;
     case 11:return 'DEFINE'
-    break;
     case 12:return 80
-    break;
     case 13:return 82
-    break;
     case 14:return 84
-    break;
     case 15:return 83
-    break;
     case 16:return 79
-    break;
     case 17:return 73
-    break;
     case 18:return 75
-    break;
     case 19:return 77
-    break;
     case 20:return 78
-    break;
     case 21:return 81
-    break;
     case 22:return 85
-    break;
     case 23:return 37
-    break;
     case 24:return 39
-    break;
     case 25:return 41
-    break;
     case 26:return 43
-    break;
     case 27:return 94
-    break;
     case 28:return 'FILEWRITER'
-    break;
     case 29:return 51
-    break;
     case 30:return 49
-    break;
     case 31:return 125
-    break;
     case 32:return 126
-    break;
     case 33:return 127
-    break;
     case 34:return 132
-    break;
     case 35:return 131
-    break;
     case 36:return 56
-    break;
     case 37:return 55
-    break;
     case 38:return 59
-    break;
     case 39:return 66
-    break;
     case 40:return 64
-    break;
     case 41:return 62
-    break;
     case 42:return 20
-    break;
     case 43:return 121
-    break;
     case 44:return yy_.yytext
-    break;
     case 45:return yy_.yytext
-    break;
     case 46:return 5
-    break;
     case 47:return 'INVALID'
-    break;
     }
     },
     rules: [/^(?:\s+)/,/^(?:\/\*([^\*]|(\*)*[^\*\/])*(\*)*\*\/)/,/^(?:\/\/.*)/,/^(?:(0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b)/,/^(?:('[^']*'|"[^\"]*"))/,/^(?:string\b)/,/^(?:int\b)/,/^(?:double\b)/,/^(?:float\b)/,/^(?:long\b)/,/^(?:const\b)/,/^(?:define\b)/,/^(?:while\b)/,/^(?:for\b)/,/^(?:break\b)/,/^(?:continue\b)/,/^(?:switch\b)/,/^(?:case\b)/,/^(?:default\b)/,/^(?:if\b)/,/^(?:else\b)/,/^(?:do\b)/,/^(?:return\b)/,/^(?:composite\b)/,/^(?:input\b)/,/^(?:output\b)/,/^(?:stream\b)/,/^(?:FileReader\b)/,/^(?:FileWriter\b)/,/^(?:add\b)/,/^(?:param\b)/,/^(?:init\b)/,/^(?:work\b)/,/^(?:window\b)/,/^(?:tumbling\b)/,/^(?:sliding\b)/,/^(?:splitjoin\b)/,/^(?:pipeline\b)/,/^(?:split\b)/,/^(?:join\b)/,/^(?:duplicate\b)/,/^(?:roundrobin\b)/,/^(?:[a-zA-Z_][a-zA-Z0-9_]*)/,/^(?:\*=|\/=|\+=|-=|<<=|>>=|&=|\^=|\|=)/,/^(?:##|\+\+|--|>>|>>|<=|>=|==|!=|&&|\|\|)/,/^(?:[-*+\/%&|~!()\[\]{}'"#,\.?:;<>=])/,/^(?:$)/,/^(?:.)/],
@@ -1671,7 +1619,7 @@ var COStreamJS = (function () {
     arrayNode.prototype.getValue = function () {
         return NaN
     };
-    callNode.prototype.getValue = function () {
+    callNode$1.prototype.getValue = function () {
         return NaN
     };
 
@@ -1746,11 +1694,9 @@ var COStreamJS = (function () {
         return str
     };
     paramNode.prototype.toString = function () {
-        return 'param\n  ' + list2String(this.param_list, ',') + ';\n'
+        return 'param\n  ' + this.param_list.map(x=>x.type+' '+x.identifier) + ';\n'
     };
-    parameter_declaration.prototype.toString = function () {
-        return this.type + ' ' + this.declarator.toString()
-    };
+
     //将每一行 statement 的';'上提至 blockNode 处理
     blockNode.prototype.toString = function () {
         var str = '{\n';
@@ -1818,7 +1764,7 @@ var COStreamJS = (function () {
             return str
         } else if (this.op1 == 'switch') ;
     };
-    callNode.prototype.toString = function () {
+    callNode$1.prototype.toString = function () {
         var str = this.name + '(';
         str += list2String(this.arg_list, ',');
         return str + ')'
@@ -1851,7 +1797,7 @@ var COStreamJS = (function () {
     };
 
     class FlatNode {
-        constructor(/* operatorNode */ node) {
+        constructor(/** @type {operatorNode} */ node) {
             this.name = node.operName;       // opeator名字
             this.PreName = node.operName;    // cwb记录Operator被重命名前的名字
             this.visitTimes = 0;             // 表示该结点是否已经被访问过,与dumpdot有关
@@ -2545,16 +2491,417 @@ var COStreamJS = (function () {
         }
     }
 
-    class SymbolTable{
-        constructor(program){
+    let symbol_tables = [];
+
+    class SymbolTable {
+        constructor(p, loc) {
             this.compTable = new Map();
-            program.filter(node=> node instanceof compositeNode).forEach(node=>{
-                this.compTable.set(node.compName,node);
-            });
+            this.idTable = new Map();
+            this.optTable = new Map();
+            this.prev = p;
+            this.loc = loc;
+            if (p) {
+                p.children = p.children || [];
+                p.children.push(this);
+            }
+            symbol_tables.push(this);
+            /*program.filter(node=> node instanceof compositeNode).forEach(node=>{
+                this.compTable.set(node.compName,node)
+            })*/
         }
-        LookUpCompositeSymbol(name){
+        LookUpCompositeSymbol(name) {
             return this.compTable.get(name)
         }
+        InsertCompositeSymbol(node) {
+            if (this.compTable.get(node.compName)) {
+                console.log('composite: ' + node.compName + 'is already defined in this scope');
+                return;
+            }
+            this.compTable.set(node.compName, node);
+        }
+        LookUpIdSymbol(name) {
+            let idNode = this.idTable.get(name);
+            if (idNode) {
+                return idNode;
+            }
+            let prev = this.prev;
+            while (prev) {
+                idNode = prev.idTable.get(name);
+                if (idNode) {
+                    return idNode
+                }
+                prev = prev.prev;
+            }
+            return undefined;
+        }
+        InsertIdSymbol(node, name) {
+            if (this.idTable.get(node.name)) {
+                console.log(node.name + 'is already defined in this scope');
+                return;
+            }
+            name = name ? name : node.name;
+            this.idTable.set(name, node);
+        }
+
+        printSymbol() {
+            let result = {};
+            let print_name = ['compTable', 'idTable'];
+            print_name.forEach(key => {
+                result[key] || (result[key] = []);
+                for (let [mapkey, value] of this[key]) {
+                    result[key].push(mapkey);
+                }
+            });
+            return result;
+        }
+
+        printAllSymbol() {
+            let all_tables_name = [];
+            all_tables_name.push(this.printSymbol());
+            if (this.children) {
+                this.children.forEach(child => {
+                    all_tables_name = all_tables_name.concat(child.printAllSymbol());
+                });
+            }
+            return all_tables_name;
+        }
+    }
+
+    // 查找第一个大于 target 的 值
+    function getFirstBigger(target,symbol_tables) {
+        var left = 0,
+            right = symbol_tables.length - 1,
+            middle = 0;
+        while (left <= right) {
+            middle = Math.floor((left + right) / 2);
+            if (symbol_tables[middle].loc.last_line > target)
+                right = middle - 1;
+            else if (symbol_tables[middle].loc.last_line < target)
+                left = middle + 1;
+            else
+                return middle;
+        }
+        return left;
+    }
+
+    // 查找最后 一个小于 target 的 值
+    function getLastSmaller(target,symbol_tables) {
+        var left = 0,
+        right = symbol_tables.length - 1,
+            middle = 0;
+        while (left <= right) {
+            middle = Math.floor((left + right) / 2);
+            if (symbol_tables[middle].loc.first_line > target)
+                right = middle - 1;
+            else if (symbol_tables[middle].loc.first_line < target)
+                left = middle + 1;
+            else
+                return middle;
+        }
+       return right;
+    }
+
+
+    var isSorted = false;
+
+    function initIsSort(){
+        isSorted = false;
+    }
+    var first_symbol_tables,last_symbol_tables;
+
+    SymbolTable.FindRightSymbolTable = function (target) {
+        if(!isSorted){
+            last_symbol_tables = symbol_tables.slice();
+            first_symbol_tables = symbol_tables.slice();
+            first_symbol_tables.sort((a,b)=>a.loc.first_line - b.loc.first_line);
+            last_symbol_tables.sort((a,b)=>a.loc.last_line - b.loc.last_line);
+            isSorted = true;
+        }
+        var line_start, line_end;
+        line_end = getFirstBigger(target,last_symbol_tables);
+        line_start = getLastSmaller(target,first_symbol_tables);
+
+        var last_loc = last_symbol_tables[line_end].loc;
+        var first_loc = first_symbol_tables[line_start].loc;
+        if(last_loc.first_line<= target && last_loc.last_line >= target){
+            return last_symbol_tables[line_end];
+        }else {
+            return first_symbol_tables[line_start];
+        }
+
+
+
+        
+
+
+    };
+
+    let top;
+    let saved = [];
+
+    function EnterScope(loc){ 
+        saved.push(top);
+        top = new SymbolTable(top,loc);
+    }
+
+    function ExitScope(){
+        top = saved.pop();
+    }
+
+    /**
+     * 生成符号表
+     */
+    function generateSymbolTables(program){
+        initIsSort();
+        symbol_tables.length = 0;
+        let S = new SymbolTable();
+        S.pre = null;
+        S.loc = {first_line:0,last_line:Infinity};
+        //symbol_tables.push(S);
+        top = S;
+        
+        program.forEach(node => {
+            if(node instanceof declareNode){
+                generateDeclareNode(node);
+            }
+            else if(node instanceof compositeNode){
+                top.InsertCompositeSymbol(node);
+                EnterScope(node._loc);
+                generateComposite(node);
+                ExitScope();
+            } 
+            else if(node instanceof function_definition){
+                top.InsertFunctionSymbol(node);
+            }       
+        });
+        return S;
+    }
+
+    function generateDeclareNode(node){
+        node.init_declarator_list.forEach(init_node=>top.InsertIdSymbol(init_node,init_node.identifier.name));
+        //todo: check node.initializer 
+    }
+    function generateStrDlc(node){
+        node.init_declarator_list.forEach(id_node=>top.InsertIdSymbol(node.type,id_node));
+        
+    }
+    function generateComposite(node){
+        let inout = node.inout;
+        let body = node.body;
+
+        // 参数列表 加入到符号表中
+        let input_list = inout && inout.input_list;
+        let output_list = inout && inout.output_list;
+
+        if(input_list){
+            input_list.forEach(node=>top.InsertIdSymbol(node.strType,node.id));
+        }
+        if(output_list){
+            output_list.forEach(node=>top.InsertIdSymbol(node.strType,node.id));
+        }
+
+        //解析body
+        let param = body && body.param;
+        let body_stmt = body && body.stmt_list;
+        
+        if(param){
+            param.param_list.forEach(node=>top.InsertIdSymbol(node,node.identifier.name));
+        }
+
+        if(body_stmt){
+            body_stmt.forEach(node=>generateStmt(node));
+        }
+
+    }
+
+    function generateBlock(node){
+        node.stmt_list.forEach(stmt=>generateStmt(stmt));
+    }
+
+    function generateWindow(node){
+        node.forEach(win_node=>{
+            //todo check
+            checkId(win_node.winName);
+            if(win_node.arg_list){
+                win_node.arg_list.forEach(arg_node=>generateStmt(arg_node));
+            }
+        });
+    }
+
+    function generateOperator(node){
+        let inputs = node.inputs;
+        let outputs = node.outputs;
+        let body = node.operBody;
+        if(inputs){
+            //todo check
+            inputs.forEach(input=>checkId());
+        }
+        if(outputs){
+            //todo check
+            outputs.forEach(output=>checkId());
+        }
+        if(body){
+            if(body.stmt_list){
+                body.stmt_list.forEach(stmt=>generateStmt(stmt));
+            }
+            if(body.init){
+                generateStmt(body.init);
+            }
+            if(body.work){
+                EnterScope(body.work._loc);
+                generateStmt(body.work);
+                ExitScope();
+            }
+            //check
+            if(body.win){
+                generateWindow(body.win);
+            }
+        }
+    }
+
+    function generateSplitjoin(node){
+        //check
+        if(node.inputs){
+            node.inputs.forEach(input=>generateStmt(input));
+        }
+        //check
+        if(node.outputs){
+            node.outputs.forEach(output=>generateStmt(output));
+        }
+        if(node.stmt_list){
+            node.stmt_list.forEach(stmt=>generateStmt(stmt));
+        }
+        //check
+        if(node.split.arg_list){
+            node.split.arg_list.forEach(arg_ndoe=>generateStmt(arg_list));
+        }
+        if(node.body_stmts){
+            node.body_stmts.forEach(stmt=>generateStmt(stmt));
+        }
+        //check
+        if(node.join.arg_list){
+            node.join.arg_list.forEach(arg_ndoe=>generateStmt(arg_list));
+        }
+    }
+
+    function generatePipeline(node){
+        //check
+        if(node.inputs){
+            node.inputs.forEach(input=>generateStmt(input));
+        }
+        //check
+        if(node.outputs){
+            node.outputs.forEach(output=>generateStmt(output));
+        }
+        if(node.body_stmts){
+            node.body_stmts.forEach(stmt=>generateStmt(stmt));
+        }
+    }
+
+    function generateStmt(node){
+        // todo check
+        if(node instanceof binopNode){
+            if(node.op === '.'){
+                //读取 stream 中的变量
+                return ;
+            }
+            generateStmt(node.left);
+            generateStmt(node.right);
+        }
+        else if(node instanceof declareNode){
+            if(node.type instanceof strdclNode){
+                generateStrDlc(node);
+            }
+            else{
+                generateDeclareNode(node);
+            }
+            
+        }
+        // todo check
+        else if(node instanceof unaryNode){
+            generateStmt(node.second);
+        }
+        // todo check
+        else if(node instanceof parenNode){
+            generateStmt(node.exp);
+        }
+        // todo check
+        else if(node instanceof arrayNode){
+            checkId(node.exp);
+            node.arg_list.forEach(arg_node=>{
+                // arg_node:string constant exp
+                generateStmt(arg_node);
+            });
+            generateStmt(node.exp);
+        }
+        //todo check
+        else if(typeof node === 'string');
+        //todo check
+        else if(node instanceof compositeCallNode){
+            checkComposite(node.compName);
+            if(node.inputs){
+                node.inputs.forEach(input_node=>{
+                    generateStmt(input_node);
+                });
+            }
+            node.params&& generateStmt(node.params);
+            
+        }
+        //todo check
+        else if(node instanceof callNode){
+            checkFunction(node.name);
+            node.arg_list.forEach(arg_node=>{
+                //arg_ndoe : exp
+                generateStmt(arg_node);
+            });
+        }
+        else if(node instanceof operatorNode){
+            EnterScope(node._loc);
+            generateOperator(node);
+            ExitScope();
+        }
+        else if(node instanceof splitjoinNode){
+            generateSplitjoin(node);
+        }
+        else if(node instanceof pipelineNode){
+            generatePipeline(node);
+        }
+        else if(node instanceof whileNode){
+            EnterScope(node._loc);
+            generateStmt(node.exp);
+            generateStmt(node.statement);
+            ExitScope();
+        }
+        else if(node instanceof doNode){
+            EnterScope(node._loc);
+            generateStmt(node.exp);
+            generateStmt(node.statement);
+            ExitScope();
+        }
+        else if(node instanceof forNode){
+            EnterScope(node._loc);
+            generateStmt(node.init);
+            generateStmt(node.cond);
+            generateStmt(node.next);
+            generateStmt(node.statement);
+            ExitScope();
+        }
+        else if(node instanceof blockNode){
+            generateBlock(node);
+        }
+        
+    }
+
+    function checkId(){
+
+    }
+
+    function checkComposite(){
+
+    }
+
+    function checkFunction(){
+
     }
 
     /**
@@ -3147,6 +3494,9 @@ if(ret!=0)
                 this.mp.PartitonNum2FlatNode.get(i).forEach(flat => stageNums.add(flat.stageNum));
                 this.mapNum2Stage.set(i, stageNums); //Set 转回数组
             }
+
+            //头节点执行一次work所需读入的数据量
+            this.workLen = 0;
         }
     }
 
@@ -3431,8 +3781,6 @@ using namespace std;\n
         }
         return result
     }
-
-    const workLen = 262144;
     X86CodeGeneration.prototype.CGMain = function () {
         var buf = `
 #include <iostream>
@@ -3490,7 +3838,7 @@ void setRunIterCount(int argc,char **argv)
 `;
         {
             let workcount = this.ssg.flatNodes[0].steadyCount;
-            let IOHandler_strings = getIOHandlerStrings(workLen, 0, workcount);
+            let IOHandler_strings = getIOHandlerStrings(this.workLen, 0, workcount);
             buf = buf.replace(/#SLOT1/, IOHandler_strings[0]);
             buf = buf.replace(/#SLOT2/, IOHandler_strings[1]);
             buf = buf.replace(/#SLOT3/, IOHandler_strings[2]);
@@ -3541,8 +3889,8 @@ extern int MAX_ITER;
                 flat.inFlatNodes.forEach(src => {
                     let edgename = src.name + '_' + flat.name;
                     let buffer = this.bufferMatch.get(edgename);
-                    if(buffer.instance !== buffer.original) { 
-                        comments.push(buffer.original +'使用了'+ buffer.instance+'的缓冲区'); 
+                    if (buffer.instance !== buffer.original) {
+                        comments.push(buffer.original + '使用了' + buffer.instance + '的缓冲区');
                     }
                     streamNames.push(buffer.instance); //使用实际的缓冲区
                 });
@@ -3556,7 +3904,7 @@ extern int MAX_ITER;
                 });
                 buf += streamNames.join(',') + ');';
                 comments.length && (buf += ' //' + comments.join(','));
-                buf+='\n';
+                buf += '\n';
             });
 
             buf += 'char stage[' + MaxStageNum + '];\n';
@@ -3571,13 +3919,13 @@ extern int MAX_ITER;
         `;
             var forBody = '';
             let stageSet = this.mapNum2Stage.get(i);    //查找该thread对应的阶段号集合
-            for(let stage = MaxStageNum - 1; stage >=0 ;stage--){
-                if(stageSet.has(stage)){
+            for (let stage = MaxStageNum - 1; stage >= 0; stage--) {
+                if (stageSet.has(stage)) {
                     //如果该线程在阶段i有actor
                     let ifStr = `if(stage[${stage}] == _stageNum){`;
                     //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
-                    let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat=>flat.stageNum == stage);
-                    ifStr += flatVec.map(flat=>flat.name+'_obj.runInitScheduleWork();\n').join('') + '}\n';
+                    let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage);
+                    ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n';
                     forBody += ifStr;
                 }
             }
@@ -3605,13 +3953,125 @@ extern int MAX_ITER;
             buf += steadyFor.replace('#SLOT', forBody);
             //稳态的 steadyWork 对应的 for 循环生成完毕
 
-            buf+='}';
+            buf += '}';
             COStreamJS.files[`thread_${i}.cpp`] = buf.beautify();
         }
     };
 
+    /**
+     * 生成各个计算节点, 例如 source.h sink.h
+     */
     X86CodeGeneration.prototype.CGactors = function () {
+        var hasGenerated = new Set(); //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
+        this.ssg.flatNodes.forEach(flat => {
+            if (hasGenerated.has(flat.PreName)) return
+            hasGenerated.add(flat.PreName);
 
+            var buf = `
+        #ifndef _${flat.PreName}_
+        #define _${flat.PreName}_
+        #include <string>
+        #include <iostream>
+        #include "Buffer.h"
+        #include "Consumer.h"
+        #include "Producer.h"
+        #include "Global.h"
+        #include "GlobalVar.h"
+        using namespace std;
+        `;
+            //如果当前节点为IO节点
+            if (flat.name.match(/FILEREADER/i)) {
+                buf += "#include \"RingBuffer.h\"\n";
+                this.workLen = flat.outPushWeights[0];
+                //由于目前不支持多类型流变量，这里先强制设置为int
+                buf += `
+            struct source{
+                int buffer[${this.workLen}];
+            };
+            extern RingBuffer<source> ringBuffer;
+            `;
+            }
+
+            //开始构建 class
+            buf += `class ${flat.PreName}{\n`;
+            buf += `public:\n`;
+            /*写入类成员函数*/
+            let inEdgeNames = flat.inFlatNodes.map(src => src.name + '_' + flat.name);
+            let outEdgeNames = flat.outFlatNodes.map(out => flat.name + '_' + out.name);
+            buf += this.CGactorsConstructor(flat, inEdgeNames, outEdgeNames);
+            buf += this.CGactorsRunInitScheduleWork(flat, inEdgeNames, outEdgeNames);
+            buf += this.CGactorsRunSteadyScheduleWork(flat, inEdgeNames, outEdgeNames);
+            debugger
+
+
+        });
+    };
+
+    /**
+     * 生成actors constructor
+     * @example
+     * rtest_3(Buffer<streamData>& Rstream0_0,Buffer<streamData>& round1_0):Rstream0_0(Rstream0_0),round1_0(round1_0){
+     *		steadyScheduleCount = 1;
+     *		initScheduleCount = 0;
+     * }
+     */
+    X86CodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, outEdgeNames) {
+        var OutAndInEdges = (outEdgeNames || []).concat(inEdgeNames); // 把 out 放前面, in 放后面
+        var buf = flat.PreName + '(';
+        buf += OutAndInEdges.map(s => 'Buffer<streamData>& ' + s).join(',') + '):';
+        buf += OutAndInEdges.map(s => s + '(' + s + ')').join(',') + '{';
+        buf += `
+        steadyScheduleCount = ${flat.steadyCount};
+		initScheduleCount = ${flat.initCount};
+	}
+    `;
+        return buf
+    };
+    /**
+     * @example
+     * void runInitScheduleWork() {
+     *		initVarAndState();
+     *		init();
+     *		for(int i=0;i<initScheduleCount;i++)
+     *			work();
+     *		round1_0.resetTail();
+     *		round1_1.resetTail();
+     *		dup0_0.resetHead();
+     *	}
+     */
+    X86CodeGeneration.prototype.CGactorsRunInitScheduleWork = function (flat, inEdgeNames, outEdgeNames) {
+        var buf = `
+    void runInitScheduleWork() {
+		initVarAndState();
+		init();
+		for(int i=0;i<initScheduleCount;i++)
+            work();`;
+        (outEdgeNames || []).forEach(out => buf += out + '.resetTail();\n');
+        (inEdgeNames || []).forEach(src => buf += src + '.resetHead();\n');
+        return buf + '}\n'
+    };
+
+    /**
+     * @example
+     * void runSteadyScheduleWork() {
+     *		for(int i=0;i<steadyScheduleCount;i++)
+     *			work();
+     *		round1_0.resetTail2();
+     *		round1_1.resetTail();
+     *		dup0_0.resetHead2();
+     *	}
+     */
+    X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(flat, inEdgeNames, outEdgeNames) {
+        var buf = `
+    void runSteadyScheduleWork() {
+		initVarAndState();
+		init();
+		for(int i=0;i<initScheduleCount;i++)
+            work();`;
+        var use1Or2 = str => this.bufferMatch.get(str).bufferType == 1 ? '' : '2';
+        (outEdgeNames || []).forEach(out => buf += out + '.resetTail' + use1Or2(out) + '();\n');
+        (inEdgeNames || []).forEach(src => buf += src + '.resetHead' + use1Or2(out) + '();\n');
+        return buf + '}\n'
     };
 
     function codeGeneration(nCpucore, ssg, mp){
@@ -3643,12 +4103,14 @@ extern int MAX_ITER;
         GetSpeedUpInfo,
         PrintSpeedUpInfo,
         StageAssignment,
-        codeGeneration
+        codeGeneration,
+        SymbolTable
     });
     COStreamJS.main = function(str){
         debugger
         this.ast = COStreamJS.parser.parse(str);
-        this.S = new SymbolTable(this.ast);
+        //this.S = new SymbolTable(this.ast)
+        this.S = generateSymbolTables(this.ast);
         this.gMainComposite = this.SemCheck.findMainComposite(this.ast);
         this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold);
         WorkEstimate(this.ssg);
