@@ -301,7 +301,7 @@ labeled_statement:
     | DEFAULT ':' statement                     { $$ = new labeled_statement(@$,$1,undefined,$2,$3)}
     ;
 compound_statement: 
-      '{' '}'                                   { $$ = new blockNode(@$,$1,undefined,$2) } 
+      '{' '}'                                   { $$ = new blockNode(@$,$1,[],$2) } 
     | '{' statement_list '}'                    { $$ = new blockNode(@$,$1,$2,$3) }
     ;
 statement_list:
@@ -486,7 +486,7 @@ constant_expression:
 operator_selfdefine_body:
        '{' operator_selfdefine_body_init operator_selfdefine_body_work operator_selfdefine_body_window_list '}'
        {
-           $$ = new operBodyNode(@$,undefined,$2,$3,$4)
+           $$ = new operBodyNode(@$,[],$2,$3,$4)
        }
      | '{' statement_list operator_selfdefine_body_init  operator_selfdefine_body_work operator_selfdefine_body_window_list '}'
        {

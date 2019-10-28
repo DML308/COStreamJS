@@ -114,17 +114,18 @@ export class paramNode extends Node {
     
     constructor(loc:YYLTYPE, param_list?:parameter_type_list) 
 }
-export class operBodyNode extends Node {
-    constructor(loc, stmt_list, init, work, win) {
-        super(loc)
-        Object.assign(this, {
-            stmt_list,
-            op1: 'init', init,
-            op2: 'work', work,
-            op3: 'window', win
-        })
-    }
+export class operBodyNode extends Node{
+    stmt_list: Node[]
+    op1: 'init'
+    init: blockNode
+    op2: 'work'
+    work: blockNode
+    op3: 'win'
+    window: winStmtNode[]
+
+    constructor(loc: YYLTYPE, stmt_list: Node[], init:blockNode, work: blockNode, window: winStmtNode[]) 
 }
+
 export class winStmtNode extends Node {
     constructor(loc, winName, { type, arg_list }) {
         super(loc)
@@ -141,11 +142,12 @@ export class winStmtNode extends Node {
 export type statement = blockNode | binopNode | forNode | operatorNode | splitjoinNode | pipelineNode
 
 export class blockNode extends Node {
-    constructor(loc, op1, stmt_list, op2) {
-        super(loc)
-        Object.assign(this, { op1, stmt_list, op2 })
-    }
+    op1: '{'
+    stmt_list: Node[]
+    op2: '}'
+    constructor(loc: YYLTYPE, op1: '{', stmt_list: Node[], op2: '}')
 }
+
 export class jump_statement extends Node {
     constructor(loc, op1, op2) {
         super(loc)
