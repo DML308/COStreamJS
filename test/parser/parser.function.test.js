@@ -7,7 +7,7 @@ describe("测试能否正确识别函数定义 functino_definition 和它的 函
 
     it("纪录函数头 int main(int x, int y){}", () => {
         var node = parser.parse("int main(double x, string y){}")[0]
-        assert(['int','main','double','string','x','y'].every(x=>checkHasValueByDFS(node,x)))
+        assert(['int','main','x','y'].every(x=>checkHasValueByDFS(node,x)))
     })
     it("return", () => {
         var node = parser.parse("int main(){ return; return 0;}")[0]

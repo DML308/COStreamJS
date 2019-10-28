@@ -67,7 +67,7 @@ compBodyNode.prototype.toString = function () {
     return str
 }
 paramNode.prototype.toString = function () {
-    return 'param\n  ' + list2String(this.param_list, ',') + ';\n'
+    return 'param\n  ' + this.param_list.map(x=>x.type+' '+x.identifier) + ';\n'
 }
 
 //将每一行 statement 的';'上提至 blockNode 处理
