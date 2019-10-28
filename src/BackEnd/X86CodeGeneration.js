@@ -539,11 +539,26 @@ X86CodeGeneration.prototype.CGactors = function () {
         let inEdgeNames = flat.inFlatNodes.map(src => src.name + '_' + flat.name)
         let outEdgeNames = flat.outFlatNodes.map(out => flat.name + '_' + out.name)
         buf += this.CGactorsConstructor(flat, inEdgeNames, outEdgeNames);
-        buf += this.CGactorsRunInitScheduleWork(flat, inEdgeNames, outEdgeNames);
-        buf += this.CGactorsRunSteadyScheduleWork(flat, inEdgeNames, outEdgeNames);
-        debugger
-
-
+        buf += this.CGactorsRunInitScheduleWork(inEdgeNames, outEdgeNames);
+        buf += this.CGactorsRunSteadyScheduleWork(inEdgeNames, outEdgeNames);
+        /*写入类成员变量*/
+        buf += "private:\n";
+        outEdgeNames.forEach(out => buf += `Producer<streamData>${out};\n` )
+        inEdgeNames.forEach(src => buf += `Consumer<streamData>${src};\n`)
+        buf += "int steadyScheduleCount;\t//稳态时一次迭代的执行次数\n";
+        buf += "int initScheduleCount;\n";
+        //写入init部分前的statement定义，调用tostring()函数，解析成规范的类变量定义格式
+        buf += this.CGactorsStmts(flat.contents.operBody.stmt_list);
+        buf += this.CGactorsPopToken(flat, inEdgeNames);
+        buf += this.CGactorsPushToken(flat, outEdgeNames);
+        //init部分前的statement赋值
+        buf += this.CGactorsinitVarAndState(flat.contents.operBody.stmt_list);
+        buf += this.CGactorsInit(flat.contents.operBody.init);
+        buf += this.CGactorsWork(flat.contents.operBody.work);
+        /* 类体结束*/
+        buf += "};\n";
+        buf += "#endif";
+        COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
     })
 }
 
@@ -579,7 +594,7 @@ X86CodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, ou
  *		dup0_0.resetHead();
  *	}
  */
-X86CodeGeneration.prototype.CGactorsRunInitScheduleWork = function (flat, inEdgeNames, outEdgeNames) {
+X86CodeGeneration.prototype.CGactorsRunInitScheduleWork = function (inEdgeNames, outEdgeNames) {
     var buf = `
     void runInitScheduleWork() {
 		initVarAndState();
@@ -601,7 +616,7 @@ X86CodeGeneration.prototype.CGactorsRunInitScheduleWork = function (flat, inEdge
  *		dup0_0.resetHead2();
  *	}
  */
-X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(flat, inEdgeNames, outEdgeNames) {
+X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames, outEdgeNames) {
     var buf = `
     void runSteadyScheduleWork() {
 		initVarAndState();
@@ -610,6 +625,82 @@ X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(flat, inEdg
             work();`;
     var use1Or2 = str => this.bufferMatch.get(str).bufferType == 1 ? '' : '2';
     (outEdgeNames || []).forEach(out => buf += out + '.resetTail' + use1Or2(out) + '();\n');
-    (inEdgeNames || []).forEach(src => buf += src + '.resetHead' + use1Or2(out) + '();\n');
+    (inEdgeNames || []).forEach(src => buf += src + '.resetHead' + use1Or2(src) + '();\n');
     return buf + '}\n'
+}
+
+/**
+ * 将.cos 文件中的 operator 的 init 前的变量声明转为新的 class 的 private 成员,例如 
+ * private: 
+ *   int i; 
+ *   int j;
+ * 而赋值操作放到 initVarAndState 中去做
+ * @param {declareNode[]} stmt_list
+ */
+X86CodeGeneration.prototype.CGactorsStmts = function (stmt_list) {
+    /*解析等号类似int i=0,j=1形式变成int i; int j;的形式,因为类的成员变量定义不能初始化*/
+    var result = ''
+    stmt_list.forEach(declare => {
+        declare.init_declarator_list.forEach(item => {
+            result += item.type + ' ' + item.identifier + ';\n'
+        })
+    })
+    return result;
+}
+
+/**
+ * 生成 class 的 private 部分的 popToken 函数, 例如
+ * void popToken() {
+ *		Rstream0_0.updatehead(1);
+ *		Rstream0_1.updatehead(1);
+ * }
+ * @param {FlatNode} flat
+ */
+X86CodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
+    const pop = flat.inPopWeights[0]
+    const stmts = inEdgeNames.map(src => `${src}.updatehead(${pop});\n`)
+    return `\n void popToken(){ ${stmts} }\n`
+}
+
+/**
+ * 生成 class 的 private 部分的 pushToken 函数, 例如
+ * void pushToken() {
+ *		Dstream0_1.updatetail(2);
+ * }
+ * @param {FlatNode} flat
+ */
+X86CodeGeneration.prototype.CGactorsPushToken = function (flat, outEdgeNames) {
+    const push = flat.outPushWeights[0]
+    const stmts = outEdgeNames.map(out => `${out}.updatetail(${push});\n`)
+    return `\n void pushToken(){ ${stmts} }\n`
+}
+
+/** 
+ * 将 stmt_list 中的 int i=0部分转换为 i=0; 
+ * @param {declareNode[]} stmt_list
+ */
+X86CodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
+    var result = ''
+    stmt_list.forEach( declare =>{
+        declare.init_declarator_list.forEach(item =>{
+            if(item.initializer){
+                result += item.identifier + '=' + item.initializer +';\n'
+            }
+        })
+    })
+    return result;
+}
+X86CodeGeneration.prototype.CGactorsInit = function(init){
+    return `void init() ${init} \n`
+}
+
+/** 
+ * @param {blockNode} work 
+ */
+X86CodeGeneration.prototype.CGactorsWork = function(work){
+    return `void work(){
+        ${work.stmt_list}
+        pushToken();
+        popToken();
+    }\n`
 }
