@@ -15,7 +15,7 @@ COStream 工具在动态弱类型语言 js 上的部署, 目的是代码模块�
 `node.js` 10 以上
 
 # 进度
-只剩下代码生成还没完成
+代码生成完成, 还未测试 & 调 bug
 
 # DEMO   试玩地址  [https://demo.costream.org](https://demo.costream.org)
 ![](https://i.loli.net/2019/06/14/5d035b1d14ce759801.gif)
