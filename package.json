@@ -1,7 +1,7 @@
 {
   "name": "costreamjs",
   "description": "A high-performance streaming programming language for parallel architecture. This repo (js-version) is created for better using & reading & debugging.",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "main": "main.js",
   "repository": "git@github.com:DML308/COStreamJS.git",
   "author": "lxx.imac <lxx2013@mail.ustc.edu.cn>",
@@ -11,6 +11,9 @@
     "Dataflow",
     "parallel-computing"
   ],
+  "bin": {
+    "costreamjs": "dist/COStreamJS.js"
+  },
   "scripts": {
     "dev": "npm run bison && stylus ./dist/main.styl & rollup -w -c rollup.config.js",
     "build": "npm run bison && npx rollup -c rollup.config.js",

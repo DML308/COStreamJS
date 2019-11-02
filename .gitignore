@@ -11,3 +11,4 @@ test.js
 /*.dot
 /*.png
 /src/config/parser.js
+/dist/**/
