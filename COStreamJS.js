@@ -1537,24 +1537,6 @@ var COStreamJS = (function () {
     return new Parser;
     })();
 
-
-    if (typeof require !== 'undefined' && typeof exports !== 'undefined') {
-    exports.parser = parser;
-    exports.Parser = parser.Parser;
-    exports.parse = function () { return parser.parse.apply(parser, arguments); };
-    exports.main = function commonjsMain (args) {
-        if (!args[1]) {
-            console.log('Usage: '+args[0]+' FILE');
-            process.exit(1);
-        }
-        var source = require('fs').readFileSync(require('path').normalize(args[1]), "utf8");
-        return exports.parser.parse(source);
-    };
-    if (typeof module !== 'undefined' && require.main === module) {
-      exports.main(process.argv.slice(1));
-    }
-    }
-
     /**
      * 加载常量传播插件后,表达式 node 可以计算数值
      */
@@ -4197,7 +4179,7 @@ extern int MAX_ITER;
         codeGeneration,
         SymbolTable
     });
-    COStreamJS.main = function(str){
+    COStreamJS.main = function(str, cpuCoreNum = 4){
         debugger
         this.ast = COStreamJS.parser.parse(str);
         //this.S = new SymbolTable(this.ast)
@@ -4207,7 +4189,7 @@ extern int MAX_ITER;
         WorkEstimate(this.ssg);
         ShedulingSSG(this.ssg);
         this.mp = new this.GreedyPartition(this.ssg);
-        this.mp.setCpuCoreNum(4);
+        this.mp.setCpuCoreNum(cpuCoreNum);
         this.mp.SssgPartition(this.ssg);
         this.mp.computeCommunication();
         let SI = this.GetSpeedUpInfo(this.ssg,this.mp);
@@ -4224,6 +4206,40 @@ extern int MAX_ITER;
         ast2String,
         COStreamJS
     });
+
+    /** 下面的代码用于支持命令行功能 */
+    if (typeof require !== 'undefined' && typeof exports !== 'undefined') {
+
+        const fs = require('fs');
+        const argv = require('yargs')
+            .option('j', {
+                alias: 'nCpucore',
+                demand: false,
+                default: '4',
+                describe: '设置可用核数',
+                type: 'string'
+            })
+            .argv;
+
+        exports.main = function commonjsMain(args) {
+            if (!args[1]) {
+                console.log('Usage: ' + args[0] + ' FILE');
+                process.exit(1);
+            }
+            
+            const source_content = fs.readFileSync(require('path').normalize(args[1]), "utf8");
+            const source_filename = args[1].split('/').pop().split('.')[0];
+            COStreamJS.main(source_content, argv.j); //执行编译
+            fs.rmdirSync('./dist/' + source_filename, { recursive: true });
+            fs.mkdirSync('./dist/' + source_filename);
+            Object.entries(COStreamJS.files).forEach(([out_filename, content]) =>{
+                fs.writeFileSync(`./dist/${source_filename}/${out_filename}`, content);
+            });
+        };
+        if (typeof module !== 'undefined' && require.main === module) {
+            exports.main(process.argv.slice(1));
+        }
+    }
 
     return COStreamJS;
 
