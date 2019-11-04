@@ -1,5 +1,5 @@
 import { COStreamJS } from "../FrontEnd/global"
-import { declareNode, function_definition, compositeNode, strdclNode } from "../ast/node";
+import { declareNode, function_definition, compositeNode, strdclNode, blockNode } from "../ast/node";
 import { getIOHandlerStrings } from "./IOHandler"
 import { FlatNode } from "../FrontEnd/FlatNode"
 import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
@@ -18,7 +18,7 @@ export class X86CodeGeneration {
         /** @type {Map<string,bufferSpace>} 字符串到对应的缓冲区的映射 */
         this.bufferMatch = new Map()
 
-        /** @type {Map<string,int>} 缓冲区到对应缓冲区类型的映射，通过这个来判断调用consumer和producer哪种方法 */
+        /** @type {Map<string,number>} 缓冲区到对应缓冲区类型的映射，通过这个来判断调用consumer和producer哪种方法 */
         this.bufferType = new Map()
 
         /** @type {Map<number,Set<number>} 处理器编号到 阶段号集合 的对应关系, 例如 0号核上有 0,2 两个阶段*/
@@ -555,7 +555,7 @@ X86CodeGeneration.prototype.CGactors = function () {
         //init部分前的statement赋值
         buf += this.CGactorsinitVarAndState(flat.contents.operBody.stmt_list);
         buf += this.CGactorsInit(flat.contents.operBody.init);
-        buf += this.CGactorsWork(flat.contents.operBody.work);
+        buf += this.CGactorsWork(flat.contents.operBody.work, flat, inEdgeNames, outEdgeNames);
         /* 类体结束*/
         buf += "};\n";
         buf += "#endif";
@@ -661,7 +661,7 @@ X86CodeGeneration.prototype.CGactorsStmts = function (stmt_list) {
  */
 X86CodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
     const pop = flat.inPopWeights[0]
-    const stmts = inEdgeNames.map(src => `${src}.updatehead(${pop});\n`)
+    const stmts = inEdgeNames.map(src => `${src}.updatehead(${pop});\n`).join('')
     return `\n void popToken(){ ${stmts} }\n`
 }
 
@@ -699,13 +699,23 @@ X86CodeGeneration.prototype.CGactorsInit = function(init){
 
 /** 
  * @param {blockNode} work 
+ * @param {FlatNode} flat
  */
-X86CodeGeneration.prototype.CGactorsWork = function(work){
+X86CodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
     // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
-    const innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
+    var innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
+    // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 B_1_Sink_2
+    flat.contents.inputs.forEach((src, idx) => replace(src, inEdgeNames[idx]))
+    flat.contents.outputs.forEach((out, idx) => replace(out, outEdgeNames[idx]))
+    
     return `void work(){
         ${innerWork}
         pushToken();
         popToken();
     }\n`
+
+    function replace(A, B) {
+        const reg = new RegExp(`\\b${A}\\b`, 'g')
+        innerWork = innerWork.replace(reg, B)
+    }
 }
