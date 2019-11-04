@@ -299,7 +299,7 @@ var COStreamJS = (function () {
         constructor(loc, stmt_list, init, work, win) {
             super(loc);
             Object.assign(this, {
-                stmt_list,
+                stmt_list: stmt_list || [] ,
                 op1: 'init', init,
                 op2: 'work', work,
                 op3: 'window', win
@@ -489,7 +489,7 @@ var COStreamJS = (function () {
     class operatorNode extends operNode {
         constructor(loc, operName, inputs, operBody) {
             super(loc);
-            Object.assign(this, { operName, inputs, operBody });
+            Object.assign(this, { operName, inputs: inputs ||[], operBody });
         }
     }
     class splitjoinNode extends operNode {
@@ -1610,6 +1610,20 @@ var COStreamJS = (function () {
         return Number(this.source)
     };
 
+    var version = "0.4.2";
+
+    //对外的包装对象
+    var COStreamJS = {
+        S : null,
+        gMainComposite : null,
+        files: {},
+        options: { platform: 'default' },
+        version
+    }; 
+    COStreamJS.__proto__ = {};
+    //vector<Node *> compositeCall_list; 存储splitjoin/pipeline中的compositeCall调用
+    var compositeCall_list = [];
+
     function ast2String(root) {
         var result = '';
         root.forEach((x, idx) => {
@@ -1680,10 +1694,16 @@ var COStreamJS = (function () {
         return 'param\n  ' + this.param_list.map(x=>x.type+' '+x.identifier) + ';\n'
     };
 
+    const isNoSemi = node => ['blockNode', 'forNode', 'selection_statement'].includes(node.constructor.name);
+
     //将每一行 statement 的';'上提至 blockNode 处理
     blockNode.prototype.toString = function () {
+        if (!this.stmt_list || this.stmt_list == 0) return '{ }'
         var str = '{\n';
-        str += list2String(this.stmt_list, ';\n') + ';\n';
+        this.stmt_list.forEach(x => {
+            str += x.toString();
+            str += isNoSemi(x) ? '\n' :';\n';
+        });
         return str + '}\n'
     };
     jump_statement.prototype.toString = function () {
@@ -1747,10 +1767,28 @@ var COStreamJS = (function () {
             return str
         } else if (this.op1 == 'switch') ;
     };
+
+    const differentPlatformPrint = {
+        'X86': args => 'cout<<' + list2String(args, '<<'),
+        'WEB': args => 'console.log(' + list2String(args, '<<') + ')',
+        'default': args => '(' + list2String(args, ',') + ')'
+    };
+    const differentPlatformPrintln = {
+        'X86': args => 'cout<<' + list2String(args, '<<') + '<<endl',
+        'WEB': args => 'console.log(' + list2String(args, '<<') + `);console.log('\n')`,
+        'default': args => '(' + list2String(args, ',') + ')'
+    };
     callNode$1.prototype.toString = function () {
-        var str = this.name + '(';
-        str += list2String(this.arg_list, ',');
-        return str + ')'
+        const platform = COStreamJS.options.platform;
+
+        if (this.name === "print") {
+            return differentPlatformPrint[platform](this.arg_list)
+        } else if (this.name === "println") {
+            return differentPlatformPrintln[platform](this.arg_list)
+        }
+        else{
+            return this.name + '(' + list2String(this.arg_list, ',') + ')'
+        }
     };
     compositeCallNode.prototype.toString = function () {
         var str = this.compName + '(';
@@ -1942,15 +1980,6 @@ var COStreamJS = (function () {
             }
         }
     };
-
-    //对外的包装对象
-    var COStreamJS = {
-        S : null,
-        gMainComposite : null
-    }; 
-    COStreamJS.__proto__ = {};
-    //vector<Node *> compositeCall_list; 存储splitjoin/pipeline中的compositeCall调用
-    var compositeCall_list = [];
 
     class UnfoldComposite {
         constructor() {
@@ -3448,7 +3477,8 @@ if(ret!=0)
 `;
     function getIOHandlerStrings(workLen,initworkcount,steadyworkcount){
         str1 = str1.replace(/workLen/g, workLen);
-        str1 = str1.replace(/initworkcount/, initworkcount).replace(/steadyworkcount/, steadyworkcount);
+    	str1 = str1.replace(/initworkcount/, initworkcount).replace(/steadyworkcount/, steadyworkcount);
+        str2 = str2.replace(/initworkcount/, initworkcount).replace(/steadyworkcount/, steadyworkcount);
         str2 = str2.replace(/workLen/g, workLen);
         return [str1,str2,str3,str4]
     }
@@ -3466,7 +3496,7 @@ if(ret!=0)
             /** @type {Map<string,bufferSpace>} 字符串到对应的缓冲区的映射 */
             this.bufferMatch = new Map();
 
-            /** @type {Map<string,int>} 缓冲区到对应缓冲区类型的映射，通过这个来判断调用consumer和producer哪种方法 */
+            /** @type {Map<string,number>} 缓冲区到对应缓冲区类型的映射，通过这个来判断调用consumer和producer哪种方法 */
             this.bufferType = new Map();
 
             /** @type {Map<number,Set<number>} 处理器编号到 阶段号集合 的对应关系, 例如 0号核上有 0,2 两个阶段*/
@@ -3502,25 +3532,26 @@ if(ret!=0)
     }
 
     X86CodeGeneration.prototype.CGMakefile = function () {
+        /** Makefile 要求左边必须靠边, 在左边的空白字符用 \t 而不能用空格 */
         var buf = `
-    PROGRAM := a.out
-    SOURCES := $(wildcard ./*.cpp)
-    SOURCES += $(wildcard ./src/*.cpp)
-    OBJS    := $(patsubst %.cpp,%.o,$(SOURCES))
-    CC      := g++
-    CFLAGS  := -ggdb -Wall 
-    INCLUDE := -I .
-    LIB     := -lpthread -ldl
+PROGRAM := a.out
+SOURCES := $(wildcard ./*.cpp)
+SOURCES += $(wildcard ./src/*.cpp)
+OBJS    := $(patsubst %.cpp,%.o,$(SOURCES))
+CC      := g++
+CFLAGS  := -ggdb -Wall 
+INCLUDE := -I .
+LIB     := -lpthread -ldl
 
-    .PHONY: clean install
-    $(PROGRAM): $(OBJS)
-    \t$(CC) -o $@ $^ $(LIB)
-    %.o: %.c
-    \t$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
-    clean:
-    \trm $(OBJS) $(PROGRAM) -f
-    install: $(PROGRAM)
-    \tcp $(PROGRAM) ./bin/
+.PHONY: clean install
+$(PROGRAM): $(OBJS)
+\t$(CC) -o $@ $^ $(LIB)
+%.o: %.c
+\t$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
+clean:
+\trm $(OBJS) $(PROGRAM) -f
+install: $(PROGRAM)
+\tcp $(PROGRAM) ./bin/
     `;
         COStreamJS.files['Makefile'] = buf;
     };
@@ -3780,7 +3811,7 @@ int MAX_ITER=1;//默认的执行次数是1
 
 #SLOT1
 
-${circleRender('extern void thread_$_func();', 0, this.nCpucore)}
+${circleRender('extern void thread_$_fun();', 0, this.nCpucore)}
 ${circleRender(`
 void* thread_$_fun_start(void *)
 {
@@ -3837,7 +3868,7 @@ void setRunIterCount(int argc,char **argv)
     X86CodeGeneration.prototype.CGAllActorHeader = function () {
         var buf = '';
         this.ssg.flatNodes.forEach(flat => {
-            buf += `#include "${flat.name}.h"\n`;
+            buf += `#include "${flat.PreName}.h"\n`;
         });
         COStreamJS.files['AllActorHeader.h'] = buf;
     };
@@ -3868,7 +3899,7 @@ extern int MAX_ITER;
             let actorSet = this.mp.PartitonNum2FlatNode.get(i); //获取到当前线程上所有flatNode
             actorSet.forEach(flat => {
                 //准备构造如下格式的声明语句: Name Name_obj(in1,in2,in3,out1);
-                buf += flat.name + ' ' + flat.name + '_obj(';
+                buf += flat.PreName + ' ' + flat.name + '_obj(';
                 let streamNames = [], comments = [];
                 flat.inFlatNodes.forEach(src => {
                     let edgename = src.name + '_' + flat.name;
@@ -3998,7 +4029,7 @@ extern int MAX_ITER;
             //init部分前的statement赋值
             buf += this.CGactorsinitVarAndState(flat.contents.operBody.stmt_list);
             buf += this.CGactorsInit(flat.contents.operBody.init);
-            buf += this.CGactorsWork(flat.contents.operBody.work);
+            buf += this.CGactorsWork(flat.contents.operBody.work, flat, inEdgeNames, outEdgeNames);
             /* 类体结束*/
             buf += "};\n";
             buf += "#endif";
@@ -4043,8 +4074,9 @@ extern int MAX_ITER;
     void runInitScheduleWork() {
 		initVarAndState();
 		init();
-		for(int i=0;i<initScheduleCount;i++)
-            work();`;
+		for(int i=0;i<initScheduleCount;i++){    
+            work();
+        }`;
         (outEdgeNames || []).forEach(out => buf += out + '.resetTail();\n');
         (inEdgeNames || []).forEach(src => buf += src + '.resetHead();\n');
         return buf + '}\n'
@@ -4065,9 +4097,10 @@ extern int MAX_ITER;
     void runSteadyScheduleWork() {
 		initVarAndState();
 		init();
-		for(int i=0;i<initScheduleCount;i++)
-            work();`;
-        var use1Or2 = str => this.bufferMatch.get(str).bufferType == 1 ? '' : '2';
+		for(int i=0;i<initScheduleCount;i++){
+            work();
+        }`;
+        var use1Or2 = str => this.bufferMatch.get(str).buffertype == 1 ? '' : '2';
         (outEdgeNames || []).forEach(out => buf += out + '.resetTail' + use1Or2(out) + '();\n');
         (inEdgeNames || []).forEach(src => buf += src + '.resetHead' + use1Or2(src) + '();\n');
         return buf + '}\n'
@@ -4102,7 +4135,7 @@ extern int MAX_ITER;
      */
     X86CodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
         const pop = flat.inPopWeights[0];
-        const stmts = inEdgeNames.map(src => `${src}.updatehead(${pop});\n`);
+        const stmts = inEdgeNames.map(src => `${src}.updatehead(${pop});\n`).join('');
         return `\n void popToken(){ ${stmts} }\n`
     };
 
@@ -4124,7 +4157,7 @@ extern int MAX_ITER;
      * @param {declareNode[]} stmt_list
      */
     X86CodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
-        var result = '';
+        var result = 'void initVarAndState() {';
         stmt_list.forEach( declare =>{
             declare.init_declarator_list.forEach(item =>{
                 if(item.initializer){
@@ -4132,24 +4165,38 @@ extern int MAX_ITER;
                 }
             });
         });
-        return result;
+        return result+'}';
     };
     X86CodeGeneration.prototype.CGactorsInit = function(init){
-        return `void init() ${init} \n`
+        return `void init() ${init|| '{ }'} \n`
     };
 
     /** 
      * @param {blockNode} work 
+     * @param {FlatNode} flat
      */
-    X86CodeGeneration.prototype.CGactorsWork = function(work){
+    X86CodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
+        // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
+        var innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, ''); 
+        // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 B_1_Sink_2
+        flat.contents.inputs.forEach((src, idx) => replace(src, inEdgeNames[idx]));
+        flat.contents.outputs.forEach((out, idx) => replace(out, outEdgeNames[idx]));
+        
         return `void work(){
-        ${work.stmt_list}
+        ${innerWork}
         pushToken();
         popToken();
     }\n`
+
+        function replace(A, B) {
+            const reg = new RegExp(`\\b${A}\\b`, 'g');
+            innerWork = innerWork.replace(reg, B);
+        }
     };
 
     function codeGeneration(nCpucore, ssg, mp){
+        COStreamJS.options.platform = 'X86';
+        
         var X86Code = new X86CodeGeneration(nCpucore, ssg, mp);
         X86Code.CGMakefile();        //生成Makefile文件
         X86Code.CGGlobalvar();       //生成流程序引入的全局变量定义文件 GlobalVar.cpp
@@ -4163,16 +4210,27 @@ extern int MAX_ITER;
         //X86Code.CGFunctionHeader();  //生成function头文件
         //X86Code.CGFunction();        //生成function定义
 
-        /* 拷贝程序运行所需要的库文件 */
-        //string command = "cp " + origin_path + "/lib/* .";
-        //system(command.c_str());
+        /** 拷贝程序运行所需要的库文件 */
+        if(typeof module !== 'undefined'){
+            // 在 node 执行时是以 dist/costream-cli.js 的文件路径为准, 所以 ../lib
+            const fs = require('fs');
+            const dir = require('path').resolve(__dirname, '../lib');
+            const filenames = fs.readdirSync(dir); 
+            /* ['Buffer.h','Consumer.h','Producer.h',
+                'lock_free_barrier.cpp','lock_free_barrier.h',
+                'rdtsc.h','setCpu.cpp','setCpu.h'] */
+            filenames.forEach(name => {
+                COStreamJS.files[name] = fs.readFileSync(`${dir}/${name}`, 'utf8');
+            });
+            console.log(dir, filenames);
+        }else{
+            console.warn('浏览器版本暂不支持拷贝库文件');
+        }
     }
-
-    var version = "0.4.1";
 
     const handle_options = { main: () => {} };
     const Usage = ` 
-  Version ${version}
+  Version ${COStreamJS.version}
   Usage: COStream  [options] [file]
 
   Parses <file> as a COStream program, reporting syntax and type errors, and writes paralleled program out to <file>. If <file> is null, uses stdin and stdout.
@@ -4206,11 +4264,15 @@ extern int MAX_ITER;
 
     			const removeLastChar = (s) => (s[s.length - 1] === '/' ? s.slice(0, -1) : s); //移除路径最后的一个'/'
     			/** 设置输出文件夹的路径 */
-    			const outDir = (argv.o && removeLastChar(argv.o)) || `./dist/${source_filename}`;
+                const outDir = (argv.o && removeLastChar(argv.o)) || `./dist/${source_filename}`;
+                COStreamJS.outDir = outDir;
 
-    			COStreamJS.main(source_content, argv.j || 4); //执行编译
-    			fs.rmdirSync(outDir, { recursive: true });
-    			fs.mkdirSync(outDir);
+                COStreamJS.main(source_content, argv.j || 4); //执行编译
+                if(fs.existsSync(outDir)){
+                    require('child_process').execSync(`rm -rf ${outDir}/*`);
+                }else{
+                    fs.mkdirSync(outDir);
+                }
     			Object.entries(COStreamJS.files).forEach(([ out_filename, content ]) => {
     				fs.writeFileSync(`${outDir}/${out_filename}`, content);
     			});
@@ -4230,7 +4292,6 @@ extern int MAX_ITER;
         StageAssignment,
         codeGeneration,
         SymbolTable,
-        version
     });
     COStreamJS.main = function(str, cpuCoreNum = 4){
         debugger
