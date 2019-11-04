@@ -37,7 +37,8 @@ const Usage = `
 
 			const removeLastChar = (s) => (s[s.length - 1] === '/' ? s.slice(0, -1) : s); //移除路径最后的一个'/'
 			/** 设置输出文件夹的路径 */
-			const outDir = (argv.o && removeLastChar(argv.o)) || `./dist/${source_filename}`;
+            const outDir = (argv.o && removeLastChar(argv.o)) || `./dist/${source_filename}`;
+            COStreamJS.outDir = outDir;
 
 			COStreamJS.main(source_content, argv.j || 4); //执行编译
 			fs.rmdirSync(outDir, { recursive: true });
