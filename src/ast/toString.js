@@ -70,10 +70,18 @@ paramNode.prototype.toString = function () {
     return 'param\n  ' + this.param_list.map(x=>x.type+' '+x.identifier) + ';\n'
 }
 
+const isNoSemi = node => ['blockNode', 'forNode', 'selection_statement'].includes(node.constructor.name)
+
 //将每一行 statement 的';'上提至 blockNode 处理
 blockNode.prototype.toString = function () {
+    if (!this.stmt_list || this.stmt_list == 0) return '{ }'
     var str = '{\n';
-    str += list2String(this.stmt_list, ';\n') + ';\n'
+    console.log(this.stmt_list.join(';'))
+    debugger
+    this.stmt_list.forEach(x => {
+        str += x.toString()
+        str += isNoSemi(x) ? '\n' :';\n'
+    })
     return str + '}\n'
 }
 jump_statement.prototype.toString = function () {
@@ -140,9 +148,13 @@ selection_statement.prototype.toString = function () {
     }
 }
 callNode.prototype.toString = function () {
-    var str = this.name + '('
-    str += list2String(this.arg_list, ',')
-    return str + ')'
+    if(this.name === "print"){
+        return 'cout<<' + list2String(this.arg_list, '<<')
+    }else if(this.name === "println"){
+        return 'cout<<' + list2String(this.arg_list, '<<') + '<<endl'
+    }else{
+        return this.name + '(' + list2String(this.arg_list, ',') + ')'
+    }
 }
 compositeCallNode.prototype.toString = function () {
     var str = this.compName + '('

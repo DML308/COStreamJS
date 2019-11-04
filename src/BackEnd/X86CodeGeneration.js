@@ -701,8 +701,10 @@ X86CodeGeneration.prototype.CGactorsInit = function(init){
  * @param {blockNode} work 
  */
 X86CodeGeneration.prototype.CGactorsWork = function(work){
+    // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
+    const innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
     return `void work(){
-        ${work.stmt_list||''}
+        ${innerWork}
         pushToken();
         popToken();
     }\n`
