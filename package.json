@@ -12,7 +12,7 @@
     "parallel-computing"
   ],
   "bin": {
-    "costreamjs": "dist/COStreamJS.js"
+    "costreamjs": "dist/costreamjs-cli.js"
   },
   "scripts": {
     "dev": "npm run bison && stylus ./dist/main.styl & rollup -w -c rollup.config.js",
