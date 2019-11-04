@@ -1,9 +1,8 @@
-import COStreamJS from '../../main';
-import { version } from '../../package.json';
+import { COStreamJS } from "../FrontEnd/global"
 
 const handle_options = { main: () => {} };
 const Usage = ` 
-  Version ${version}
+  Version ${COStreamJS.version}
   Usage: COStream  [options] [file]
 
   Parses <file> as a COStream program, reporting syntax and type errors, and writes paralleled program out to <file>. If <file> is null, uses stdin and stdout.

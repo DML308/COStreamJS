@@ -16,7 +16,6 @@ import { GreedyPartition } from "./src/BackEnd/GreedyPartition"
 import { GetSpeedUpInfo, PrintSpeedUpInfo } from "./src/BackEnd/ComputeSpeedUp"
 import { StageAssignment } from "./src/BackEnd/StageAssignment"
 import { codeGeneration } from "./src/LifeCycle/codeGeneration"
-import { version } from './package.json';
 import handle_options from './src/LifeCycle/handle_options'
 
 Object.assign(COStreamJS.__proto__, {
@@ -31,7 +30,6 @@ Object.assign(COStreamJS.__proto__, {
     StageAssignment,
     codeGeneration,
     SymbolTable,
-    version
 })
 COStreamJS.main = function(str, cpuCoreNum = 4){
     debugger

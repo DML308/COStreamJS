@@ -1,8 +1,10 @@
 
 import { X86CodeGeneration } from "../BackEnd/X86CodeGeneration"
-import COStreamJS from "../../main"
+import { COStreamJS } from "../FrontEnd/global"
 
 export function codeGeneration(nCpucore, ssg, mp){
+    COStreamJS.options.platform = 'X86'
+    
     var X86Code = new X86CodeGeneration(nCpucore, ssg, mp);
     X86Code.CGMakefile();        //生成Makefile文件
     X86Code.CGGlobalvar();       //生成流程序引入的全局变量定义文件 GlobalVar.cpp

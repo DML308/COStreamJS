@@ -1,4 +1,5 @@
 import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "./node.js"
+import { COStreamJS } from "../FrontEnd/global"
 
 export function ast2String(root) {
     var result = ''
@@ -145,12 +146,26 @@ selection_statement.prototype.toString = function () {
 
     }
 }
+
+const differentPlatformPrint = {
+    'X86': args => 'cout<<' + list2String(args, '<<'),
+    'WEB': args => 'console.log(' + list2String(args, '<<') + ')',
+    'default': args => '(' + list2String(args, ',') + ')'
+}
+const differentPlatformPrintln = {
+    'X86': args => 'cout<<' + list2String(args, '<<') + '<<endl',
+    'WEB': args => 'console.log(' + list2String(args, '<<') + `);console.log('\n')`,
+    'default': args => '(' + list2String(args, ',') + ')'
+}
 callNode.prototype.toString = function () {
-    if(this.name === "print"){
-        return 'cout<<' + list2String(this.arg_list, '<<')
-    }else if(this.name === "println"){
-        return 'cout<<' + list2String(this.arg_list, '<<') + '<<endl'
-    }else{
+    const platform = COStreamJS.options.platform
+
+    if (this.name === "print") {
+        return differentPlatformPrint[platform](this.arg_list)
+    } else if (this.name === "println") {
+        return differentPlatformPrintln[platform](this.arg_list)
+    }
+    else{
         return this.name + '(' + list2String(this.arg_list, ',') + ')'
     }
 }
