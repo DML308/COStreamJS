@@ -54,25 +54,26 @@ class bufferSpace {
 }
 
 X86CodeGeneration.prototype.CGMakefile = function () {
+    /** Makefile 要求左边必须靠边, 在左边的空白字符用 \t 而不能用空格 */
     var buf = `
-    PROGRAM := a.out
-    SOURCES := $(wildcard ./*.cpp)
-    SOURCES += $(wildcard ./src/*.cpp)
-    OBJS    := $(patsubst %.cpp,%.o,$(SOURCES))
-    CC      := g++
-    CFLAGS  := -ggdb -Wall 
-    INCLUDE := -I .
-    LIB     := -lpthread -ldl
+PROGRAM := a.out
+SOURCES := $(wildcard ./*.cpp)
+SOURCES += $(wildcard ./src/*.cpp)
+OBJS    := $(patsubst %.cpp,%.o,$(SOURCES))
+CC      := g++
+CFLAGS  := -ggdb -Wall 
+INCLUDE := -I .
+LIB     := -lpthread -ldl
 
-    .PHONY: clean install
-    $(PROGRAM): $(OBJS)
-    \t$(CC) -o $@ $^ $(LIB)
-    %.o: %.c
-    \t$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
-    clean:
-    \trm $(OBJS) $(PROGRAM) -f
-    install: $(PROGRAM)
-    \tcp $(PROGRAM) ./bin/
+.PHONY: clean install
+$(PROGRAM): $(OBJS)
+\t$(CC) -o $@ $^ $(LIB)
+%.o: %.c
+\t$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
+clean:
+\trm $(OBJS) $(PROGRAM) -f
+install: $(PROGRAM)
+\tcp $(PROGRAM) ./bin/
     `
     COStreamJS.files['Makefile'] = buf
 }
