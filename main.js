@@ -16,6 +16,8 @@ import { GreedyPartition } from "./src/BackEnd/GreedyPartition"
 import { GetSpeedUpInfo, PrintSpeedUpInfo } from "./src/BackEnd/ComputeSpeedUp"
 import { StageAssignment } from "./src/BackEnd/StageAssignment"
 import { codeGeneration } from "./src/LifeCycle/codeGeneration"
+import { version } from './package.json';
+import handle_options from './src/LifeCycle/handle_options'
 
 Object.assign(COStreamJS.__proto__, {
     parser,
@@ -28,7 +30,8 @@ Object.assign(COStreamJS.__proto__, {
     PrintSpeedUpInfo,
     StageAssignment,
     codeGeneration,
-    SymbolTable
+    SymbolTable,
+    version
 })
 COStreamJS.main = function(str, cpuCoreNum = 4){
     debugger
@@ -58,39 +61,10 @@ Object.assign(COStreamJS.global, NodeTypes, {
     COStreamJS
 })
 
-export default COStreamJS
-
 /** 下面的代码用于支持命令行功能 */
-if (typeof require !== 'undefined' && typeof exports !== 'undefined') {
-
-    const fs = require('fs')
-    const argv = require('yargs')
-        .option('j', {
-            alias: 'nCpucore',
-            demand: false,
-            default: '4',
-            describe: '设置可用核数',
-            type: 'string'
-        })
-        .argv;
-
-    exports.main = function commonjsMain(args) {
-        if (!args[1]) {
-            console.log('Usage: ' + args[0] + ' FILE');
-            process.exit(1);
-        }
-        
-        const source_content = fs.readFileSync(require('path').normalize(args[1]), "utf8");
-        const source_filename = args[1].split('/').pop().split('.')[0]
-        COStreamJS.main(source_content, argv.j); //执行编译
-        fs.rmdirSync('./dist/' + source_filename, { recursive: true })
-        fs.mkdirSync('./dist/' + source_filename)
-        Object.entries(COStreamJS.files).forEach(([out_filename, content]) =>{
-            fs.writeFileSync(`./dist/${source_filename}/${out_filename}`, content)
-        })
-    };
-    if (typeof module !== 'undefined' && require.main === module) {
-        exports.main(process.argv.slice(1));
-    }
+if (typeof module !== 'undefined' && require.main === module) {
+    handle_options.main(process.argv);
 }
+
+export default COStreamJS
 

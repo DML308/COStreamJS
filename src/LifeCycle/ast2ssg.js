@@ -21,7 +21,8 @@ export function AST2FlatStaticStreamGraph(mainComposite,unfold){
     /* 将每个composite重命名 */
     ssg.ResetFlatNodeNames();
     ssg.SetFlatNodesWeights();
-    debug("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n",ssg)
+    debug("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n");
+    typeof window !== 'undefined' && debug(ssg);
     return ssg
 }
 

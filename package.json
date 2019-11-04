@@ -1,7 +1,7 @@
 {
   "name": "costreamjs",
   "description": "A high-performance streaming programming language for parallel architecture. This repo (js-version) is created for better using & reading & debugging.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "main": "main.js",
   "repository": "git@github.com:DML308/COStreamJS.git",
   "author": "lxx.imac <lxx2013@mail.ustc.edu.cn>",
@@ -24,7 +24,9 @@
     "t": "mocha --require babel-register",
     "test:cover": "istanbul cover test/lexer.test.js"
   },
-  "dependencies": {},
+  "dependencies": {
+    "yargs": "^14.2.0"
+  },
   "devDependencies": {
     "babel-preset-env": "^1.7.0",
     "babel-register": "^6.26.0",
@@ -34,6 +36,7 @@
     "mocha": "^6.1.4",
     "rollup": "^1.11.3",
     "rollup-plugin-commonjs": "^9.3.4",
+    "rollup-plugin-json": "^4.0.0",
     "rollup-plugin-node-resolve": "^4.2.3",
     "stylus": "^0.54.5"
   },
