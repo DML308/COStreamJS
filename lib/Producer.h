@@ -4,7 +4,7 @@
 template <typename T>
 class Producer
 {
-public:
+  public:
 	Producer(Buffer<T> &proBuffer) : proBuffer(proBuffer)
 	{
 		tail = 0;
@@ -24,8 +24,12 @@ public:
 			tail = proBuffer.copySize + proBuffer.copyStartPos;
 		}
 	}
+	void resetTail2()
+	{
+		tail = proBuffer.copySize + proBuffer.copyStartPos;
+	}
 
-private:
+  private:
 	Buffer<T> &proBuffer;
 	int tail;
 };

@@ -5,7 +5,7 @@
 template <typename T>
 class Consumer
 {
-public:
+  public:
 	Consumer(Buffer<T> &conBuffer) : conBuffer(conBuffer)
 	{
 		head = 0;
@@ -26,8 +26,12 @@ public:
 			head = conBuffer.copyStartPos;
 		}
 	}
+	void resetHead2()
+	{
+		head = conBuffer.copyStartPos;
+	}
 
-private:
+  private:
 	Buffer<T> &conBuffer;
 	int head;
 };
