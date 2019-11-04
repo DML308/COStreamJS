@@ -42,7 +42,8 @@ if(ret!=0)
 `
 export function getIOHandlerStrings(workLen,initworkcount,steadyworkcount){
     str1 = str1.replace(/workLen/g, workLen)
-    str1 = str1.replace(/initworkcount/, initworkcount).replace(/steadyworkcount/, steadyworkcount)
+	str1 = str1.replace(/initworkcount/, initworkcount).replace(/steadyworkcount/, steadyworkcount)
+    str2 = str2.replace(/initworkcount/, initworkcount).replace(/steadyworkcount/, steadyworkcount)
     str2 = str2.replace(/workLen/g, workLen)
     return [str1,str2,str3,str4]
 }

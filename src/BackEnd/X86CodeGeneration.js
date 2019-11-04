@@ -335,7 +335,7 @@ int MAX_ITER=1;//默认的执行次数是1
 
 #SLOT1
 
-${circleRender('extern void thread_$_func();', 0, this.nCpucore)}
+${circleRender('extern void thread_$_fun();', 0, this.nCpucore)}
 ${circleRender(`
 void* thread_$_fun_start(void *)
 {
@@ -600,8 +600,9 @@ X86CodeGeneration.prototype.CGactorsRunInitScheduleWork = function (inEdgeNames,
     void runInitScheduleWork() {
 		initVarAndState();
 		init();
-		for(int i=0;i<initScheduleCount;i++)
-            work();`;
+		for(int i=0;i<initScheduleCount;i++){    
+            work();
+        }`;
     (outEdgeNames || []).forEach(out => buf += out + '.resetTail();\n');
     (inEdgeNames || []).forEach(src => buf += src + '.resetHead();\n');
     return buf + '}\n'
@@ -622,9 +623,10 @@ X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames
     void runSteadyScheduleWork() {
 		initVarAndState();
 		init();
-		for(int i=0;i<initScheduleCount;i++)
-            work();`;
-    var use1Or2 = str => this.bufferMatch.get(str).bufferType == 1 ? '' : '2';
+		for(int i=0;i<initScheduleCount;i++){
+            work();
+        }`;
+    var use1Or2 = str => this.bufferMatch.get(str).buffertype == 1 ? '' : '2';
     (outEdgeNames || []).forEach(out => buf += out + '.resetTail' + use1Or2(out) + '();\n');
     (inEdgeNames || []).forEach(src => buf += src + '.resetHead' + use1Or2(src) + '();\n');
     return buf + '}\n'
@@ -681,7 +683,7 @@ X86CodeGeneration.prototype.CGactorsPushToken = function (flat, outEdgeNames) {
  * @param {declareNode[]} stmt_list
  */
 X86CodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
-    var result = ''
+    var result = 'void initVarAndState() {'
     stmt_list.forEach( declare =>{
         declare.init_declarator_list.forEach(item =>{
             if(item.initializer){
@@ -689,10 +691,10 @@ X86CodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
             }
         })
     })
-    return result;
+    return result+'}';
 }
 X86CodeGeneration.prototype.CGactorsInit = function(init){
-    return `void init() ${init} \n`
+    return `void init() ${init|| '{ }'} \n`
 }
 
 /** 
@@ -700,7 +702,7 @@ X86CodeGeneration.prototype.CGactorsInit = function(init){
  */
 X86CodeGeneration.prototype.CGactorsWork = function(work){
     return `void work(){
-        ${work.stmt_list}
+        ${work.stmt_list||''}
         pushToken();
         popToken();
     }\n`
