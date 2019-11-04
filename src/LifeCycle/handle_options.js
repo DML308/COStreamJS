@@ -40,9 +40,12 @@ const Usage = `
             const outDir = (argv.o && removeLastChar(argv.o)) || `./dist/${source_filename}`;
             COStreamJS.outDir = outDir;
 
-			COStreamJS.main(source_content, argv.j || 4); //执行编译
-			fs.rmdirSync(outDir, { recursive: true });
-			fs.mkdirSync(outDir);
+            COStreamJS.main(source_content, argv.j || 4); //执行编译
+            if(fs.existsSync(outDir)){
+                require('child_process').execSync(`rm -rf ${outDir}/*`)
+            }else{
+                fs.mkdirSync(outDir);
+            }
 			Object.entries(COStreamJS.files).forEach(([ out_filename, content ]) => {
 				fs.writeFileSync(`${outDir}/${out_filename}`, content);
 			});

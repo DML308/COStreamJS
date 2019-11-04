@@ -394,7 +394,7 @@ void setRunIterCount(int argc,char **argv)
 X86CodeGeneration.prototype.CGAllActorHeader = function () {
     var buf = ''
     this.ssg.flatNodes.forEach(flat => {
-        buf += `#include "${flat.name}.h"\n`
+        buf += `#include "${flat.PreName}.h"\n`
     })
     COStreamJS.files['AllActorHeader.h'] = buf
 }
@@ -425,7 +425,7 @@ extern int MAX_ITER;
         let actorSet = this.mp.PartitonNum2FlatNode.get(i) //获取到当前线程上所有flatNode
         actorSet.forEach(flat => {
             //准备构造如下格式的声明语句: Name Name_obj(in1,in2,in3,out1);
-            buf += flat.name + ' ' + flat.name + '_obj('
+            buf += flat.PreName + ' ' + flat.name + '_obj('
             let streamNames = [], comments = []
             flat.inFlatNodes.forEach(src => {
                 let edgename = src.name + '_' + flat.name
