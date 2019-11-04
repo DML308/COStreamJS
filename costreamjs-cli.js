@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 var COStreamJS = (function () {
     'use strict';
 
