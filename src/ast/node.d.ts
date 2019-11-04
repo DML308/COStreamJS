@@ -294,7 +294,7 @@ export class compositeCallNode extends operNode {
 }
 export class operatorNode extends operNode {
     operName: string
-    inputs?: string[]
+    inputs: string[]
     operBody: operBodyNode
     constructor(loc: YYLTYPE, operName: string, inputs: string[], operBody: operBodyNode)
 }

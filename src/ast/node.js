@@ -119,7 +119,7 @@ export class operBodyNode extends Node {
     constructor(loc, stmt_list, init, work, win) {
         super(loc)
         Object.assign(this, {
-            stmt_list,
+            stmt_list: stmt_list || [] ,
             op1: 'init', init,
             op2: 'work', work,
             op3: 'window', win
@@ -310,7 +310,7 @@ export class compositeCallNode extends operNode {
 export class operatorNode extends operNode {
     constructor(loc, operName, inputs, operBody) {
         super(loc)
-        Object.assign(this, { operName, inputs, operBody })
+        Object.assign(this, { operName, inputs: inputs ||[], operBody })
     }
 }
 export class splitjoinNode extends operNode {

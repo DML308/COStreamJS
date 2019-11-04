@@ -76,8 +76,6 @@ const isNoSemi = node => ['blockNode', 'forNode', 'selection_statement'].include
 blockNode.prototype.toString = function () {
     if (!this.stmt_list || this.stmt_list == 0) return '{ }'
     var str = '{\n';
-    console.log(this.stmt_list.join(';'))
-    debugger
     this.stmt_list.forEach(x => {
         str += x.toString()
         str += isNoSemi(x) ? '\n' :';\n'
