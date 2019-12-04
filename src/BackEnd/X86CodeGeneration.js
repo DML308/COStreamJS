@@ -319,7 +319,7 @@ function circleRender(str, start, end) {
     return result
 }
 
-const IOHandler = true
+const IOHandler = false
 X86CodeGeneration.prototype.CGMain = function () {
     var buf = `
 #include <iostream>
@@ -418,7 +418,7 @@ X86CodeGeneration.prototype.CGThreads = function () {
 #include <fstream>
 extern int MAX_ITER;
         `
-        buf += `void thread_${i}_func()\n{\n`
+        buf += `void thread_${i}_fun()\n{\n`
         let syncString = (i > 0 ? `workerSync(` + i : `masterSync(` + this.nCpucore) + `);\n`
         buf += syncString
 
@@ -487,7 +487,7 @@ extern int MAX_ITER;
                 let ifStr = `if(stage[${stage}] == _stageNum){`
                 //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
                 let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage)
-                ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n'
+                ifStr += flatVec.map(flat => flat.name + '_obj.runSteadyScheduleWork();\n').join('') + '}\n'
                 forBody += ifStr
             }
         }
