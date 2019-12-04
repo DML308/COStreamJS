@@ -3416,20 +3416,19 @@ part               actor             workload           percent\n`;
      * @param { map<FlatNode,int> } map - mp.FlatNode2PartitionNum
      */
     function actorStageMap(map, topologic) {
-        let maxstage = 0; //初始阶段号
         topologic.forEach(flat => {
             //判断该节点是否和其输入节点都在一个划分子图
-            let isInSameSubGraph = flat.inFlatNodes.every(src => map.get(src) == map.get(flat));
+            const isInSameSubGraph = flat.inFlatNodes.every(src => map.get(src) == map.get(flat));
 
             //获取它的入节点的最大阶段号
-            maxstage = flat.inFlatNodes.length > 0 ? Math.max(...flat.inFlatNodes.map(f => f.stageNum)) : 0;
+            const maxstage = flat.inFlatNodes.length > 0 ? Math.max(...flat.inFlatNodes.map(f => f.stageNum)) : 0;
 
             //如果有上端和自己不在同一子图的话,就要让阶段号+1
             flat.stageNum = isInSameSubGraph ? maxstage : maxstage + 1;
         });
 
         //返回总共有几个阶段, 例如阶段号分别是0,1,2,3,那么要返回一共有"4"个阶段
-        return maxstage + 1
+        return topologic[topologic.length-1].stageNum + 1
     }
 
     class X86CodeGeneration {
@@ -3902,13 +3901,21 @@ extern int MAX_ITER;
             for (let stage = MaxStageNum - 1; stage >= 0; stage--) {
                 if (stageSet.has(stage)) {
                     //如果该线程在阶段i有actor
-                    let ifStr = `if(stage[${stage}] == _stageNum){`;
+                    let ifStr = `if(stage[${stage}]){`;
                     //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
                     let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage);
                     ifStr += flatVec.map(flat => flat.name + '_obj.runSteadyScheduleWork();\n').join('') + '}\n';
                     forBody += ifStr;
                 }
             }
+            forBody += 
+            `for(int index=${MaxStageNum-1}; index>=1; --index){
+            stage[index] = stage[index-1];
+         }
+         if(_stageNum == MAX_ITER - 1 + ${MaxStageNum}){
+             stage[0] = 0;
+         }
+        `;
             buf += steadyFor.replace('#SLOT', forBody);
             //稳态的 steadyWork 对应的 for 循环生成完毕
 
@@ -4041,7 +4048,7 @@ extern int MAX_ITER;
     void runSteadyScheduleWork() {
 		initVarAndState();
 		init();
-		for(int i=0;i<initScheduleCount;i++){
+		for(int i=0;i<steadyScheduleCount;i++){
             work();
         }`;
         var use1Or2 = str => this.bufferMatch.get(str).buffertype == 1 ? '' : '2';
