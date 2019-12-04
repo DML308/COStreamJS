@@ -3432,56 +3432,6 @@ part               actor             workload           percent\n`;
         return maxstage + 1
     }
 
-    var str1 =`
-struct source{
-	int buffer[workLen];
-};
-RingBuffer<source> ringBuffer(1024,sizeof(source));
-int workExecuteTimes=0;
-
-void* thread_io_fun_start(void *arg)
-{
-	source iobuff;
-	ifstream inSource("input.bin",ios::binary);
-	for(int i=0;i<workExecuteTimes;i++)
-	{
-		inSource.read((char*)iobuff.buffer,sizeof(int)* workLen);
-		while(!ringBuffer.write((char*)&iobuff));
-	}
-	return 0;
-}`;
-    var str2 = `
-ifstream in("input.bin",ios::binary);
-in.seekg(0,ios::end);
-int length = in.tellg();
-in.seekg(0,ios::beg);
-workExecuteTimes=length/(sizeof(int)*workLen);
-MAX_ITER = (workExecuteTimes-initworkcount)/steadyworkcount;
-`;
-    var str3=`
-if(!ringBuffer.Initialize())
-{
-    return -1;
-}
-pthread_t th;
-int ret = pthread_create (&th, NULL, thread_io_fun_start, (void*)NULL);
-`;
-    var str4 = `
-ret = pthread_join(th,NULL);
-if(ret!=0)
-{
-    cout<<"join error"<<endl;
-    return -1;
-}
-`;
-    function getIOHandlerStrings(workLen,initworkcount,steadyworkcount){
-        str1 = str1.replace(/workLen/g, workLen);
-    	str1 = str1.replace(/initworkcount/, initworkcount).replace(/steadyworkcount/, steadyworkcount);
-        str2 = str2.replace(/initworkcount/, initworkcount).replace(/steadyworkcount/, steadyworkcount);
-        str2 = str2.replace(/workLen/g, workLen);
-        return [str1,str2,str3,str4]
-    }
-
     class X86CodeGeneration {
 
         constructor(nCpucore, ssg, mp) {
@@ -3851,12 +3801,7 @@ void setRunIterCount(int argc,char **argv)
 }
 `;
         {
-            let workcount = this.ssg.flatNodes[0].steadyCount;
-            let IOHandler_strings = getIOHandlerStrings(this.workLen, 0, workcount);
-            buf = buf.replace(/#SLOT1/, IOHandler_strings[0]);
-            buf = buf.replace(/#SLOT2/, IOHandler_strings[1]);
-            buf = buf.replace(/#SLOT3/, IOHandler_strings[2]);
-            buf = buf.replace(/#SLOT4/, IOHandler_strings[3]);
+            buf = buf.replace(/#SLOT\d/g, '');
         }
         COStreamJS.files['main.cpp'] = buf.beautify();
     };
@@ -3891,7 +3836,7 @@ void setRunIterCount(int argc,char **argv)
 #include <fstream>
 extern int MAX_ITER;
         `;
-            buf += `void thread_${i}_func()\n{\n`;
+            buf += `void thread_${i}_fun()\n{\n`;
             let syncString = (i > 0 ? `workerSync(` + i : `masterSync(` + this.nCpucore) + `);\n`;
             buf += syncString;
 
@@ -3960,7 +3905,7 @@ extern int MAX_ITER;
                     let ifStr = `if(stage[${stage}] == _stageNum){`;
                     //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
                     let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage);
-                    ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n';
+                    ifStr += flatVec.map(flat => flat.name + '_obj.runSteadyScheduleWork();\n').join('') + '}\n';
                     forBody += ifStr;
                 }
             }

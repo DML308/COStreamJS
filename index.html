@@ -65,12 +65,20 @@
             </md-table-toolbar>
             <md-table-row>
                 <md-table-head md-numeric>NAME</md-table-head>
+                <md-table-head>变量</md-table-head>
             </md-table-row>
-            <md-table-cell >变量</md-table-cell>
             <md-table-row v-for="id in symbol_table.idTable" :key="id">
                 <md-table-cell md-numeric>{{id}}</md-table-cell>
             </md-table-row>
-            <md-table-cell >composite</md-table-cell>
+            <md-table-row v-for="id in symbol_table.compTable" :key="id">
+                <md-table-cell md-numeric>{{id}}</md-table-cell>
+            </md-table-row>
+        </md-table>
+
+        <md-table md-card>
+            <md-table-toolbar>
+                <h1 class="md-title">composite</h1>
+            </md-table-toolbar>
             <md-table-row v-for="id in symbol_table.compTable" :key="id">
                 <md-table-cell md-numeric>{{id}}</md-table-cell>
             </md-table-row>
