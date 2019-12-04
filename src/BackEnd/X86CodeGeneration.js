@@ -484,13 +484,21 @@ extern int MAX_ITER;
         for (let stage = MaxStageNum - 1; stage >= 0; stage--) {
             if (stageSet.has(stage)) {
                 //如果该线程在阶段i有actor
-                let ifStr = `if(stage[${stage}] == _stageNum){`
+                let ifStr = `if(stage[${stage}]){`
                 //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
                 let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage)
                 ifStr += flatVec.map(flat => flat.name + '_obj.runSteadyScheduleWork();\n').join('') + '}\n'
                 forBody += ifStr
             }
         }
+        forBody += 
+        `for(int index=${MaxStageNum-1}; index>=1; --index){
+            stage[index] = stage[index-1];
+         }
+         if(_stageNum == MAX_ITER - 1 + ${MaxStageNum}){
+             stage[0] = 0;
+         }
+        `
         buf += steadyFor.replace('#SLOT', forBody)
         //稳态的 steadyWork 对应的 for 循环生成完毕
 
@@ -623,7 +631,7 @@ X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames
     void runSteadyScheduleWork() {
 		initVarAndState();
 		init();
-		for(int i=0;i<initScheduleCount;i++){
+		for(int i=0;i<steadyScheduleCount;i++){
             work();
         }`;
     var use1Or2 = str => this.bufferMatch.get(str).buffertype == 1 ? '' : '2';
