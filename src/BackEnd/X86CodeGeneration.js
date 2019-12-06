@@ -352,7 +352,7 @@ int main(int argc,char **argv)
     #SLOT2
 	set_cpu(0);
 	allocBarrier(${this.nCpucore});
-    pthread_t tid[1];
+    pthread_t tid[${this.nCpucore-1}];
     ${circleRender('pthread_create (&tid[$], NULL, thread_$$_fun_start, (void*)NULL);', 0, this.nCpucore -1)}
     #SLOT3
     thread_0_fun();
