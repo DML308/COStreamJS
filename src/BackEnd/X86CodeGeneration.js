@@ -463,7 +463,7 @@ extern int MAX_ITER;
         for (let stage = MaxStageNum - 1; stage >= 0; stage--) {
             if (stageSet.has(stage)) {
                 //如果该线程在阶段i有actor
-                let ifStr = `if(stage[${stage}] == _stageNum){`
+                let ifStr = `if(${stage} == _stageNum){`
                 //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
                 let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage)
                 ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n'
