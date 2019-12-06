@@ -308,13 +308,13 @@ X86CodeGeneration.prototype.GetProcessor2topoactors = function (map) {
 }
 
 /**
- * 循环渲染一段字符串, 用 i 替换 $
+ * 循环渲染一段字符串, 用 i 替换 $, 用 i+1 替换$$
  * 例如输入 str='extern_$' , start =0, end=3, 则渲染为 'extern_0 \n extern_1 \n extern_2'
  */
 function circleRender(str, start, end) {
     let result = ''
     for (let i = start; i < end; i++) {
-        result += str.replace(/\$/g, i) + '\n'
+        result += str.replace(/\$\$/g, i + 1).replace(/\$/g, i) + '\n'
     }
     return result
 }
@@ -351,9 +351,9 @@ int main(int argc,char **argv)
     setRunIterCount(argc,argv);
     #SLOT2
 	set_cpu(0);
-	allocBarrier(2);
-	pthread_t tid[1];
-    pthread_create (&tid[0], NULL, thread_1_fun_start, (void*)NULL);
+	allocBarrier(${this.nCpucore});
+    pthread_t tid[1];
+    ${circleRender('pthread_create (&tid[$], NULL, thread_$$_fun_start, (void*)NULL);', 0, this.nCpucore -1)}
     #SLOT3
     thread_0_fun();
     #SLOT4
@@ -680,7 +680,7 @@ X86CodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
  */
 X86CodeGeneration.prototype.CGactorsPushToken = function (flat, outEdgeNames) {
     const push = flat.outPushWeights[0]
-    const stmts = outEdgeNames.map(out => `${out}.updatetail(${push});\n`)
+    const stmts = outEdgeNames.map(out => `${out}.updatetail(${push});\n`).join('')
     return `\n void pushToken(){ ${stmts} }\n`
 }
 
