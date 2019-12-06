@@ -4,6 +4,24 @@
 
 COStream 工具在动态弱类型语言 js 上的部署, 目的是代码模块化 ; 易读 ; 易测试
 
+# 对实验室其它同学傻瓜式指南:
+1. 首先在`ubuntu`安装`node`执行环境
+```bash
+wget -qO- https://raw.githubusercontent.com/creationix/nvm/v0.33.6/install.sh | bash
+nvm install --lts
+```
+2. 接着clone项目并编译执行例子程序`wang.cos`
+```
+git clone https://github.com/DML308/COStreamJS.git
+cd COStreamJS
+npm install
+npm run build
+node dist/costream-cli.js example/wang.cos -j4
+cd dist/wang
+make
+./a.out
+```
+
 # 使用方法
 - 浏览器版本: 可参考 [http://demo.costream.org](http://demo.costream.org)
 ```html
@@ -32,7 +50,11 @@ COStream 工具在动态弱类型语言 js 上的部署, 目的是代码模块�
 `node.js` 10 以上
 
 # 进度
-代码生成完成, 还未测试 & 调 bug
+- 代码生成完成
+- 代码生成运行 ok 的用例:
+  - [x] wang.cos
+  - [x] multiOutputs.cos
+  - [ ] splitjoinTest.cos
 
 # DEMO   试玩地址  [https://demo.costream.org](https://demo.costream.org)
 ![](https://i.loli.net/2019/06/14/5d035b1d14ce759801.gif)
