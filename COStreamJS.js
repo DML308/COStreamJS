@@ -1609,7 +1609,7 @@ var COStreamJS = (function () {
         return Number(this.source)
     };
 
-    var version = "0.4.2";
+    var version = "0.4.3";
 
     //对外的包装对象
     var COStreamJS = {
@@ -3841,19 +3841,19 @@ extern int MAX_ITER;
 
             let actorSet = this.mp.PartitonNum2FlatNode.get(i); //获取到当前线程上所有flatNode
             actorSet.forEach(flat => {
-                //准备构造如下格式的声明语句: Name Name_obj(in1,in2,in3,out1);
+                //准备构造如下格式的声明语句: Name Name_obj(out1,out2,in1,in2);
                 buf += flat.PreName + ' ' + flat.name + '_obj(';
                 let streamNames = [], comments = [];
-                flat.inFlatNodes.forEach(src => {
-                    let edgename = src.name + '_' + flat.name;
+                flat.outFlatNodes.forEach(out => {
+                    let edgename = flat.name + '_' + out.name;
                     let buffer = this.bufferMatch.get(edgename);
                     if (buffer.instance !== buffer.original) {
                         comments.push(buffer.original + '使用了' + buffer.instance + '的缓冲区');
                     }
                     streamNames.push(buffer.instance); //使用实际的缓冲区
                 });
-                flat.outFlatNodes.forEach(out => {
-                    let edgename = flat.name + '_' + out.name;
+                flat.inFlatNodes.forEach(src => {
+                    let edgename = src.name + '_' + flat.name;
                     let buffer = this.bufferMatch.get(edgename);
                     if (buffer.instance !== buffer.original) {
                         comments.push(buffer.original + '使用了' + buffer.instance + '的缓冲区');
@@ -3865,8 +3865,8 @@ extern int MAX_ITER;
                 buf += '\n';
             });
 
-            buf += 'char stage[' + MaxStageNum + '];\n';
-            buf += 'stage[0] = 1;\n';
+            const constant_array = [1].concat(Array(MaxStageNum-1).fill(0)); // 得到这样的数组: [1,0,0,...,0] 长度为阶段数
+            buf += `char stage[${MaxStageNum}] = {${constant_array.join()}};\n`;
 
             //生成初态的 initWork 对应的 for 循环
             let initFor = `
@@ -4046,8 +4046,6 @@ extern int MAX_ITER;
     X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames, outEdgeNames) {
         var buf = `
     void runSteadyScheduleWork() {
-		initVarAndState();
-		init();
 		for(int i=0;i<steadyScheduleCount;i++){
             work();
         }`;
