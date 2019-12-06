@@ -448,8 +448,8 @@ extern int MAX_ITER;
             buf += '\n'
         })
 
-        buf += 'char stage[' + MaxStageNum + '];\n'
-        buf += 'stage[0] = 1;\n'
+        const constant_array = [1].concat(Array(MaxStageNum-1).fill(0)) // 得到这样的数组: [1,0,0,...,0] 长度为阶段数
+        buf += `char stage[' + MaxStageNum + '] = {${constant_array.join()}};\n`
 
         //生成初态的 initWork 对应的 for 循环
         let initFor = `
@@ -629,8 +629,6 @@ X86CodeGeneration.prototype.CGactorsRunInitScheduleWork = function (inEdgeNames,
 X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames, outEdgeNames) {
     var buf = `
     void runSteadyScheduleWork() {
-		initVarAndState();
-		init();
 		for(int i=0;i<steadyScheduleCount;i++){
             work();
         }`;
