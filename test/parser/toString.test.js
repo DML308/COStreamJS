@@ -5,6 +5,7 @@ const fs = require('fs')
 const resolve = require('path').resolve
 
 import COStreamJS from "../../main"
+COStreamJS.options.platform = 'default'
 const parser = COStreamJS.parser
 
 //最小化字符串,用于后续的字符串比较

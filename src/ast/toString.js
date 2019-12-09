@@ -150,12 +150,12 @@ selection_statement.prototype.toString = function () {
 const differentPlatformPrint = {
     'X86': args => 'cout<<' + list2String(args, '<<'),
     'WEB': args => 'console.log(' + list2String(args, '<<') + ')',
-    'default': args => '(' + list2String(args, ',') + ')'
+    'default': args => 'print(' + list2String(args, ',') + ')'
 }
 const differentPlatformPrintln = {
     'X86': args => 'cout<<' + list2String(args, '<<') + '<<endl',
     'WEB': args => 'console.log(' + list2String(args, '<<') + `);console.log('\n')`,
-    'default': args => '(' + list2String(args, ',') + ')'
+    'default': args => 'println(' + list2String(args, ',') + ')'
 }
 callNode.prototype.toString = function () {
     const platform = COStreamJS.options.platform
