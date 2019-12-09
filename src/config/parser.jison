@@ -51,6 +51,10 @@ join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 
+import                                                      return 'IMPORT'
+Matrix|matrix                                               return 'MATRIX'
+
+
 [a-zA-Z_][a-zA-Z0-9_]*                                      return 'IDENTIFIER'
 
 "*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="              return 'ASSIGNMENT_OPERATOR'
@@ -104,6 +108,7 @@ external_declaration:
       function_definition
     | declaration
     | composite_definition
+    | IMPORT MATRIX   ';'                   { COStreamJS.plugins.matrix = true; }
     ;
 /*************************************************************************/
 /*              1.1 declaration 由下面2种文法+2个基础组件组成                */
@@ -339,12 +344,28 @@ jump_statement:
 
 /*************************************************************************/
 /*        4. expression 计算表达式头节点                                    */
+/*            4.1 矩阵的常量节点                                            */
 /*************************************************************************/
+vector_constant: 
+      '[' initializer_list ']' { $$ = $2 }
+    ;
+vector_list: 
+      vector_constant                 { $$ = [$1] }
+    | vector_list ',' vector_constant { $$ = $1.concat($3) }
+    ;
+matrix_constant:
+      '[' vector_list ']'      { $$ = new matrix_constant_Node(@$, $2) }
+    ;
+/*************************************************************************/
+/*            4.2 expression 其他节点                                     */
+/*************************************************************************/
+
 primary_expression:
       IDENTIFIER            
     | 'NUMBER'              { $$ = new constantNode(@$,$1) }
     | STRING_LITERAL        { $$ = new constantNode(@$,$1) }
     | '(' expression ')'    { $$ = new parenNode(@$,$2)    }
+    | matrix_constant       
     ;
 operator_arguments:
       '(' ')'               { $$ = undefined }
@@ -361,6 +382,7 @@ postfix_expression:
                                                                     $$ = new callNode(@$,$1,$2)
                                                                 }
                                                             }
+    | MATRIX '.' IDENTIFIER                                 { error("暂不支持库函数调用")}
     | postfix_expression '.' IDENTIFIER                     { $$ = new binopNode(@$,$1,$2,$3) }
     | postfix_expression '++'                               { $$ = new unaryNode(@$,$1,$2)    }
     | postfix_expression '--'                               { $$ = new unaryNode(@$,$1,$2)    }
@@ -531,4 +553,5 @@ basic_type_name:
         | FLOAT 
         | DOUBLE
         | STRING
+        | MATRIX
         ;

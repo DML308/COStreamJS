@@ -5,6 +5,7 @@ export var COStreamJS = {
     gMainComposite : null,
     files: {},
     options: { platform: 'X86' },
+    plugins: { matrix: false, image: false },
     version
 } 
 COStreamJS.__proto__ = {}

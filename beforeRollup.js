@@ -3,6 +3,7 @@ const resolve = require('path').resolve
 
 const nodeDir = `./src/ast/node.js`
 const relativeDir = `../ast/node.js`
+const relativeCOS = `../FrontEnd/global`
 const parserDir = `./src/config/parser.js`
 
 
@@ -13,5 +14,6 @@ nodeTypes = nodeTypes.match(/(?<=export class )(\S+)/g).join(',')
 str = `import { ${nodeTypes} } from "${relativeDir}" \n${str}\n export default parser`
 /** 移除 jison 生成的 exports.main */
 str = str.replace(/if \(typeof require(.|\n)*export default parser/, 'export default parser');
+str = `import { COStreamJS } from "${relativeCOS}"\n` + str
 
 fs.writeFileSync(resolve(__dirname, parserDir),str)

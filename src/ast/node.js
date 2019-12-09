@@ -373,3 +373,13 @@ export class addNode extends Node {
         this.content = content
     }
 }
+
+/********************************************************/
+/* 矩阵相关 node                       */
+/********************************************************/
+export class matrix_constant_Node extends Node{
+    constructor(loc, rawData){
+        super(loc)
+        this.rawData = rawData
+    }
+}
