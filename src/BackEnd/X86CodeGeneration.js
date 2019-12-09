@@ -336,10 +336,11 @@ int MAX_ITER=1;//默认的执行次数是1
 #SLOT1
 
 ${circleRender('extern void thread_$_fun();', 0, this.nCpucore)}
+pthread_t tid[${this.nCpucore}];
 ${circleRender(`
 void* thread_$_fun_start(void *)
 {
-	set_cpu($);
+	set_cpu($, tid[$]);
 	thread_$_fun();
 	return 0;
 }
@@ -350,10 +351,10 @@ int main(int argc,char **argv)
 	void setRunIterCount(int,char**);
     setRunIterCount(argc,argv);
     #SLOT2
-	set_cpu(0);
+	set_cpu(0,tid[0]);
 	allocBarrier(${this.nCpucore});
-    pthread_t tid[${this.nCpucore-1}];
-    ${circleRender('pthread_create (&tid[$], NULL, thread_$$_fun_start, (void*)NULL);', 0, this.nCpucore -1)}
+    
+    ${circleRender('pthread_create (&tid[$], NULL, thread_$_fun_start, (void*)NULL);', 1, this.nCpucore)}
     #SLOT3
     thread_0_fun();
     #SLOT4

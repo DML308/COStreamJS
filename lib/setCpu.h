@@ -6,6 +6,11 @@
 #include <unistd.h> //getpid()
 #include <sys/syscall.h>
 using namespace std;
+
+#if __linux__
 #define gettid() syscall(__NR_gettid)
-int set_cpu(int i);
+#endif
+
+int set_cpu(int i, pthread_t t);
+
 #endif
