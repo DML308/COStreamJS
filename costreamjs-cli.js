@@ -1610,14 +1610,14 @@ var COStreamJS = (function () {
         return Number(this.source)
     };
 
-    var version = "0.4.3";
+    var version = "0.4.5";
 
     //对外的包装对象
     var COStreamJS = {
         S : null,
         gMainComposite : null,
         files: {},
-        options: { platform: 'default' },
+        options: { platform: 'X86' },
         version
     }; 
     COStreamJS.__proto__ = {};
@@ -1771,12 +1771,12 @@ var COStreamJS = (function () {
     const differentPlatformPrint = {
         'X86': args => 'cout<<' + list2String(args, '<<'),
         'WEB': args => 'console.log(' + list2String(args, '<<') + ')',
-        'default': args => '(' + list2String(args, ',') + ')'
+        'default': args => 'print(' + list2String(args, ',') + ')'
     };
     const differentPlatformPrintln = {
         'X86': args => 'cout<<' + list2String(args, '<<') + '<<endl',
         'WEB': args => 'console.log(' + list2String(args, '<<') + `);console.log('\n')`,
-        'default': args => '(' + list2String(args, ',') + ')'
+        'default': args => 'println(' + list2String(args, ',') + ')'
     };
     callNode$1.prototype.toString = function () {
         const platform = COStreamJS.options.platform;
@@ -3735,13 +3735,13 @@ using namespace std;\n
     };
 
     /**
-     * 循环渲染一段字符串, 用 i 替换 $
+     * 循环渲染一段字符串, 用 i 替换 $, 用 i+1 替换$$
      * 例如输入 str='extern_$' , start =0, end=3, 则渲染为 'extern_0 \n extern_1 \n extern_2'
      */
     function circleRender(str, start, end) {
         let result = '';
         for (let i = start; i < end; i++) {
-            result += str.replace(/\$/g, i) + '\n';
+            result += str.replace(/\$\$/g, i + 1).replace(/\$/g, i) + '\n';
         }
         return result
     }
@@ -3761,10 +3761,11 @@ int MAX_ITER=1;//默认的执行次数是1
 #SLOT1
 
 ${circleRender('extern void thread_$_fun();', 0, this.nCpucore)}
+pthread_t tid[${this.nCpucore}];
 ${circleRender(`
 void* thread_$_fun_start(void *)
 {
-	set_cpu($);
+	set_cpu($, tid[$]);
 	thread_$_fun();
 	return 0;
 }
@@ -3775,10 +3776,10 @@ int main(int argc,char **argv)
 	void setRunIterCount(int,char**);
     setRunIterCount(argc,argv);
     #SLOT2
-	set_cpu(0);
-	allocBarrier(2);
-	pthread_t tid[1];
-    pthread_create (&tid[0], NULL, thread_1_fun_start, (void*)NULL);
+	set_cpu(0,tid[0]);
+	allocBarrier(${this.nCpucore});
+    
+    ${circleRender('pthread_create (&tid[$], NULL, thread_$_fun_start, (void*)NULL);', 1, this.nCpucore)}
     #SLOT3
     thread_0_fun();
     #SLOT4
@@ -3881,7 +3882,7 @@ extern int MAX_ITER;
             for (let stage = MaxStageNum - 1; stage >= 0; stage--) {
                 if (stageSet.has(stage)) {
                     //如果该线程在阶段i有actor
-                    let ifStr = `if(stage[${stage}] == _stageNum){`;
+                    let ifStr = `if(${stage} == _stageNum){`;
                     //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
                     let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage);
                     ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n';
@@ -4098,7 +4099,7 @@ extern int MAX_ITER;
      */
     X86CodeGeneration.prototype.CGactorsPushToken = function (flat, outEdgeNames) {
         const push = flat.outPushWeights[0];
-        const stmts = outEdgeNames.map(out => `${out}.updatetail(${push});\n`);
+        const stmts = outEdgeNames.map(out => `${out}.updatetail(${push});\n`).join('');
         return `\n void pushToken(){ ${stmts} }\n`
     };
 
