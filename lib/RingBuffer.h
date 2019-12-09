@@ -9,7 +9,7 @@ class RingBuffer
   public:
     RingBuffer(int size, int len) : m_buffer(NULL), m_size(size), m_len(len), m_writePos(0), m_readPos(0)
     {
-        if (size & (size - 1) != 0)
+        if ((size & (size - 1)) != 0) // 如果 size 是 2的整数次幂, 如 0b1000, 0b10000000
             m_size = roundup_power_of_two(size);
     }
 
@@ -37,9 +37,10 @@ class RingBuffer
         return true;
     }
 
+    /** 返回一个比 val 大的2的整数次幂, 如输入61返回64 */
     unsigned int roundup_power_of_two(unsigned int val)
     {
-        if (val & (val - 1) == 0)
+        if ((val & (val - 1)) == 0) // 如果 size 是 2的整数次幂, 如 0b1000, 0b10000000
             return val;
 
         unsigned int temp = 2;
