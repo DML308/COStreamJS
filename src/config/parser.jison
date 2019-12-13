@@ -351,7 +351,7 @@ vector_constant:
     ;
 vector_list: 
       vector_constant                 { $$ = [$1] }
-    | vector_list ',' vector_constant { $$ = $1.concat($3) }
+    | vector_list ',' vector_constant { $1.push($3) }
     ;
 matrix_constant:
       '[' vector_list ']'      { $$ = new matrix_constant_Node(@$, $2) }
