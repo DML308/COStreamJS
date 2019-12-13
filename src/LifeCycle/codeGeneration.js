@@ -20,18 +20,9 @@ export function codeGeneration(nCpucore, ssg, mp){
 
     /** 拷贝程序运行所需要的库文件 */
     if(typeof module !== 'undefined'){
-        // 在 node 执行时是以 dist/costream-cli.js 的文件路径为准, 所以 ../lib
-        const fs = require('fs')
-        const dir = require('path').resolve(__dirname, '../lib')
-        const filenames = fs.readdirSync(dir) 
-        /* ['Buffer.h','Consumer.h','Producer.h',
-            'lock_free_barrier.cpp','lock_free_barrier.h',
-            'rdtsc.h','setCpu.cpp','setCpu.h'] */
-        filenames.forEach(name => {
-            COStreamJS.files[name] = fs.readFileSync(`${dir}/${name}`, 'utf8')
-        })
-        console.log(dir, filenames)
+        
     }else{
         console.warn('浏览器版本暂不支持拷贝库文件')
     }
 }
+
