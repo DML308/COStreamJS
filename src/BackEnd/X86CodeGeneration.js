@@ -4,6 +4,7 @@ import { getIOHandlerStrings } from "./IOHandler"
 import { FlatNode } from "../FrontEnd/FlatNode"
 import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
 import { Partition } from "./Partition"
+import Plugins from "../plugins"
 
 export class X86CodeGeneration {
 
@@ -143,6 +144,8 @@ X86CodeGeneration.prototype.CGGlobalHeader = function () {
         }
     }
     buf += `\n#endif\n`
+    // 返回前调用插件功能对文本进行处理
+    buf = Plugins.after('CGGlobalHeader', buf)
     COStreamJS.files['Global.h'] = buf.beautify()
 }
 
