@@ -381,5 +381,6 @@ export class matrix_constant_Node extends Node{
     constructor(loc, rawData){
         super(loc)
         this.rawData = rawData
+        this.shape = [rawData.length, rawData[0].length] // 几行 x 几列
     }
 }

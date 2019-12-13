@@ -1,7 +1,7 @@
 
 import Matrix;
 
-Matrix array[8] = { 
+Matrix matrixs[8] = { 
     [ [0,0], [0,0] ],
     [ [1,1], [1,1] ],
     [ [2,2], [2,2] ],
@@ -36,7 +36,7 @@ composite Main(){
         init{ }
         work{
             for(i = 0;i < 8;i++){
-                S[i].x = array[i];
+                S[i].x = matrixs[i];
             }
         }
         window{

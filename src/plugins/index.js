@@ -2,9 +2,9 @@ import Matrix from './Matrix'
 import { COStreamJS } from "../FrontEnd/global"
 
 const Plugins = {
-    after(functionName, buf){
+    after(functionName, ...args){
         if (COStreamJS.plugins.matrix){
-            return Matrix[functionName](buf);
+            return Matrix[functionName](...args);
         }
         return buf
     }

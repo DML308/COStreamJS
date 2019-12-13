@@ -1,3 +1,6 @@
+import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "../ast/node.js"
+import { debug } from "../utils/color.js";
+
 // 该函数组的执行时机为代码生成的尾巴, 对生成的 buf 通过字符串替换的手段达到目的
 const Matrix_Object = {
     CGGlobalHeader(buf){
@@ -9,8 +12,68 @@ const Matrix_Object = {
         `
         )
         //替换 streamData 的类型声明
-        buf = buf.replace(/Matrix\b/, 'MatrixXd *'); 
+        buf = buf.replace(/Matrix\b/g, 'MatrixXd'); 
         return buf
+    },
+    CGGlobalvarHeader(buf){
+        buf = buf.replace("#define GLOBALVAL_H",`#define GLOBALVAL_H
+        #include "Eigen/Dense"
+        using Eigen::MatrixXd;
+        void initGlobalVar();
+        `)
+        buf = buf.replace(/Matrix\b/g, 'MatrixXd'); 
+        return buf
+    },
+    CGGlobalvar(buf,ast){
+        // 矩阵的常量声明比较特殊, 所以直接重写
+        let ReWriteBuf = `#include "GlobalVar.h" \n`;
+        /** @type{ declareNode[] } */
+        const matrixVars = []
+        for (let node of ast) {
+            if (node instanceof declareNode) {
+                if(node.type === 'Matrix'){
+                    matrixVars.push(node)
+                    ReWriteBuf += 'MatrixXd '
+                    for (let declarator of node.init_declarator_list){
+                        ReWriteBuf += declarator.identifier.toString()
+                    }
+                    ReWriteBuf += ';\n'
+                }else{
+                    ReWriteBuf += node.toString() + ';\n'
+                }
+            }
+        }
+        ReWriteBuf += `void initGlobalVar(){ ${initMatrix()}`
+        return ReWriteBuf += '}'
+
+        // 根据 matrixVars 的内容, 在 initGlobalVar 函数中执行矩阵的初始化
+        function initMatrix(){
+            var buf = ''
+            for(let node of matrixVars){
+                for(let declarator of node.init_declarator_list){
+                    // 如果是矩阵数组
+                    if(declarator.identifier.arg_list.length){
+                        const length = declarator.initializer.length // 暂时只支持一维数组
+                        const shape = declarator.initializer[0].shape
+                        const name = declarator.identifier.name
+                        /**
+                         * 一般 rawData 为 [ [1,2], [3,4] ] 格式的数组, 由于MatrixXd 已经定了宽高,
+                         * 所以可以使用 array[i] << 1,2,3,4; 的方式来赋初值
+                         */
+                        for (let i = 0; i < length; i++) {
+                            const sequence = declarator.initializer[i].rawData.flat().join();
+                            buf += `
+                                ${name}[${i}] = MatrixXd(${shape[0]},${shape[1]});
+                                ${name}[${i}] << ${sequence};
+                            `
+                        }
+                    }else{
+                        debug("FIXME: 代码生成-矩阵插件-矩阵常量初始化暂不支持非数组")
+                    }
+                }
+            }
+            return buf;
+        }
     }
 }
 

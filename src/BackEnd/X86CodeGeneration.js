@@ -86,7 +86,8 @@ X86CodeGeneration.prototype.CGGlobalvar = function () {
             buf += node.toString() + ';\n'
         }
     }
-    COStreamJS.files['GlobalVar.cpp'] = buf
+    buf = Plugins.after('CGGlobalvar', buf, COStreamJS.ast)
+    COStreamJS.files['GlobalVar.cpp'] = buf.beautify()
 }
 
 X86CodeGeneration.prototype.CGGlobalvarHeader = function () {
@@ -99,7 +100,8 @@ X86CodeGeneration.prototype.CGGlobalvarHeader = function () {
             buf += "extern " + str + ';\n'
         }
     }
-    COStreamJS.files['GlobalVar.h'] = buf + `#endif`
+    buf = Plugins.after('CGGlobalvarHeader', buf)
+    COStreamJS.files['GlobalVar.h'] = (buf + `#endif`).beautify();
 }
 
 /**
@@ -332,6 +334,7 @@ X86CodeGeneration.prototype.CGMain = function () {
 #include "setCpu.h"
 #include "lock_free_barrier.h"	//包含barrier函数
 #include "Global.h"
+#include "GlobalVar.h"
 #include "RingBuffer.h"
 using namespace std;
 int MAX_ITER=1;//默认的执行次数是1
@@ -351,6 +354,7 @@ void* thread_$_fun_start(void *)
 
 int main(int argc,char **argv)
 {
+    initGlobalVar();
 	void setRunIterCount(int,char**);
     setRunIterCount(argc,argv);
     #SLOT2
