@@ -559,6 +559,7 @@ var COStreamJS = (function () {
         constructor(loc, rawData){
             super(loc);
             this.rawData = rawData;
+            this.shape = [rawData.length, rawData[0].length]; // 几行 x 几列
         }
     }
 
@@ -607,7 +608,7 @@ var COStreamJS = (function () {
         matrix_constant_Node: matrix_constant_Node
     });
 
-    var version = "0.4.5";
+    var version = "0.5.0";
 
     //对外的包装对象
     var COStreamJS = {
@@ -742,7 +743,7 @@ var COStreamJS = (function () {
     case 18:
      $$[$0-2].arg_list.push(0);                        
     break;
-    case 20: case 93:
+    case 20:
      this.$ = $$[$0-2].concat($$[$0]); 
     break;
     case 21:
@@ -909,6 +910,9 @@ var COStreamJS = (function () {
     break;
     case 90:
      this.$ = new jump_statement(this._$,$$[$0-2],$$[$0-1]); 
+    break;
+    case 93:
+     $$[$0-2].push($$[$0]); 
     break;
     case 94:
      this.$ = new matrix_constant_Node(this._$, $$[$0-1]); 
@@ -3454,6 +3458,100 @@ part               actor             workload           percent\n`;
         return topologic[topologic.length-1].stageNum + 1
     }
 
+    // 该函数组的执行时机为代码生成的尾巴, 对生成的 buf 通过字符串替换的手段达到目的
+    const Matrix_Object = {
+        CGGlobalHeader(buf){
+            // 引入矩阵头文件
+            buf = buf.replace("using namespace std;",
+            `using namespace std;
+        #include "Eigen/Dense"
+        using Eigen::MatrixXd;
+        `
+            );
+            //替换 streamData 的类型声明
+            buf = buf.replace(/Matrix\b/g, 'MatrixXd'); 
+            return buf
+        },
+        CGGlobalvarHeader(buf){
+            buf = buf.replace("#define GLOBALVAL_H",`#define GLOBALVAL_H
+        #include "Eigen/Dense"
+        using Eigen::MatrixXd;
+        void initGlobalVar();
+        `);
+            buf = buf.replace(/Matrix\b/g, 'MatrixXd'); 
+            return buf
+        },
+        CGGlobalvar(buf,ast){
+            // 矩阵的常量声明比较特殊, 所以直接重写
+            let ReWriteBuf = `#include "GlobalVar.h" \n`;
+            /** @type{ declareNode[] } */
+            const matrixVars = [];
+            for (let node of ast) {
+                if (node instanceof declareNode) {
+                    if(node.type === 'Matrix'){
+                        matrixVars.push(node);
+                        ReWriteBuf += 'MatrixXd ';
+                        for (let declarator of node.init_declarator_list){
+                            ReWriteBuf += declarator.identifier.toString();
+                        }
+                        ReWriteBuf += ';\n';
+                    }else{
+                        ReWriteBuf += node.toString() + ';\n';
+                    }
+                }
+            }
+            ReWriteBuf += `void initGlobalVar(){ ${initMatrix()}`;
+            return ReWriteBuf += '}'
+
+            // 根据 matrixVars 的内容, 在 initGlobalVar 函数中执行矩阵的初始化
+            function initMatrix(){
+                var buf = '';
+                for(let node of matrixVars){
+                    for(let declarator of node.init_declarator_list){
+                        // 如果是矩阵数组
+                        if(declarator.identifier.arg_list.length){
+                            const length = declarator.initializer.length; // 暂时只支持一维数组
+                            const shape = declarator.initializer[0].shape;
+                            const name = declarator.identifier.name;
+                            /**
+                             * 一般 rawData 为 [ [1,2], [3,4] ] 格式的数组, 由于MatrixXd 已经定了宽高,
+                             * 所以可以使用 array[i] << 1,2,3,4; 的方式来赋初值
+                             */
+                            for (let i = 0; i < length; i++) {
+                                const sequence = declarator.initializer[i].rawData.flat().join();
+                                buf += `
+                                ${name}[${i}] = MatrixXd(${shape[0]},${shape[1]});
+                                ${name}[${i}] << ${sequence};
+                            `;
+                            }
+                        }else{
+                            debug$1("FIXME: 代码生成-矩阵插件-矩阵常量初始化暂不支持非数组");
+                        }
+                    }
+                }
+                return buf;
+            }
+        }
+    };
+
+    const Void = x=>x; // 默认函数, 返回原参数
+
+    // 添加代理, 避免访问不存在的函数而报错
+    const Matrix = new Proxy(Matrix_Object, {
+        get: function (target, key, receiver) {
+            return target[key] ? target[key] : Void;
+        },
+    });
+
+    const Plugins = {
+        after(functionName, ...args){
+            if (COStreamJS.plugins.matrix){
+                return Matrix[functionName](...args);
+            }
+            return buf
+        }
+    };
+
     class X86CodeGeneration {
 
         constructor(nCpucore, ssg, mp) {
@@ -3534,7 +3632,8 @@ install: $(PROGRAM)
                 buf += node.toString() + ';\n';
             }
         }
-        COStreamJS.files['GlobalVar.cpp'] = buf;
+        buf = Plugins.after('CGGlobalvar', buf, COStreamJS.ast);
+        COStreamJS.files['GlobalVar.cpp'] = buf.beautify();
     };
 
     X86CodeGeneration.prototype.CGGlobalvarHeader = function () {
@@ -3547,7 +3646,8 @@ install: $(PROGRAM)
                 buf += "extern " + str + ';\n';
             }
         }
-        COStreamJS.files['GlobalVar.h'] = buf + `#endif`;
+        buf = Plugins.after('CGGlobalvarHeader', buf);
+        COStreamJS.files['GlobalVar.h'] = (buf + `#endif`).beautify();
     };
 
     /**
@@ -3592,6 +3692,8 @@ install: $(PROGRAM)
             }
         }
         buf += `\n#endif\n`;
+        // 返回前调用插件功能对文本进行处理
+        buf = Plugins.after('CGGlobalHeader', buf);
         COStreamJS.files['Global.h'] = buf.beautify();
     };
 
@@ -3776,6 +3878,7 @@ using namespace std;\n
 #include "setCpu.h"
 #include "lock_free_barrier.h"	//包含barrier函数
 #include "Global.h"
+#include "GlobalVar.h"
 #include "RingBuffer.h"
 using namespace std;
 int MAX_ITER=1;//默认的执行次数是1
@@ -3795,6 +3898,7 @@ void* thread_$_fun_start(void *)
 
 int main(int argc,char **argv)
 {
+    initGlobalVar();
 	void setRunIterCount(int,char**);
     setRunIterCount(argc,argv);
     #SLOT2
@@ -4184,19 +4288,7 @@ extern int MAX_ITER;
         //X86Code.CGFunction();        //生成function定义
 
         /** 拷贝程序运行所需要的库文件 */
-        if(typeof module !== 'undefined'){
-            // 在 node 执行时是以 dist/costream-cli.js 的文件路径为准, 所以 ../lib
-            const fs = require('fs');
-            const dir = require('path').resolve(__dirname, '../lib');
-            const filenames = fs.readdirSync(dir); 
-            /* ['Buffer.h','Consumer.h','Producer.h',
-                'lock_free_barrier.cpp','lock_free_barrier.h',
-                'rdtsc.h','setCpu.cpp','setCpu.h'] */
-            filenames.forEach(name => {
-                COStreamJS.files[name] = fs.readFileSync(`${dir}/${name}`, 'utf8');
-            });
-            console.log(dir, filenames);
-        }else{
+        if(typeof module !== 'undefined');else{
             console.warn('浏览器版本暂不支持拷贝库文件');
         }
     }
@@ -4245,7 +4337,16 @@ extern int MAX_ITER;
                     require('child_process').execSync(`rm -rf ${outDir}/*`);
                 }else{
                     fs.mkdirSync(outDir);
-                }
+    			}
+    			// 拷贝库文件
+    			const libDir = require('path').resolve(__dirname, "../lib/*");
+    			require('child_process').exec(`cp -r ${libDir} ${outDir}`, error => {
+    				if (error) {
+    					console.error(`拷贝库文件出错: ${error}`);
+    					return;
+    				}
+    			});
+    			// 写入生成的文件
     			Object.entries(COStreamJS.files).forEach(([ out_filename, content ]) => {
     				fs.writeFileSync(`${outDir}/${out_filename}`, content);
     			});
