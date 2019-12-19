@@ -3,6 +3,12 @@ import { debug } from "../utils/color.js";
 
 // 该函数组的执行时机为代码生成的尾巴, 对生成的 buf 通过字符串替换的手段达到目的
 const Matrix_Object = {
+    CGMain(buf){
+        /* 在 main 函数头部中插入 initGlobalVar() 函数
+         * 考虑到普通的全局变量都是可以直接在.h 文件中声明的类型, 例如 a[] = {1,2,3}
+         * 而矩阵必须在函数执行阶段赋初始值. */
+        return buf.replace(/int main\(int argc,char \*\*argv\){/, `int main(int argc,char **argv){ initGlobalVar();`)
+    },
     CGGlobalHeader(buf){
         // 引入矩阵头文件
         buf = buf.replace("using namespace std;",

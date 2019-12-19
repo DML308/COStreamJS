@@ -354,7 +354,6 @@ void* thread_$_fun_start(void *)
 
 int main(int argc,char **argv)
 {
-    initGlobalVar();
 	void setRunIterCount(int,char**);
     setRunIterCount(argc,argv);
     #SLOT2
@@ -393,6 +392,7 @@ void setRunIterCount(int argc,char **argv)
         buf = buf.replace(/#SLOT3/, IOHandler_strings[2])
         buf = buf.replace(/#SLOT4/, IOHandler_strings[3])
     }
+    buf = Plugins.after('CGMain', buf)
     COStreamJS.files['main.cpp'] = buf.beautify()
 }
 
