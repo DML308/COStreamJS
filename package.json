@@ -20,7 +20,7 @@
     "bison": "jison src/config/parser.jison -o src/config/parser.js && node beforeRollup.js",
     "count": "find ./src -maxdepth 4  -name '*.j*'  | xargs cat |wc -l",
     "count:comment": "find ./src -maxdepth 4  -name '*.j*'  | xargs cat | grep \"^\\(\\s*\\*\\)\\|\\(/\\*\\)\\|.*//\" |wc -l",
-    "test": "npm run bison && mocha test/*/*.js --require babel-register",
+    "test": "npm run build && mocha test/*/*.js --require babel-register -t 8000",
     "t": "mocha --require babel-register",
     "test:cover": "istanbul cover test/lexer.test.js"
   },
