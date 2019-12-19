@@ -45,14 +45,17 @@ const Usage = `
             }else{
                 fs.mkdirSync(outDir);
 			}
-			// 拷贝库文件
-			const libDir = require('path').resolve(__dirname, "../lib/*")
-			require('child_process').exec(`cp -r ${libDir} ${outDir}`, error => {
-				if (error) {
-					console.error(`拷贝库文件出错: ${error}`);
-					return;
-				}
-			});
+			// 拷贝基础库文件, 避开 Eigen 库文件(使用 rsync 来实现这一功能, 而非 cp 指令)
+			const libDir = require('path').resolve(__dirname, "../lib")
+			require('child_process').exec(`rsync -a --exclude Eigen ${libDir}/* ${outDir}`, error => 
+				error && console.error(`拷贝库文件出错: ${error}`)
+			);
+			// 根据情况决定是否拷贝矩阵库文件
+			if(COStreamJS.plugins.matrix){
+				require('child_process').exec(`rsync -a ${libDir}/Eigen ${outDir}`, error =>
+					error && console.error(`拷贝矩阵库文件出错: ${error}`)
+				);
+			}
 			// 写入生成的文件
 			Object.entries(COStreamJS.files).forEach(([ out_filename, content ]) => {
 				fs.writeFileSync(`${outDir}/${out_filename}`, content);
