@@ -6,7 +6,7 @@ const Plugins = {
         if (COStreamJS.plugins.matrix){
             return Matrix[functionName](...args);
         }
-        return buf
+        return args[0]
     }
 }
 
