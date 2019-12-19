@@ -608,7 +608,7 @@ var COStreamJS = (function () {
         matrix_constant_Node: matrix_constant_Node
     });
 
-    var version = "0.5.0";
+    var version = "0.5.1";
 
     //对外的包装对象
     var COStreamJS = {
@@ -1565,7 +1565,7 @@ var COStreamJS = (function () {
     case 49:return 'INVALID'
     }
     },
-    rules: [/^(?:\s+)/,/^(?:\/\*([^\*]|(\*)*[^\*\/])*(\*)*\*\/)/,/^(?:\/\/.*)/,/^(?:(0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b)/,/^(?:('[^']*'|"[^\"]*"))/,/^(?:string\b)/,/^(?:int\b)/,/^(?:double\b)/,/^(?:float\b)/,/^(?:long\b)/,/^(?:const\b)/,/^(?:define\b)/,/^(?:while\b)/,/^(?:for\b)/,/^(?:break\b)/,/^(?:continue\b)/,/^(?:switch\b)/,/^(?:case\b)/,/^(?:default\b)/,/^(?:if\b)/,/^(?:else\b)/,/^(?:do\b)/,/^(?:return\b)/,/^(?:composite\b)/,/^(?:input\b)/,/^(?:output\b)/,/^(?:stream\b)/,/^(?:FileReader\b)/,/^(?:FileWriter\b)/,/^(?:add\b)/,/^(?:param\b)/,/^(?:init\b)/,/^(?:work\b)/,/^(?:window\b)/,/^(?:tumbling\b)/,/^(?:sliding\b)/,/^(?:splitjoin\b)/,/^(?:pipeline\b)/,/^(?:split\b)/,/^(?:join\b)/,/^(?:duplicate\b)/,/^(?:roundrobin\b)/,/^(?:import\b)/,/^(?:Matrix|matrix\b)/,/^(?:[a-zA-Z_][a-zA-Z0-9_]*)/,/^(?:\*=|\/=|\+=|-=|<<=|>>=|&=|\^=|\|=)/,/^(?:##|\+\+|--|>>|>>|<=|>=|==|!=|&&|\|\|)/,/^(?:[-*+\/%&|~!()\[\]{}'"#,\.?:;<>=])/,/^(?:$)/,/^(?:.)/],
+    rules: [/^(?:\s+)/,/^(?:\/\*([^\*]|(\*)*[^\*/])*(\*)*\*\/)/,/^(?:\/\/.*)/,/^(?:(0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b)/,/^(?:('[^']*'|"[^\"]*"))/,/^(?:string\b)/,/^(?:int\b)/,/^(?:double\b)/,/^(?:float\b)/,/^(?:long\b)/,/^(?:const\b)/,/^(?:define\b)/,/^(?:while\b)/,/^(?:for\b)/,/^(?:break\b)/,/^(?:continue\b)/,/^(?:switch\b)/,/^(?:case\b)/,/^(?:default\b)/,/^(?:if\b)/,/^(?:else\b)/,/^(?:do\b)/,/^(?:return\b)/,/^(?:composite\b)/,/^(?:input\b)/,/^(?:output\b)/,/^(?:stream\b)/,/^(?:FileReader\b)/,/^(?:FileWriter\b)/,/^(?:add\b)/,/^(?:param\b)/,/^(?:init\b)/,/^(?:work\b)/,/^(?:window\b)/,/^(?:tumbling\b)/,/^(?:sliding\b)/,/^(?:splitjoin\b)/,/^(?:pipeline\b)/,/^(?:split\b)/,/^(?:join\b)/,/^(?:duplicate\b)/,/^(?:roundrobin\b)/,/^(?:import\b)/,/^(?:Matrix|matrix\b)/,/^(?:[a-zA-Z_][a-zA-Z0-9_]*)/,/^(?:\*=|\/=|\+=|-=|<<=|>>=|&=|\^=|\|=)/,/^(?:##|\+\+|--|>>|>>|<=|>=|==|!=|&&|\|\|)/,/^(?:[-*+/%&|~!()\[\]{}'"#,\.?:;<>=])/,/^(?:$)/,/^(?:.)/],
     conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49],"inclusive":true}}
     });
     return lexer;
@@ -3460,6 +3460,12 @@ part               actor             workload           percent\n`;
 
     // 该函数组的执行时机为代码生成的尾巴, 对生成的 buf 通过字符串替换的手段达到目的
     const Matrix_Object = {
+        CGMain(buf){
+            /* 在 main 函数头部中插入 initGlobalVar() 函数
+             * 考虑到普通的全局变量都是可以直接在.h 文件中声明的类型, 例如 a[] = {1,2,3}
+             * 而矩阵必须在函数执行阶段赋初始值. */
+            return buf.replace(/int main\(int argc,char \*\*argv\){/, `int main(int argc,char **argv){ initGlobalVar();`)
+        },
         CGGlobalHeader(buf){
             // 引入矩阵头文件
             buf = buf.replace("using namespace std;",
@@ -3548,7 +3554,7 @@ part               actor             workload           percent\n`;
             if (COStreamJS.plugins.matrix){
                 return Matrix[functionName](...args);
             }
-            return buf
+            return args[0]
         }
     };
 
@@ -3898,7 +3904,6 @@ void* thread_$_fun_start(void *)
 
 int main(int argc,char **argv)
 {
-    initGlobalVar();
 	void setRunIterCount(int,char**);
     setRunIterCount(argc,argv);
     #SLOT2
@@ -3930,6 +3935,7 @@ void setRunIterCount(int argc,char **argv)
         {
             buf = buf.replace(/#SLOT\d/g, '');
         }
+        buf = Plugins.after('CGMain', buf);
         COStreamJS.files['main.cpp'] = buf.beautify();
     };
 
@@ -4338,14 +4344,17 @@ extern int MAX_ITER;
                 }else{
                     fs.mkdirSync(outDir);
     			}
-    			// 拷贝库文件
-    			const libDir = require('path').resolve(__dirname, "../lib/*");
-    			require('child_process').exec(`cp -r ${libDir} ${outDir}`, error => {
-    				if (error) {
-    					console.error(`拷贝库文件出错: ${error}`);
-    					return;
-    				}
-    			});
+    			// 拷贝基础库文件, 避开 Eigen 库文件(使用 rsync 来实现这一功能, 而非 cp 指令)
+    			const libDir = require('path').resolve(__dirname, "../lib");
+    			require('child_process').exec(`rsync -a --exclude Eigen ${libDir}/* ${outDir}`, error => 
+    				error && console.error(`拷贝库文件出错: ${error}`)
+    			);
+    			// 根据情况决定是否拷贝矩阵库文件
+    			if(COStreamJS.plugins.matrix){
+    				require('child_process').exec(`rsync -a ${libDir}/Eigen ${outDir}`, error =>
+    					error && console.error(`拷贝矩阵库文件出错: ${error}`)
+    				);
+    			}
     			// 写入生成的文件
     			Object.entries(COStreamJS.files).forEach(([ out_filename, content ]) => {
     				fs.writeFileSync(`${outDir}/${out_filename}`, content);
