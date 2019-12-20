@@ -1,8 +1,7 @@
 composite dTest(input stream<int i>In, output stream<int i>Out) {
 	Out = dtest (In) {
 		work {
-			printf("d: ");
-			printf(In[0].i);
+			println("d: ",In[0].i);
 			Out[0].i = In[0].i;
 		}
 		window {
@@ -14,8 +13,7 @@ composite dTest(input stream<int i>In, output stream<int i>Out) {
 composite rTest(input stream<int i>In, output stream<int i>Out) {
 	Out = rtest(In) {
 		work {
-			printf("r: ");
-			printf(In[0].i);
+			println("r: ", In[0].i);
 			Out[0].i = In[0].i;
 		}
 		window {
@@ -57,8 +55,7 @@ composite Main () {
 		int i;
 		work {
 			for (i = 0; i < 1; i++) {
-				print("sink: ");
-				print(y[i].i);
+				println("sink: ",y[i].i);
 			}
 		}
 		window {
