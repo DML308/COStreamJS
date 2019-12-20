@@ -14,7 +14,7 @@ $(PROGRAM): $(OBJS)
 %.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
 clean:
-	rm $(OBJS) $(PROGRAM) -f
+	rm -f $(OBJS) $(PROGRAM)
 install: $(PROGRAM)
 	cp $(PROGRAM) ./bin/
     

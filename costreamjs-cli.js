@@ -3625,7 +3625,7 @@ $(PROGRAM): $(OBJS)
 %.o: %.c
 \t$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
 clean:
-\trm $(OBJS) $(PROGRAM) -f
+\trm -f $(OBJS) $(PROGRAM)
 install: $(PROGRAM)
 \tcp $(PROGRAM) ./bin/
     `;
@@ -3745,7 +3745,7 @@ using namespace std;\n
                  * 1. peak != pop 的
                  * 2. copySize 或 copyStartPos 不为0的 
                  * 3. 上下游有阶段差的 */
-                if (perWorkPeekCount != perWorkPopCount || copySize || copyStartPos || stageminus) {
+                {
                     let edgename = flat.name + '_' + out.name; //边的名称
                     this.bufferMatch.set(edgename, new bufferSpace(edgename, edgename, size, 1, copySize, copyStartPos));
                 }
@@ -4059,12 +4059,18 @@ extern int MAX_ITER;
         }
     };
 
+    /** COStream 内建节点, 无需去重 */
+    const ProtectedActor = ['join', 'duplicate', 'roundrobin'];
     /**
      * 生成各个计算节点, 例如 source.h sink.h
      */
     X86CodeGeneration.prototype.CGactors = function () {
         var hasGenerated = new Set(); //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
         this.ssg.flatNodes.forEach(flat => {
+            /** 暂时不对COStream 内建节点做去重操作 */
+            if(ProtectedActor.includes(flat.PreName)){
+                flat.PreName = flat.name;
+            } 
             if (hasGenerated.has(flat.PreName)) return
             hasGenerated.add(flat.PreName);
 
