@@ -1,6 +1,7 @@
 import { deepCloneWithoutCircle } from "../utils"
 import { compositeCall_list, COStreamJS } from "./global"
 import { addNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode } from "../ast/node";
+import { squentialNode } from "../ast/node";
 export class UnfoldComposite {
     constructor() {
         this.num = 0
@@ -448,4 +449,46 @@ UnfoldComposite.prototype.MakeJoinOperator = function (inputs, args, outputs) {
         )
         return winStmts
     }
+}
+
+
+/**
+ * @param {splitjoinNode} node - 待展开的 splitjoinNode
+ * @returns {compositeNode} 展开完成的 actual_composite
+ */
+UnfoldComposite.prototype.UnfoldSquential = function(node){
+    let compName = this.MakeCompositeName("squential");
+    compositeCallFlow(node.body_stmts);
+    let inout = new ComInOutNode(null, node.inputs, node.outputs)
+    let head = new compHeadNode(null, compName, inout)
+
+    let stmt_list = this.generateSquentialBodyStmts(compName, node);
+
+    let body = new compBodyNode(null, null, stmt_list)
+    let actual_composite = new compositeNode(null, head, body)
+    compositeCall_list.length = 0;
+    return actual_composite
+}
+
+/**
+ * 对于如下形式的 squential 和 Dense 的例子
+ * Out = squential (In, Y) (784) {
+ *      add Dense(100);
+        add Dense(10);
+    };
+ * 我们要生成的 stmt_list 的格式为{
+ *   (In1,In2) = squential_input(In)
+ *   (dense_1_1,dense_1_2) = dense(In2)
+ *   D3 = dense(D2)
+ *   L = loss(D3, Y)
+ *   D6 = dDense(D1, L)
+ *   Out = dDense(In1, D6)
+ *   stream<>In1,In2;
+ * }
+ * @param {squentialNode} node
+ * @returns {statement[]}
+ */
+UnfoldComposite.prototype.generateSquentialBodyStmts = function(node){
+    error("生成 squential composite body 部分未完成\n")
+    return [];
 }

@@ -16,7 +16,6 @@ composite Main() {
         }
     };
     Out = squential (In, Y) (784) {
-        add Dense(200);
         add Dense(100);
         add Dense(10);
     };

@@ -2,6 +2,7 @@ import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
 import { streamFlow } from "./compositeFLow"
 import { debug } from "../utils"
 import { binopNode, operatorNode, compositeCallNode, splitjoinNode, pipelineNode } from "../ast/node";
+import { squentialNode } from "../ast/node";
 /*
  *  功能：将抽象语法树转为平面图
  *  输入参数：gMaincomposite
@@ -56,6 +57,9 @@ function GraphToOperators(/*compositeNode*/composite, ssg, unfold){
 
         }else if(exp instanceof pipelineNode){
             exp.replace_composite = unfold.UnfoldPipeline(exp)
+            GraphToOperators(exp.replace_composite, ssg, unfold)
+        }else if(exp instanceof squentialNode){
+            exp.replace_composite = unfold.UnfoldSquential(exp)
             GraphToOperators(exp.replace_composite, ssg, unfold)
         }
     }
