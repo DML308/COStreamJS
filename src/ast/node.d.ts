@@ -339,3 +339,25 @@ export class addNode extends Node {
     content: pipelineNode | splitjoinNode
     constructor(loc: YYLTYPE, content: pipelineNode | splitjoinNode)
 }
+
+export class squentialNode extends operNode {
+    outputs : string[]
+    inputs : string[]
+    body_stmts: statement[]
+    arg_list?: constantNode[]
+    replace_composite: compositeNode
+    
+    constructor(loc: YYLTYPE, options: object)
+}
+
+export class layerNode extends Node {
+    bp_composite: compositeCallNode
+    fp_composite: compositeCallNode
+    arg_list: Node[]
+    layerName: string
+    prevLayer: layerNode
+    nextLayer: layerNode
+    level: number
+
+    constructor(loc: YYLTYPE,layerName: string, arg_list: Node[])
+}

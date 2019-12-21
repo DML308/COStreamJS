@@ -50,6 +50,9 @@ split                                                       return 'SPLIT'
 join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
+squential                                                   return 'SQUENTIAL'
+DENSE                                                       return 'DENSE'                     
+CONV2D                                                      return 'CONV2D'
 
 import                                                      return 'IMPORT'
 Matrix|matrix                                               return 'MATRIX'
@@ -233,6 +236,7 @@ operator_add:
           ADD operator_pipeline                             {  $$ = new addNode(@$,$2) }
         | ADD operator_splitjoin                            {  $$ = new addNode(@$,$2) }
         | ADD operator_default_call                         {  $$ = new addNode(@$,$2) }
+        | ADD operator_layer                                {  $$ = new addNode(@$,$2) }
         ;  
 
 operator_pipeline:
@@ -287,7 +291,12 @@ join_statement:
 operator_default_call:
           IDENTIFIER  '(' ')' ';'                           { $$ = new compositeCallNode(@$,$1)    }
         | IDENTIFIER  '(' argument_expression_list ')' ';'  { $$ = new compositeCallNode(@$,$1,$3) }
-        ;                 
+        ;     
+operator_layer:      
+          DENSE  '(' argument_expression_list ')' ';'       { $$ = new layerNode(@$,"dense", $3);}
+        | CONV2D '(' argument_expression_list ')' ';'       { debug("暂未支持 conv2D"); /* $$ = new conv2DLayerNode(@$,"conv2D", $3); */}
+        /* other layer, for example conv2d */
+        ;              
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
 /*************************************************************************/    
@@ -391,7 +400,7 @@ postfix_expression:
                                                             {
                                                                 $$ = new operatorNode(@$,$1,$2,$3)
                                                             } 
-    |  SPLITJOIN '(' argument_expression_list ')'  '{' split_statement statement_list  join_statement '}'  
+    | SPLITJOIN '(' argument_expression_list ')'  '{' split_statement statement_list  join_statement '}'  
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
                                                                     compName: 'splitjoin',
@@ -402,7 +411,7 @@ postfix_expression:
                                                                     join: $8
                                                                 })
                                                             }
-    |  SPLITJOIN '(' argument_expression_list ')'  '{' statement_list split_statement statement_list  join_statement '}'
+    | SPLITJOIN '(' argument_expression_list ')'  '{' statement_list split_statement statement_list  join_statement '}'
                                                             {
                                                                 $$ = new splitjoinNode(@$,{
                                                                     compName: 'splitjoin',
@@ -413,7 +422,7 @@ postfix_expression:
                                                                     join: $9
                                                                 })
                                                             }
-    |   PIPELINE '(' argument_expression_list ')'  '{' statement_list '}'
+    | PIPELINE '(' argument_expression_list ')'  '{' statement_list '}'
                                                             {
                                                                 $$ = new pipelineNode(@$,{
                                                                     compName: 'pipeline',
@@ -421,6 +430,15 @@ postfix_expression:
                                                                     body_stmts: $6
                                                                 })
                                                             }
+    | SQUENTIAL '(' argument_expression_list ')' '(' argument_expression_list ')' '{' statement_list '}' 
+                                                            {
+                                                                $$ = new squentialNode(@$,{
+                                                                    compName: 'squential',
+                                                                    inputs: $3,
+                                                                    arg_list: $6,
+                                                                    body_stmts: $9
+                                                                })
+                                                            }                                                       
     ;
 
 argument_expression_list:
