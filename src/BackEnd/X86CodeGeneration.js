@@ -61,16 +61,16 @@ PROGRAM := a.out
 SOURCES := $(wildcard ./*.cpp)
 SOURCES += $(wildcard ./src/*.cpp)
 OBJS    := $(patsubst %.cpp,%.o,$(SOURCES))
-CC      := g++
-CFLAGS  := -ggdb -Wall 
+CXX     := g++
+CPPFLAGS := -ggdb -Wall -std=c++11
 INCLUDE := -I .
 LIB     := -lpthread -ldl
 
 .PHONY: clean install
 $(PROGRAM): $(OBJS)
-\t$(CC) -o $@ $^ $(LIB)
+\t$(CXX) $(LIB) $(CFLAGS) -o $@ $^ 
 %.o: %.c
-\t$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
+\t$(CXX) $(CPPFLAGS) $(INCLUDE) -o $@ -c $< 
 clean:
 \trm -f $(OBJS) $(PROGRAM)
 install: $(PROGRAM)
@@ -370,7 +370,6 @@ int main(int argc,char **argv)
 void setRunIterCount(int argc,char **argv)
 {
 	int oc;
-	char *b_opt_arg;
 	while((oc=getopt(argc,argv,"i:"))!=-1)
 	{
 		switch(oc)
