@@ -8,7 +8,7 @@ const parser = COStreamJS.parser
 
 describe("测试能否正确识别 examples 里的.cos 文件", () => {
 
-    var files = ["wang.cos","pipeline.cos","splitjoinTest.cos","multiOutputs.cos","scheduler.test.cos","DCT.cos"]
+    var files = ["wang.cos","pipeline.cos","splitjoinTest.cos","multiOutputs.cos","scheduler.test.cos","DCT.cos","matrix-slice.cos"]
     files.forEach(file=>{
         it(`测试用例: ${file}`, () => {
             var str = fs.readFileSync(resolve(__dirname, `../../examples/${file}`), "utf8")
