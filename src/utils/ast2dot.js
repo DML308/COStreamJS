@@ -56,13 +56,13 @@ export function ast2dot(node){
         return nThis
     }
     /**
-     * 输入 node 为 object 或 string ,创建一行格式为 
+     * 输入 node 为 object 或 string 或 number,创建一行格式为 
      * 6 [label="<1> int |<2> 2"] 的 dot 字符串
      * 返回该节点的序号, 例如6
      */
     function newNode(node){
         var line = `    ${ast2dot.count} [label = "`
-        if(typeof node === 'string'){
+        if (typeof node === 'string' || typeof node === 'number'){
             line += node
             body += line + '"];\n'
             return ast2dot.count++

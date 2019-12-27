@@ -138,11 +138,7 @@ declarator:
     | '(' declarator ')'                          { error("暂未支持该种declarator的写法")         }
     | declarator '[' constant_expression ']'      { $1.arg_list.push($3)                       }
     | declarator '[' ']'                          { $1.arg_list.push(0)                        }
-    ;
-identifier_list:
-      IDENTIFIER                                  { $$ = [$1] }
-    | identifier_list ',' IDENTIFIER              { $$ = $1.concat($3) }
-    ;    
+    ;  
 /*************************************************************************/
 /*                      1.1.2 stream_declaring_list                      */
 /*************************************************************************/    
@@ -315,7 +311,7 @@ statement_list:
     ;
 expression_statement:
       ';'                       { $$ = undefined }
-    | expression ';'            { $$ = $1 }
+    | multi_expression ';'      { $$ = $1 }
     ;
 selection_statement:
       IF '(' expression ')' statement %prec IF_WITHOUT_ELSE 
@@ -346,34 +342,44 @@ jump_statement:
 /*        4. expression 计算表达式头节点                                    */
 /*            4.1 矩阵的常量节点                                            */
 /*************************************************************************/
-vector_constant: 
-      '[' initializer_list ']' { $$ = $2 }
+matrix_slice_pair:
+        ':'                    { $$ = new matrix_slice_pair(@$,undefined, ':')   } 
+    |   expression             { $$ = new matrix_slice_pair(@$,$1)               }     
+    |   exp ':'                { $$ = new matrix_slice_pair(@$,$1,':')           }
+    |   ':' exp                { $$ = new matrix_slice_pair(@$,undefined,':',$2) }
+    |   exp ':' exp            { $$ = new matrix_slice_pair(@$,$1,':',$3)        }
     ;
-vector_list: 
-      vector_constant                 { $$ = [$1] }
-    | vector_list ',' vector_constant { $1.push($3) }
+matrix_slice_pair_list:
+        matrix_slice_pair                               { $$ = [$1] }
+    |   matrix_slice_pair_list ',' matrix_slice_pair    { $$ = $$.concat($3) }
     ;
-matrix_constant:
-      '[' vector_list ']'      { $$ = new matrix_constant_Node(@$, $2) }
+matrix_slice:
+      '[' matrix_slice_pair_list ']'                    { $$ = $2 }
     ;
 /*************************************************************************/
 /*            4.2 expression 其他节点                                     */
 /*************************************************************************/
-
+vector_expression:
+      '[' multi_expression ']'      { $$ = new matrix_constant(@$, $2) }
+    ;
+multi_expression:
+      expression                    { $$ = $1 }
+    | multi_expression ',' expression    { $$ = Array.isArray($1) ? $1.concat($3) : [$1,$3] }
+    ;
 primary_expression:
       IDENTIFIER            
-    | 'NUMBER'              { $$ = new constantNode(@$,$1) }
-    | STRING_LITERAL        { $$ = new constantNode(@$,$1) }
-    | '(' expression ')'    { $$ = new parenNode(@$,$2)    }
-    | matrix_constant       
+    | 'NUMBER'                   { $$ = new constantNode(@$,$1) }
+    | STRING_LITERAL             { $$ = new constantNode(@$,$1) }
+    | '(' multi_expression ')'   { $$ = new parenNode(@$,$2)    }
+    | vector_expression 
     ;
 operator_arguments:
       '(' ')'               { $$ = undefined }
     | '(' argument_expression_list ')' { $$ = $2 }
     ;
 postfix_expression:
-      primary_expression         
-    | postfix_expression '[' expression ']'                 { $$ = new arrayNode(@$,$1,$3)    }
+      primary_expression     
+    | postfix_expression matrix_slice                       { $$ = new matrix_section(@$,$1,$2) }    
     | postfix_expression operator_arguments                 { 
                                                                 if($$ instanceof callNode){
                                                                     $$ = new compositeCallNode(@$,$1.name,$1.arg_list,$2)
@@ -492,11 +498,6 @@ assignment_operator:
     ;
 expression:
       assignment_expression { $$ = $1 }
-    | expression ',' assignment_expression {
-         if($1 instanceof Array) $$.push($3)
-         else if($1 !== undefined) $$ = [$1,$3]
-         else error("error at `expression ','` ",$1,$3) 
-      }
     ;
 
 constant_expression:

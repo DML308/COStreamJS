@@ -339,3 +339,11 @@ export class addNode extends Node {
     content: pipelineNode | splitjoinNode
     constructor(loc: YYLTYPE, content: pipelineNode | splitjoinNode)
 }
+
+export class matrix_constant extends Node {
+    /** rawData 是存储矩阵原始数据的多维数组. 维数不确定, 1/2/3维分别可表示 向量/矩阵/矩阵数组 */
+    rawData: [exp] | [[exp]] | [[[exp]]]
+    /** shape 表示矩阵相关数据的维度, 例如一维向量shape为[5], 二维矩阵为[5,5], 图像 RGB 矩阵为[3,28,28]*/
+    shape: number[]
+    constructor(loc: YYLTYPE, rawData: Array<exp, matrix_constant>)
+}

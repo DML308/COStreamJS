@@ -377,10 +377,43 @@ export class addNode extends Node {
 /********************************************************/
 /* 矩阵相关 node                       */
 /********************************************************/
-export class matrix_constant_Node extends Node{
+export class matrix_constant extends Node{
     constructor(loc, rawData){
         super(loc)
-        this.rawData = rawData
-        this.shape = [rawData.length, rawData[0].length] // 几行 x 几列
+        this.rawData = rawData.map(x => (
+            x instanceof matrix_constant ? x.rawData : x
+        ))
+        this.shape = []
+        /** 下面代码逐层深入一个多维数组, 计算它的 shape */
+        let currentArray = this.rawData
+        while (currentArray instanceof Array){
+            this.shape.push(rawData.length)
+            currentArray = currentArray[0]
+        }
+    }
+}
+
+/* 存放矩阵切片的下标, 例如 vector[0:5] 表示 下标[0,5) 即0~5不含5 
+   兼容多重格式(_表示 undefined), 例如
+   * [1:5] --- { start: 1, op:':', end: 5 }
+   * [1:]  --- { start: 1, op:':', end: _ }
+   * [:5]  --- { start: _, op:':', end: 5 }
+   * [:]   --- { start: _, op:':', end: _ }
+   * [0]   --- { start: 0, op: _ , end: _ }   */
+export class matrix_slice_pair extends Node {
+    constructor(loc, start, op, end) {
+        super(loc)
+        this.start = start
+        this.op = op
+        this.end = end
+    }
+}
+
+/** 存放 name[1:4, 2:5] 的结构, 寓意为矩阵切片结果 */
+export class matrix_section extends Node{
+    constructor(loc, exp, slice_pair_list){
+        super(loc)
+        this.exp = exp
+        this.slice_pair_list = slice_pair_list
     }
 }

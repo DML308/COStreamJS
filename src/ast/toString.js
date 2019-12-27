@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "./node.js"
+import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair } from "./node.js"
 import { COStreamJS } from "../FrontEnd/global"
 
 export function ast2String(root) {
@@ -175,4 +175,15 @@ compositeCallNode.prototype.toString = function () {
     str += ')('
     str += this.params ? list2String(this.params, ',') : ''
     return str + ')'
+}
+matrix_slice_pair.prototype.toString = function (){
+    if(!this.op)    return this.start
+    return (this.start || '')+':'+(this.end||'')
+}
+matrix_section.prototype.toString = function (){
+    return this.exp + '[' + list2String(this.slice_pair_list,',') + ']'
+}
+matrix_constant.prototype.toString = function (){
+    let rows = this.rawData.map(x => '[' + x.join(',') + ']')
+    return list2String(rows, ',', '[', ']')
 }
