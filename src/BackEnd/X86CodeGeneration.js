@@ -96,12 +96,27 @@ X86CodeGeneration.prototype.CGGlobalvarHeader = function () {
     for (let node of COStreamJS.ast) {
         if (node instanceof declareNode) {
             let str = node.toString().replace(/=\s*\{[^}]*}/g, '') //去除 a[3] = {1,2,3} 的赋值部分
-            str = str.replace(/=[^,]+/g, '')            //去除 a = 2 的赋值部分
+            str = sliceStringFromComma(str)            //去除 a = 2 的赋值部分
             buf += "extern " + str + ';\n'
         }
     }
     buf = Plugins.after('CGGlobalvarHeader', buf)
     COStreamJS.files['GlobalVar.h'] = (buf + `#endif`).beautify();
+
+    //截取一个字符串 = 号后(括号匹配最外层的)逗号前的字符串
+    function sliceStringFromComma(str){
+        let res = ''
+        let paren_depth = 0
+        let hasPassedEqual = false
+        for(let i of str){
+            if(i === '=') hasPassedEqual = true
+            if(paren_depth === 0 && i === ',') return res
+            if(['[','{','('].includes(i)) paren_depth++
+            if([']', '}', ')'].includes(i)) paren_depth--
+            if(!hasPassedEqual) res+=i
+        }
+        return res
+    }
 }
 
 /**
