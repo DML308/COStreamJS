@@ -15,19 +15,18 @@ const Matrix_Object = {
         `using namespace std;
         #include "Eigen/Dense"
         using Eigen::MatrixXd;
+        typedef MatrixXd Matrix;
         `
         )
-        //替换 streamData 的类型声明
-        buf = buf.replace(/Matrix\b/g, 'MatrixXd'); 
         return buf
     },
     CGGlobalvarHeader(buf){
         buf = buf.replace("#define GLOBALVAL_H",`#define GLOBALVAL_H
         #include "Eigen/Dense"
         using Eigen::MatrixXd;
+        typedef MatrixXd Matrix;
         void initGlobalVar();
         `)
-        buf = buf.replace(/Matrix\b/g, 'MatrixXd'); 
         return buf
     },
     CGGlobalvar(buf,ast){
@@ -73,7 +72,9 @@ const Matrix_Object = {
                                 ${name}[${i}] << ${sequence};
                             `
                         }
-                    }else{
+                    }
+                    //如果是单个矩阵
+                    else{
                         debug("FIXME: 代码生成-矩阵插件-矩阵常量初始化暂不支持非数组")
                     }
                 }

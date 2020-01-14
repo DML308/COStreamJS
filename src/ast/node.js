@@ -417,3 +417,11 @@ export class matrix_section extends Node{
         this.slice_pair_list = slice_pair_list
     }
 }
+
+export class lib_binopNode extends Node{
+    constructor(loc, lib_name,function_name){
+        super(loc)
+        this.lib_name = lib_name;
+        this.function_name = function_name;
+    }
+}

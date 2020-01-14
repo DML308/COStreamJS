@@ -374,7 +374,7 @@ primary_expression:
     | vector_expression 
     ;
 operator_arguments:
-      '(' ')'               { $$ = undefined }
+      '(' ')'               { $$ = [] }
     | '(' argument_expression_list ')' { $$ = $2 }
     ;
 postfix_expression:
@@ -388,7 +388,7 @@ postfix_expression:
                                                                     $$ = new callNode(@$,$1,$2)
                                                                 }
                                                             }
-    | MATRIX '.' IDENTIFIER                                 { error("暂不支持库函数调用")}
+    | MATRIX '.' IDENTIFIER                                 { $$ = new lib_binopNode(@$,$1,$3) }
     | postfix_expression '.' IDENTIFIER                     { $$ = new binopNode(@$,$1,$2,$3) }
     | postfix_expression '++'                               { $$ = new unaryNode(@$,$1,$2)    }
     | postfix_expression '--'                               { $$ = new unaryNode(@$,$1,$2)    }

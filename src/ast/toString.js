@@ -1,5 +1,6 @@
-import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair } from "./node.js"
+import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode } from "./node.js"
 import { COStreamJS } from "../FrontEnd/global"
+import { error } from "../utils/color.js";
 
 export function ast2String(root) {
     var result = ''
@@ -181,9 +182,28 @@ matrix_slice_pair.prototype.toString = function (){
     return (this.start || '')+':'+(this.end||'')
 }
 matrix_section.prototype.toString = function (){
-    return this.exp + '[' + list2String(this.slice_pair_list,',') + ']'
+    const platform = COStreamJS.options.platform
+    // 如果是矩阵切片节点[0:5,0:5]而非数组取下标节点
+    if (this.slice_pair_list[0].op === ':'){
+        if (platform === 'X86') {
+            //矩阵切片构建规则为 matrix[i:i+p, j:j+q] 转化为  matrix.block(i,j,p,q) , 参考http://eigen.tuxfamily.org/dox/group__TutorialBlockOperations.html
+            let i = this.slice_pair_list[0].start
+            let p = this.slice_pair_list[0].end + '-' + i
+            let j = this.slice_pair_list[1].start
+            let q = this.slice_pair_list[1].end + '-' + j
+            return this.exp + `.block(${i},${j},${p},${q})`
+        }
+    }
+    // 其他情况
+    return this.exp + '[' + list2String(this.slice_pair_list, ',') + ']'
 }
-matrix_constant.prototype.toString = function (){
-    let rows = this.rawData.map(x => '[' + x.join(',') + ']')
-    return list2String(rows, ',', '[', ']')
+lib_binopNode.prototype.toString = function (){
+    if(this.lib_name === 'Matrix'){
+        let maps = {
+            'zeros': 'Zero'
+        }
+        return 'Matrix::' + maps[this.function_name]
+    }else{
+        error('暂不支持矩阵之外的库')
+    }
 }
