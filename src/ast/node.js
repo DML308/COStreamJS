@@ -275,8 +275,7 @@ export class callNode extends expNode {
 export class constantNode extends expNode {
     constructor(loc, sourceStr='') {
         super(loc)
-        // 转义字符串中的 \n 等特殊字符
-        this.source = (sourceStr+'').replace(/\\/g, '\\\\').replace(/\n/g, '\\n')
+        this.source = sourceStr
     }
 }
 /********************************************************/
