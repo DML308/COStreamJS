@@ -2,7 +2,8 @@
 #define GLOBALVAL_H
 #include "Eigen/Dense"
 using Eigen::MatrixXd;
+typedef MatrixXd Matrix;
 void initGlobalVar();
 
-extern MatrixXd matrixs[8];
+extern Matrix matrixs[8];
 #endif

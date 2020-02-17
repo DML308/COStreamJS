@@ -45,8 +45,7 @@ void* thread_3_fun_start(void *)
 
 
 
-int main(int argc,char **argv)
-{
+int main(int argc,char **argv){
   void setRunIterCount(int,char**);
   setRunIterCount(argc,argv);
   
@@ -66,7 +65,6 @@ int main(int argc,char **argv)
 void setRunIterCount(int argc,char **argv)
 {
   int oc;
-  char *b_opt_arg;
   while((oc=getopt(argc,argv,"i:"))!=-1)
   {
     switch(oc)

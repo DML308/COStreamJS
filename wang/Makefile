@@ -3,16 +3,16 @@ PROGRAM := a.out
 SOURCES := $(wildcard ./*.cpp)
 SOURCES += $(wildcard ./src/*.cpp)
 OBJS    := $(patsubst %.cpp,%.o,$(SOURCES))
-CC      := g++
-CFLAGS  := -ggdb -Wall 
+CXX     := g++
+CPPFLAGS := -ggdb -Wall -std=c++11
 INCLUDE := -I .
 LIB     := -lpthread -ldl
 
 .PHONY: clean install
 $(PROGRAM): $(OBJS)
-	$(CC) -o $@ $^ $(LIB)
+	$(CXX) -o $@ $^ $(LIB) $(CFLAGS)
 %.o: %.c
-	$(CC) -o $@ -c $< $(CFLAGS) $(INCLUDE)
+	$(CXX) -o $@ -c $< $(CPPFLAGS) $(INCLUDE)
 clean:
 	rm -f $(OBJS) $(PROGRAM)
 install: $(PROGRAM)

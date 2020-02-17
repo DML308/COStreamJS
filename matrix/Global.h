@@ -7,9 +7,10 @@
 using namespace std;
 #include "Eigen/Dense"
 using Eigen::MatrixXd;
+typedef MatrixXd Matrix;
 
 struct streamData{
-  MatrixXd x;
+  Matrix x;
 };
 
 extern Buffer<streamData>Source_0_B_1;
