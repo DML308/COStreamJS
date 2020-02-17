@@ -68,9 +68,9 @@ LIB     := -lpthread -ldl
 
 .PHONY: clean install
 $(PROGRAM): $(OBJS)
-\t$(CXX) $(LIB) $(CFLAGS) -o $@ $^ 
+\t$(CXX) -o $@ $^ $(LIB) $(CFLAGS)
 %.o: %.c
-\t$(CXX) $(CPPFLAGS) $(INCLUDE) -o $@ -c $< 
+\t$(CXX) -o $@ -c $< $(CPPFLAGS) $(INCLUDE)
 clean:
 \trm -f $(OBJS) $(PROGRAM)
 install: $(PROGRAM)
