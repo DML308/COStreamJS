@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="https://i.loli.net/2019/05/23/5ce65c6a0153242368.png" type="image/x-icon" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,400italic|Material+Icons">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,400italic|Material+Icons">
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/vue-material.min.css">
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
     <link rel="stylesheet" type="text/css" href="./main.css">
@@ -17,7 +18,8 @@
     <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">
     </div>
 
-    <div id="app" style="position:absolute;top:0;left:420px;width:500px;" data-app class="application application--light">
+    <div id="app" style="position:absolute;top:0;left:420px;width:500px;" data-app
+        class="application application--light">
         <section class="buttons">
             <md-button class="md-raised md-primary" @click="updateSVG">打印语法树</md-button>
             <md-button class="md-raised md-primary" disabled>AST->SSG</md-button>
@@ -26,8 +28,10 @@
             <md-button class="md-raised md-primary" disabled>流图划分</md-button>
             <md-button class="md-raised md-primary" disabled>打印加速比</md-button>
             <md-button class="md-raised md-primary" disabled>阶段赋值</md-button>
-            <md-button class="md-raised md-primary" @click="onAll">一键执行</md-button>
-            <md-button class="md-raised md-primary" @click="updateSDF">画SDF图</md-button>
+            <md-button class="md-raised md-primary" :disabled="status!=0" @click="onAll">一键编译</md-button>
+            <md-button class="md-raised md-primary" :disabled="status!=1" @click="updateSDF">画SDF图</md-button>
+            <md-button class="md-raised md-accent" :disabled="status==0" @click="onToggleTargetCode">{{status==1?'查看目标代码':'查看源码'}}</md-button>
+            <md-button class="md-raised md-accent" :disabled="status!=2" @click="onRunTargetCode">运行目标代码</md-button>
             <transition>
                 <md-button class="md-raised md-primary" v-show="isDOT" @click="updateDOT">渲染dot</md-button>
             </transition>
@@ -53,9 +57,8 @@
                 <md-table-cell>{{flat.stageNum}}</md-table-cell>
             </md-table-row>
         </md-table>
-        <md-snackbar md-position="left" :md-active.sync="showSnackbar"
-            md-persistent>
-            <span>{{snackBarMessage}}</span>
+        <md-snackbar md-position="left" :md-active.sync="showSnackbar" md-persistent>
+            <span v-html="snackBarMessage"></span>
             <md-button class="md-primary" @click="showSnackbar = false">ㄨ</md-button>
         </md-snackbar>
 
@@ -114,7 +117,8 @@
     <script>
         let old_code = '';
         var editor = ace.edit("editor");
-        editor.setTheme("ace/theme/tomorrow");
+        //editor.setTheme("ace/theme/twilight");
+        editor.setTheme("ace/theme/tomorrow_night_eighties");
         editor.session.setMode("ace/mode/c_cpp");
         editor.session.setUseWrapMode(true);
         editor.session.on('change', function (delta) {
@@ -125,20 +129,30 @@
             var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/multiOutputs.cos'
             editor.session.setValue(`//...正在加载` + url);
             window.onload = function () {
-                axios.get('https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/multiOutputs.cos').then(res => editor.session.setValue(res.data))
+                axios.get('https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/multiOutputs.cos').then(res => {
+                    showCode(str);
+                    str = res.data
+                })
             }
         } else {
+            showCode(str);
+        }
+        function showCode(str, type = "ace/mode/c_cpp") {
+            editor.session.setMode(type);
             editor.session.setValue(str);
         }
-        editor.selection.on('changeCursor', function(e) {
-            if(editor.getValue()!==old_code){
-                return;
+
+        editor.selection.on('changeCursor', function (e) {
+            if (window.app.status != 2 && editor.getValue() != str) {
+                window.app.status = 0;
             }
-            let current_line = editor.getCursorPosition().row+1;
-            let symbol_table = window.COStreamJS.SymbolTable.FindRightSymbolTable(current_line,COStreamJS.S);
+            /* 符号表相关代码 */
+            /*
+            let current_line = editor.getCursorPosition().row + 1;
+            let symbol_table = window.COStreamJS.SymbolTable.FindRightSymbolTable(current_line, COStreamJS.S);
             let print_table = symbol_table.printSymbol();
-            Vue.set(app._data.symbol_table,'compTable',print_table.compTable);
-            Vue.set(app._data.symbol_table,'idTable',print_table.idTable);
+            Vue.set(app._data.symbol_table, 'compTable', print_table.compTable);
+            Vue.set(app._data.symbol_table, 'idTable', print_table.idTable); */
         });
 
     </script>
@@ -154,23 +168,26 @@
                 return {
                     flats: [],
                     isDOT: false,
-                    showSnackbar:false,
-                    snackBarMessage:'',
-                    symbol_table:{},
+                    showSnackbar: false,
+                    snackBarMessage: '',
+                    symbol_table: {},
+                    status: 0 // 0: 未编译, 1: 已编译的源码状态 2:已编译的目标代码状态
                 }
             },
             methods: {
                 onAll() {
                     var str = editor.getValue()
                     old_code = str;
-                    try{
+                    try {
+                        COStreamJS.options.platform = 'WEB'
                         window.COStreamJS.main(str)
                         this.flats = COStreamJS.ssg.flatNodes
                         this.flats.forEach(flat => {
                             Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat))
                             Vue.set(flat, 'coreNum', COStreamJS.mp.FlatNode2PartitionNum.get(flat))
                         })
-                    }catch(err){
+                        this.status = 1
+                    } catch (err) {
                         console.warn(err)
                         this.snackBarMessage = err
                         this.showSnackbar = true
@@ -198,8 +215,39 @@
                 async updateDOT() {
                     await window.renderDot(editor.getValue())
                 },
+                onToggleTargetCode() {
+                    if (this.status == 1) {
+                        showCode(COStreamJS.files["main.cpp"], "ace/mode/javascript");
+                        this.status = 2
+                    } else if (this.status == 2) {
+                        showCode(str)
+                        this.status = 1
+                    }
+                },
+                onRunTargetCode() {
+                    hackerConsoleLog.isDebugging = true
+                    try {
+                        eval(editor.getValue());
+                    } catch (err) {
+                        console.warn(err)
+                        this.snackBarMessage = err
+                        this.showSnackbar = true
+                    }
+                    hackerConsoleLog.isDebugging = false
+                }
             }
         })
+
+        hackerConsoleLog.isDebugging = false
+        hackerConsoleLog.originLog = console.log
+        function hackerConsoleLog(...args) {
+            if (hackerConsoleLog.isDebugging) {
+                window.app.snackBarMessage = ("控制台输出结果:\n" + args.join('')).replace(/\n/g, '<br>')
+                window.app.showSnackbar = true
+            }
+            hackerConsoleLog.originLog.apply(console, args)
+        }
+        console.log = hackerConsoleLog
     </script>
 </body>
 
