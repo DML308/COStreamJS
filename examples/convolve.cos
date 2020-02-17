@@ -2,9 +2,9 @@
 import Matrix;
 
 Matrix img[8] = { 
-    [ [0,0,0], [0,0,0], [0,0,0] ],
-    [ [1,1,1], [1,1,1], [1,1,1] ],
-    [ [2,2,2], [2,2,2], [2,2,2] ],
+    [ [0,0,1], [0,0,1], [0,0,1] ],
+    [ [1,1,2], [1,1,2], [1,1,2] ],
+    [ [2,2,3], [2,2,3], [2,2,3] ],
 };                
 
 Matrix kernel = [ 
@@ -16,10 +16,12 @@ composite Convolve(output stream<Matrix x>Out,input stream<Matrix x>In)
 {
     param
         int size1,int size2;
-    Out = B(In)
+    Out = Con(In)
     {
         work
         {
+            println("kernel\n",kernel);
+            println("In[0].x\n",In[0].x);
             int kernel_heigh = kernel.rows();                  //获取卷积核(滤波)的高度
             int kernel_width = kernel.cols();               //获取卷积核(滤波)的宽度
 
@@ -34,6 +36,7 @@ composite Convolve(output stream<Matrix x>Out,input stream<Matrix x>In)
                     conv[i,j] = In[0].x[i:i + kernel_heigh,j:j + kernel_width ].cwiseProduct(kernel).sum() ;
                 }
             }
+            println("conv\n",conv);
             Out[0].x = conv;
         }
         window{
@@ -54,7 +57,7 @@ composite Main(){
             }
         }
         window{
-            S tumbling(8);
+            S tumbling(3);
         }
     };
     P = Convolve(S)(88,99);

@@ -1,5 +1,6 @@
 import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode } from "../ast/node.js"
 import { debug } from "../utils/color.js";
+import { matrix_constant } from "../ast/node.js";
 
 // 该函数组的执行时机为代码生成的尾巴, 对生成的 buf 通过字符串替换的手段达到目的
 const Matrix_Object = {
@@ -7,6 +8,7 @@ const Matrix_Object = {
         /* 在 main 函数头部中插入 initGlobalVar() 函数
          * 考虑到普通的全局变量都是可以直接在.h 文件中声明的类型, 例如 a[] = {1,2,3}
          * 而矩阵必须在函数执行阶段赋初始值. */
+        debugger;
         return buf.replace(/int main\(int argc,char \*\*argv\){/, `int main(int argc,char **argv){ initGlobalVar();`)
     },
     CGGlobalHeader(buf){
@@ -75,7 +77,17 @@ const Matrix_Object = {
                     }
                     //如果是单个矩阵
                     else{
-                        debug("FIXME: 代码生成-矩阵插件-矩阵常量初始化暂不支持非数组")
+                        if(declarator.initializer instanceof matrix_constant){
+                            const shape = declarator.initializer.shape
+                            const name = declarator.identifier.name
+                            const sequence = declarator.initializer.rawData.flat().join();
+                            buf += `
+                                ${name} = MatrixXd(${shape[0]},${shape[1]});
+                                ${name} << ${sequence};
+                            `
+                        }else{
+                            debug("FIXME: 代码生成-矩阵插件-矩阵常量初始化类型错误")
+                        }
                     }
                 }
             }

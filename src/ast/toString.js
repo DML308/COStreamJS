@@ -194,6 +194,10 @@ matrix_section.prototype.toString = function (){
             return this.exp + `.block(${i},${j},${p},${q})`
         }
     }
+    // 如果是矩阵切片节点(两个数字), 例如 data[i,j] 转义为 data(i,j)
+    else if(this.slice_pair_list.length == 2){
+        return this.exp + '(' + list2String(this.slice_pair_list, ',') + ')'
+    }
     // 其他情况
     return this.exp + '[' + list2String(this.slice_pair_list, ',') + ']'
 }

@@ -367,8 +367,7 @@ void* thread_$_fun_start(void *)
 }
 `, 1, this.nCpucore)}
 
-int main(int argc,char **argv)
-{
+int main(int argc,char **argv){
 	void setRunIterCount(int,char**);
     setRunIterCount(argc,argv);
     #SLOT2
