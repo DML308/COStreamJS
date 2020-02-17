@@ -117,7 +117,8 @@
     <script>
         let old_code = '';
         var editor = ace.edit("editor");
-        editor.setTheme("ace/theme/tomorrow");
+        //editor.setTheme("ace/theme/twilight");
+        editor.setTheme("ace/theme/tomorrow_night_eighties");
         editor.session.setMode("ace/mode/c_cpp");
         editor.session.setUseWrapMode(true);
         editor.session.on('change', function (delta) {
