@@ -652,7 +652,7 @@ var COStreamJS = (function () {
         lib_binopNode: lib_binopNode
     });
 
-    var version = "0.5.1";
+    var version = "0.6.1";
 
     //对外的包装对象
     var COStreamJS = {
@@ -4487,8 +4487,8 @@ extern int MAX_ITER;
     WEBCodeGeneration.prototype.CGGlobalvar = function () {
         var buf = 
         `/*---------------------------*/
-    /*     主流程开始              */
-    /*---------------------------*/
+     /*     主流程开始             */
+     /*---------------------------*/
     `;
         for (let node of COStreamJS.ast) {
             if (node instanceof declareNode) {
@@ -4532,7 +4532,7 @@ extern int MAX_ITER;
                 }
 
                 let edgename = flat.name + '_' + out.name;
-                buf += `let ${edgename} = new Buffer(${size},${copySize},${copyStartPos});`;
+                buf += `let ${edgename} = new Buffer(${size},${copySize},${copyStartPos});\n`;
             }
         }
 
