@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode } from "./node.js"
+import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode } from "./node.js"
 import { COStreamJS } from "../FrontEnd/global"
 import { error } from "../utils/color.js";
 
@@ -29,6 +29,7 @@ function list2String(list, split, start, end) {
 
 declarator.prototype.toString = function () {
     switch(COStreamJS.options.platform){
+        case 'default':
         case 'X86':
             var str = this.identifier.toString() + ''
             str += this.op ? this.op : ''
@@ -155,6 +156,12 @@ forNode.prototype.toString = function () {
     str += ')' + this.statement.toString()
     return str
 }
+whileNode.prototype.toString = function (){
+    return 'while(' + this.exp + ')' + this.statement;
+}
+doNode.prototype.toString = function (){
+    return 'do' + this.statement + 'while(' + this.exp + ')'
+}
 selection_statement.prototype.toString = function () {
     if (this.op1 === 'if') {
         var str = 'if(' + this.exp + ')' + this.statement
@@ -182,6 +189,8 @@ callNode.prototype.toString = function () {
         return differentPlatformPrint[platform](this.arg_list)
     } else if (this.name === "println") {
         return differentPlatformPrintln[platform](this.arg_list)
+    } else if (["sin","cos","pow"].includes(this.name) && platform === 'WEB'){
+        return 'Math.'+this.name + '(' + list2String(this.arg_list, ',') + ')'
     }
     else{
         return this.name + '(' + list2String(this.arg_list, ',') + ')'

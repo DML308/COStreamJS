@@ -5,7 +5,6 @@ const fs = require('fs')
 const resolve = require('path').resolve
 
 import COStreamJS from "../../main"
-COStreamJS.options.platform = 'default'
 const parser = COStreamJS.parser
 
 //最小化字符串,用于后续的字符串比较
@@ -14,6 +13,7 @@ function minifyStr(str){
 }
 
 describe("测试各种 node 的 toString 方法",()=>{
+
     var declareNodeStrings = [
         "long long a[3] = {1,2,3};",
         "double x[];",
@@ -22,6 +22,7 @@ describe("测试各种 node 的 toString 方法",()=>{
     ]
     declareNodeStrings.forEach(str=>{
         it(`declareNode : ${str}`, () => {
+			COStreamJS.options.platform = 'default'
             var ast = parser.parse(str)
             assert(minifyStr(ast2String(ast)) === minifyStr(str))
         })

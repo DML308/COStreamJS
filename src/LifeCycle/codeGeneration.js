@@ -4,8 +4,7 @@ import { WEBCodeGeneration } from "../BackEnd/WEBCodeGeneration"
 import { COStreamJS } from "../FrontEnd/global"
 
 export function codeGeneration(nCpucore, ssg, mp) {
-    if (typeof window !== 'undefined') {
-        COStreamJS.options.platform = 'WEB'
+    if (COStreamJS.options.platform === 'WEB') {
         var WEBCode = new WEBCodeGeneration(nCpucore, ssg, mp);
         WEBCode.CopyLib();
         WEBCode.CGStreamData();      //生成流类型声明
@@ -15,8 +14,7 @@ export function codeGeneration(nCpucore, ssg, mp) {
         WEBCode.CGMain();            //生成线程启动的main文件
         WEBCode.Pack();              //打包目前生成的所有文件             
 
-    } else if (typeof global !== 'undefined') {
-        COStreamJS.options.platform = 'X86'
+    } else if (COStreamJS.options.platform === 'X86') {
         var X86Code = new X86CodeGeneration(nCpucore, ssg, mp);
         X86Code.CGMakefile();        //生成Makefile文件
         X86Code.CGGlobalvar();       //生成流程序引入的全局变量定义文件 GlobalVar.cpp

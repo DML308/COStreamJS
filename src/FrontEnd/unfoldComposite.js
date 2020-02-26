@@ -33,8 +33,8 @@ export var unfold = new UnfoldComposite()
  */
 UnfoldComposite.prototype.streamReplace = function (comp,inputs, outputs, flag) {
     let stmt_list = comp.body.stmt_list
-    inputs && operatorStreamReplace(stmt_list[0], inputs, 'inputs')
-    outputs && operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs')
+    inputs.length && operatorStreamReplace(stmt_list[0], inputs, 'inputs')
+    outputs.length && operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs')
     return comp
 
     function operatorStreamReplace(stmt, streamNames, tag) {

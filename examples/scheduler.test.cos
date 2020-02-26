@@ -9,7 +9,9 @@ composite pipe(output stream<double x>Out, input stream<double x>In)
 
     Out = pipe(In)
     {
-        work{}
+        work{
+            Out[0] = In[0];
+        }
         window{
             In  sliding(8,8);
             Out tumbling(8);
@@ -21,7 +23,10 @@ composite AAA(output stream<double x>Out, input stream<double x>In)
 {
     Out = AAA(In)
     {
-        work{}
+        work{
+            Out[0] = In[0];
+            Out[1] = In[1];
+        }
         window {
             In  sliding(2,2);
             Out	tumbling(2);
@@ -34,7 +39,9 @@ composite BBB(output stream<double x>Out, input stream<double x>In)
 
     Out = BBB(In)
     {
-        work{}
+        work{
+            Out[0] = In[0];
+        }
         window {
             In sliding(4,4);
             Out tumbling(4);
@@ -59,7 +66,9 @@ composite Main()
     stream<double x> Source,CDFT;
     Source = INIT()
     {
-        work {}
+        work{
+            Source[0].x = 3.14;
+        }
         window { Source tumbling(1); }
     };
     CDFT = pipeline(Source){
