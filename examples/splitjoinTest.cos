@@ -52,8 +52,8 @@ composite Main () {
 		join roundrobin();
 	};
 	sink(y) {
-		int i;
 		work {
+			int i;
 			for (i = 0; i < 1; i++) {
 				println("sink: ",y[i].i);
 			}

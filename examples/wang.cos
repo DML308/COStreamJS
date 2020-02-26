@@ -25,12 +25,11 @@ composite Main(){
 	int N =99;
 	stream<int x,double y>S,P;
 	S=Source(){
-		int i;
 		init{
-			i=0;
             if(1) { println(1); }
 		}
 		work{
+			int i;
 			for(i = 0;i < 8;i++){
 				S[i].x=aaa[i];
 			}
