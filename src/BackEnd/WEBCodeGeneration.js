@@ -14,15 +14,42 @@ export class WEBCodeGeneration {
         this.ssg = ssg
         /**@type {Partition} */
         this.mp = mp
-
-        /** @type {Map<number,Set<number>} 处理器编号到 阶段号集合 的对应关系, 例如 0号核上有 0,2 两个阶段*/
-        this.mapNum2Stage = new Map()
-
     }
+}
+/** 生成stream流类型 */
+WEBCodeGeneration.prototype.CGStreamData = function () {
+    var buf = ''
+
+    //遍历所有compositeNode的streamType，找到流中所有包含的数据类型，作为结构体streamData中的数据
+    //FIXME: 目前符号表未完成, 所以暂时假设所有的流都是同一种数据类型,因此只取一个 streamDcl 来填充至 streamData
+    var typeSet = []
+    for (let comp of COStreamJS.ast.filter(node => node instanceof compositeNode)) {
+        for (let stmt of comp.body.stmt_list) {
+            if (stmt instanceof declareNode && stmt.type instanceof strdclNode) {
+                typeSet = typeSet.concat(stmt.type.id_list)
+            }
+        }
+    }
+    //数组去重 由[{type:'int', identifier:'x'}] 先转为字符串形式的 [ 'int x' ] 来完成去重, 再给后面调用
+    typeSet = typeSet.map(o => o.type + ' ' + o.identifier)
+    typeSet = [...new Set(typeSet)]
+    typeSet = typeSet.map(str => ({ type: str.match(/\S+/g)[0], identifier: str.match(/\S+/g)[1] }))
+    //写入数据流数据类型结构体
+    buf += "class StreamData{\n constructor() {\n"
+    for (let it of typeSet) {
+        buf += `/* ${it.type} */ this.${it.identifier} = undefined;\n`
+    }
+    buf += "}\n}\n"
+
+    COStreamJS.files['Global.js'] = buf.beautify()
 }
 
 WEBCodeGeneration.prototype.CGGlobalvar = function () {
-    var buf = `#include "GlobalVar.h" \n`;
+    var buf = 
+    `/*---------------------------*/
+    /*     主流程开始              */
+    /*---------------------------*/
+    `;
     for (let node of COStreamJS.ast) {
         if (node instanceof declareNode) {
             buf += node.toString() + ';\n'
@@ -36,12 +63,7 @@ WEBCodeGeneration.prototype.CGGlobalvar = function () {
  * 生成 Global.cpp  用于存储边的信息
  */
 WEBCodeGeneration.prototype.CGGlobal = function () {
-    var buf = `
-#include "Buffer.h"
-#include "Global.h"
-#include <vector>
-using namespace std;\n
-    `
+    var buf = '/* Buffer<StreamData> */\n';
     for (let flat of this.ssg.flatNodes) {
         for (let out of flat.outFlatNodes) {
             let stageminus = out.stageNum - flat.stageNum //发送方和接受方的软件流水阶段差
@@ -69,36 +91,11 @@ using namespace std;\n
                 size += addtime * perSteadyPushCount;
             }
 
-            /* 优先构建那些很明显不能被复用的边:
-             * 1. peak != pop 的
-             * 2. copySize 或 copyStartPos 不为0的 
-             * 3. 上下游有阶段差的 */
-            if (1|| perWorkPeekCount != perWorkPopCount || copySize || copyStartPos || stageminus) {
-                let edgename = flat.name + '_' + out.name //边的名称
-                this.bufferMatch.set(edgename, new bufferSpace(edgename, edgename, size, 1, copySize, copyStartPos))
-            }
-        }
-    }
-
-    //为同一核上可以共享内存的缓冲区分配内存
-    this.shareBuffers()
-
-    //检查是否有缓冲区没有分配, 若分配了, 则加入返回字符串中
-    for (let flat of this.ssg.flatNodes) {
-        for (let out of flat.outFlatNodes) {
             let edgename = flat.name + '_' + out.name
-            if (!this.bufferMatch.has(edgename)) {
-                throw new Error('有缓冲区未分配, 程序异常, 请联系管理员')
-            } else {
-                let b = this.bufferMatch.get(edgename)
-                let str = `Buffer<streamData>${edgename}(${b.buffersize},${b.copySize},${b.copyStartPos});`
-                if (b.original !== b.instance) {
-                    str = '//' + str + `  该缓冲区复用了${b.instance}的内存`
-                }
-                buf += str + '\n'
-            }
+            buf += `let ${edgename} = new Buffer(${size},${copySize},${copyStartPos});`
         }
     }
+
     COStreamJS.files['Global.cpp'] = buf.beautify()
     debugger
 }
@@ -110,10 +107,9 @@ WEBCodeGeneration.prototype.CopyLib = function () {
         return string == +string;
     }
     /** 生产者消费者 Constructor */
-    class Buffer
-    {
+    class Buffer {
         constructor(size,copySize,copyStartPos){
-            let buffer = Array.from({ length:size }).map(_ => new streamData())
+            let buffer = Array.from({ length:size }).map(_ => new StreamData());
             buffer.bufferSize = size;
             buffer.copySize = copySize;
             buffer.copyStartPos = copyStartPos;
@@ -121,8 +117,7 @@ WEBCodeGeneration.prototype.CopyLib = function () {
             return buffer;
         }
     }
-    class Consumer
-    {
+    class Consumer {
       constructor(/* Buffer<T> & */conBuffer)
         {
             this.conBuffer = conBuffer
@@ -130,9 +125,17 @@ WEBCodeGeneration.prototype.CopyLib = function () {
             return new Proxy(this, {
                 get: function(target, propKey) {
                     if(isNumber(propKey)){
-                        return target.conBuffer[target.head + parselet(propKey)]
+                        return target.conBuffer[target.head + parseInt(propKey)]
                     }
                     return target[propKey];
+                },
+                set: function(target, propKey, value) {
+                    if(isNumber(propKey)){
+                        target.conBuffer[target.head + parseInt(propKey)] = value
+                        return true
+                    }
+                    target[propKey] = value;
+                    return true
                 }
             });
         }
@@ -143,8 +146,7 @@ WEBCodeGeneration.prototype.CopyLib = function () {
             this.head = 0
         }
     }
-    class Producer
-    {
+    class Producer {
       constructor(/* Buffer<T> & */proBuffer)
         {
             this.proBuffer = proBuffer
@@ -152,9 +154,17 @@ WEBCodeGeneration.prototype.CopyLib = function () {
             return new Proxy(this, {
                 get: function(target, propKey) {
                     if(isNumber(propKey)){
-                        return target.proBuffer[target.tail + parselet(propKey)]
+                        return target.proBuffer[target.tail + parseInt(propKey)]
                     }
                     return target[propKey];
+                },
+                set: function(target, propKey, value) {
+                    if(isNumber(propKey)){
+                        target.proBuffer[target.tail + parseInt(propKey)] = value
+                        return true
+                    }
+                    target[propKey] = value;
+                    return true
                 }
             });
         }
@@ -166,14 +176,14 @@ WEBCodeGeneration.prototype.CopyLib = function () {
         }
     }
     `
-    COStreamJS.files['main.cpp'] = (Object.values(COStreamJS.files).join('\n') + LIB).beautify();
+    COStreamJS.files['lib.js'] = LIB
 }
 
 
 /**
  * 因为 WEB 是单线程, 直接生成程序主流程
  */
-WEBCodeGeneration.prototype.CGMain = function () {
+WEBCodeGeneration.prototype.CGMain = function CGMain() {
         var buf = ''
         let MaxStageNum = COStreamJS.MaxStageNum
         buf = `\n/** 构建 operator Instance */\n`
@@ -206,7 +216,7 @@ WEBCodeGeneration.prototype.CGMain = function () {
         `
         var forBody = ''
         for (let stage = 0 ; stage < MaxStageNum; stage++) {
-            let ifStr = `if(stage[${stage}]){`
+            let ifStr = `if(${stage} == _stageNum){`
             //获取在这个 stage 上的 actor 集合
             let flatVec = this.ssg.flatNodes.filter(flat => flat.stageNum == stage)
             ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n'
@@ -243,10 +253,14 @@ WEBCodeGeneration.prototype.CGMain = function () {
         COStreamJS.files[`main.js`] = buf.beautify()
 }
 
+WEBCodeGeneration.prototype.Pack = function Pack(){
+    COStreamJS.files['main.cpp'] = Object.values(COStreamJS.files).join('\n').beautify();
+}
+
 /** COStream 内建节点, 无需去重 */
 const ProtectedActor = ['join', 'duplicate', 'roundrobin']
 /**
- * 生成各个计算节点, 例如 source.h sink.h
+ * 生成各个计算节点, 例如 class Source {}; class Sink {};
  */
 WEBCodeGeneration.prototype.CGactors = function () {
     var hasGenerated = new Set() //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
@@ -258,57 +272,29 @@ WEBCodeGeneration.prototype.CGactors = function () {
         if (hasGenerated.has(flat.PreName)) return
         hasGenerated.add(flat.PreName)
 
-        var buf = `
-        #ifndef _${flat.PreName}_
-        #define _${flat.PreName}_
-        #include <string>
-        #include <iostream>
-        #include "Buffer.h"
-        #include "Consumer.h"
-        #include "Producer.h"
-        #include "Global.h"
-        #include "GlobalVar.h"
-        using namespace std;
-        `
-        //如果当前节点为IO节点
-        if (flat.name.match(/FILEREADER/i)) {
-            buf += "#include \"RingBuffer.h\"\n";
-            this.workLen = flat.outPushWeights[0];
-            //由于目前不支持多类型流变量，这里先强制设置为let
-            buf += `
-            struct source{
-                let buffer[${this.workLen}];
-            };
-            extern RingBuffer<source> ringBuffer;
-            `
-        }
-
+        var buf = ''
         //开始构建 class
         buf += `class ${flat.PreName}{\n`
-        buf += `public:\n`
         /*写入类成员函数*/
         let inEdgeNames = flat.inFlatNodes.map(src => src.name + '_' + flat.name)
         let outEdgeNames = flat.outFlatNodes.map(out => flat.name + '_' + out.name)
-        buf += this.CGactorsConstructor(flat, inEdgeNames, outEdgeNames);
+        buf += this.CGactorsConstructor(flat, inEdgeNames, outEdgeNames); 
         buf += this.CGactorsRunInitScheduleWork(inEdgeNames, outEdgeNames);
         buf += this.CGactorsRunSteadyScheduleWork(inEdgeNames, outEdgeNames);
-        /*写入类成员变量*/
-        buf += "private:\n";
-        outEdgeNames.forEach(out => buf += `Producer<streamData>${out};\n` )
-        inEdgeNames.forEach(src => buf += `Consumer<streamData>${src};\n`)
-        buf += "let steadyScheduleCount;\t//稳态时一次迭代的执行次数\n";
-        buf += "let initScheduleCount;\n";
+        
         //写入init部分前的statement定义，调用tostring()函数，解析成规范的类变量定义格式
-        buf += this.CGactorsStmts(flat.contents.operBody.stmt_list);
+
+        /* FIXME: CGactorsStmts 这部分需要符号表支持 */
+        // buf += this.CGactorsStmts(flat.contents.operBody.stmt_list);
+
         buf += this.CGactorsPopToken(flat, inEdgeNames);
         buf += this.CGactorsPushToken(flat, outEdgeNames);
         //init部分前的statement赋值
         buf += this.CGactorsinitVarAndState(flat.contents.operBody.stmt_list);
         buf += this.CGactorsInit(flat.contents.operBody.init);
-        buf += this.CGactorsWork(flat.contents.operBody.work, flat, inEdgeNames, outEdgeNames);
+         buf += this.CGactorsWork(flat.contents.operBody.work, flat, inEdgeNames, outEdgeNames);
         /* 类体结束*/
-        buf += "};\n";
-        buf += "#endif";
+        buf += "}\n";
         COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
     })
 }
@@ -316,67 +302,50 @@ WEBCodeGeneration.prototype.CGactors = function () {
 /**
  * 生成actors constructor
  * @example
- * rtest_3(Buffer<streamData>& Rstream0_0,Buffer<streamData>& round1_0):Rstream0_0(Rstream0_0),round1_0(round1_0){
- *		steadyScheduleCount = 1;
- *		initScheduleCount = 0;
+ * constructor(Source_0_B_1) {
+ *  this.steadyScheduleCount = 1;
+ *  this.initScheduleCount = 0;
+ *  this.Source_0_B_1 = new Producer(Source_0_B_1)
+ *  this.i = 0
  * }
- */
+**/
 WEBCodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, outEdgeNames) {
     var OutAndInEdges = (outEdgeNames || []).concat(inEdgeNames) // 把 out 放前面, in 放后面
-    var buf = flat.PreName + '('
-    buf += OutAndInEdges.map(s => 'Buffer<streamData>& ' + s).join(',') + '):'
-    buf += OutAndInEdges.map(s => s + '(' + s + ')').join(',') + '{'
+    var buf = 'constructor(/* Buffer<StreamData>& */'
+    buf += OutAndInEdges.join(',') + '){'
     buf += `
-        steadyScheduleCount = ${flat.steadyCount};
-		initScheduleCount = ${flat.initCount};
+        this.steadyScheduleCount = ${flat.steadyCount};
+        this.initScheduleCount = ${flat.initCount};
+        ${inEdgeNames.map(src => `this.${src} = new Consumer(${src});`).join('\n')}
+        ${outEdgeNames.map(out => `this.${out} = new Producer(${out});`).join('\n')}
 	}
     `
     return buf
 }
-/**
- * @example
- * void runInitScheduleWork() {
- *		initVarAndState();
- *		init();
- *		for(let i=0;i<initScheduleCount;i++)
- *			work();
- *		round1_0.resetTail();
- *		round1_1.resetTail();
- *		dup0_0.resetHead();
- *	}
- */
+
 WEBCodeGeneration.prototype.CGactorsRunInitScheduleWork = function (inEdgeNames, outEdgeNames) {
     var buf = `
-    void runInitScheduleWork() {
-		initVarAndState();
-		init();
-		for(let i=0;i<initScheduleCount;i++){    
-            work();
-        }`;
-    (outEdgeNames || []).forEach(out => buf += out + '.resetTail();\n');
-    (inEdgeNames || []).forEach(src => buf += src + '.resetHead();\n');
+    runInitScheduleWork() {
+        this.initVarAndState();
+        this.init();
+        for (let i = 0; i < this.initScheduleCount; i++) {
+            this.work();
+        }
+        `;
+    (outEdgeNames || []).forEach(out => buf += 'this.' + out + '.resetTail();\n');
+    (inEdgeNames || []).forEach(src => buf += 'this.' + src + '.resetHead();\n');
     return buf + '}\n'
 }
 
-/**
- * @example
- * void runSteadyScheduleWork() {
- *		for(let i=0;i<steadyScheduleCount;i++)
- *			work();
- *		round1_0.resetTail2();
- *		round1_1.resetTail();
- *		dup0_0.resetHead2();
- *	}
- */
 WEBCodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames, outEdgeNames) {
     var buf = `
-    void runSteadyScheduleWork() {
-		for(let i=0;i<steadyScheduleCount;i++){
-            work();
-        }`;
-    var use1Or2 = str => this.bufferMatch.get(str).buffertype == 1 ? '' : '2';
-    (outEdgeNames || []).forEach(out => buf += out + '.resetTail' + use1Or2(out) + '();\n');
-    (inEdgeNames || []).forEach(src => buf += src + '.resetHead' + use1Or2(src) + '();\n');
+    runSteadyScheduleWork() {
+        for (let i = 0; i < this.steadyScheduleCount; i++) {
+            this.work();
+        }
+        `;
+    (outEdgeNames || []).forEach(out => buf += 'this.' + out + '.resetTail();\n');
+    (inEdgeNames || []).forEach(src => buf += 'this.' + src + '.resetHead();\n');
     return buf + '}\n'
 }
 
@@ -400,49 +369,49 @@ WEBCodeGeneration.prototype.CGactorsStmts = function (stmt_list) {
 }
 
 /**
- * 生成 class 的 private 部分的 popToken 函数, 例如
- * void popToken() {
- *		Rstream0_0.updatehead(1);
- *		Rstream0_1.updatehead(1);
+ * 生成 class 的 popToken 函数, 例如
+ * popToken() {
+ *		this.Rstream0_0.updatehead(1);
+ *		this.Rstream0_1.updatehead(1);
  * }
  * @param {FlatNode} flat
  */
 WEBCodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
     const pop = flat.inPopWeights[0]
-    const stmts = inEdgeNames.map(src => `${src}.updatehead(${pop});\n`).join('')
-    return `\n void popToken(){ ${stmts} }\n`
+    const stmts = inEdgeNames.map(src => `this.${src}.updatehead(${pop});\n`).join('')
+    return `\n popToken(){ ${stmts} }\n`
 }
 
 /**
- * 生成 class 的 private 部分的 pushToken 函数, 例如
- * void pushToken() {
- *		Dstream0_1.updatetail(2);
+ * 生成 class 的 pushToken 函数, 例如
+ * pushToken() {
+ *		this.Dstream0_1.updatetail(2);
  * }
  * @param {FlatNode} flat
  */
 WEBCodeGeneration.prototype.CGactorsPushToken = function (flat, outEdgeNames) {
     const push = flat.outPushWeights[0]
-    const stmts = outEdgeNames.map(out => `${out}.updatetail(${push});\n`).join('')
-    return `\n void pushToken(){ ${stmts} }\n`
+    const stmts = outEdgeNames.map(out => `this.${out}.updatetail(${push});\n`).join('')
+    return `\n pushToken(){ ${stmts} }\n`
 }
 
 /** 
- * 将 stmt_list 中的 let i=0部分转换为 i=0; 
+ * 将 stmt_list 中的 let i=0部分转换为 this.i=0; 
  * @param {declareNode[]} stmt_list
  */
 WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
-    var result = 'void initVarAndState() {'
+    var result = 'initVarAndState() {'
     stmt_list.forEach( declare =>{
         declare.init_declarator_list.forEach(item =>{
             if(item.initializer){
-                result += item.identifier + '=' + item.initializer +';\n'
+                result += 'this.' + item.identifier + '=' + item.initializer +';\n'
             }
         })
     })
     return result+'}';
 }
 WEBCodeGeneration.prototype.CGactorsInit = function(init){
-    return `void init() ${init|| '{ }'} \n`
+    return `init() ${init|| '{ }'} \n`
 }
 
 /** 
@@ -452,14 +421,14 @@ WEBCodeGeneration.prototype.CGactorsInit = function(init){
 WEBCodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
     // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
     var innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
-    // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 B_1_Sink_2
-    flat.contents.inputs.forEach((src, idx) => replace(src, inEdgeNames[idx]))
-    flat.contents.outputs.forEach((out, idx) => replace(out, outEdgeNames[idx]))
+    // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 this.B_1_Sink_2
+    flat.contents.inputs.forEach((src, idx) => replace(src, 'this.'+inEdgeNames[idx]))
+    flat.contents.outputs.forEach((out, idx) => replace(out, 'this.'+outEdgeNames[idx]))
     
-    return `void work(){
+    return `work(){
         ${innerWork}
-        pushToken();
-        popToken();
+        this.pushToken();
+        this.popToken();
     }\n`
 
     function replace(A, B) {

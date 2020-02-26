@@ -7,11 +7,13 @@ export function codeGeneration(nCpucore, ssg, mp) {
     if (typeof window !== 'undefined') {
         COStreamJS.options.platform = 'WEB'
         var WEBCode = new WEBCodeGeneration(nCpucore, ssg, mp);
-        //WEBCode.CGGlobalvar();       //生成流程序引入的全局变量定义文件 GlobalVar.cpp
-        //WEBCode.CGGlobal();          //生成流程序的所有缓冲区信息Global.cpp
-        //WEBCode.CGactors();          //生成以类表示的计算单元actor
+        WEBCode.CopyLib();
+        WEBCode.CGStreamData();      //生成流类型声明
+        WEBCode.CGactors();          //生成以类表示的计算单元actor
+        WEBCode.CGGlobalvar();       //生成流程序引入的全局变量定义文件 GlobalVar.cpp
+        WEBCode.CGGlobal();          //生成流程序的所有缓冲区信息 Global.cpp
         WEBCode.CGMain();            //生成线程启动的main文件
-        WEBCode.CopyLib();            
+        WEBCode.Pack();              //打包目前生成的所有文件             
 
     } else if (typeof global !== 'undefined') {
         COStreamJS.options.platform = 'X86'

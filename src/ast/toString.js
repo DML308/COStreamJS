@@ -28,20 +28,37 @@ function list2String(list, split, start, end) {
 */
 
 declarator.prototype.toString = function () {
-    var str = this.identifier.toString() + ''
-    str += this.op ? this.op : ''
-    if (this.initializer instanceof Array) {
-        str += list2String(this.initializer, ',', '{', '}')
-    } else {
-        str += this.initializer ? this.initializer.toString() : ''
+    switch(COStreamJS.options.platform){
+        case 'X86':
+            var str = this.identifier.toString() + ''
+            str += this.op ? this.op : ''
+            if (this.initializer instanceof Array) {
+                str += list2String(this.initializer, ',', '{', '}')
+            } else {
+                str += this.initializer ? this.initializer.toString() : ''
+            }
+            return str
+            break;
+        case 'WEB':
+            var str = this.identifier.name
+            str += this.op ? this.op : ''
+            if (this.initializer instanceof Array) {
+                str += list2String(this.initializer, ',', '[', ']')
+            } else {
+                str += this.initializer ? this.initializer.toString() : ''
+            }
+            return str
+            break
+        default: return '';
     }
-    return str
+    
 }
 idNode.prototype.toString = function(){
     return this.name + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
 }
 declareNode.prototype.toString = function () {
-    return this.type + ' ' + list2String(this.init_declarator_list, ', ')
+    let type = COStreamJS.options.platform === 'WEB' ? 'let' : this.type
+    return type + ' ' + list2String(this.init_declarator_list, ', ')
 }
 compositeNode.prototype.toString = function () {
     var str = 'composite ' + this.compName + '('
@@ -150,12 +167,12 @@ selection_statement.prototype.toString = function () {
 
 const differentPlatformPrint = {
     'X86': args => 'cout<<' + list2String(args, '<<'),
-    'WEB': args => 'console.log(' + list2String(args, '<<') + ')',
+    'WEB': args => 'console.log(' + list2String(args, ",") + ')',
     'default': args => 'print(' + list2String(args, ',') + ')'
 }
 const differentPlatformPrintln = {
     'X86': args => 'cout<<' + list2String(args, '<<') + '<<endl',
-    'WEB': args => 'console.log(' + list2String(args, '<<') + `);console.log('\n')`,
+    'WEB': args => 'console.log(' + list2String(args, ',') + `,'\\n')`,
     'default': args => 'println(' + list2String(args, ',') + ')'
 }
 callNode.prototype.toString = function () {

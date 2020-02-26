@@ -1,6 +1,8 @@
 import { deepCloneWithoutCircle } from "../utils"
 import { compositeCall_list, COStreamJS } from "./global"
-import { addNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode } from "../ast/node";
+import { addNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode } from "../ast/node";
+import { matrix_section } from "../ast/node";
+import { matrix_slice_pair } from "../ast/node";
 export class UnfoldComposite {
     constructor() {
         this.num = 0
@@ -311,14 +313,23 @@ UnfoldComposite.prototype.MakeRoundrobinOperator = function (inputs, args, outpu
 
     /**
      * 构建 Roundrobin 的 work 部分
-     * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
      */
     function MakeRoundrobinWork(inputs, args, outputs) {
-        let stmts = ["int i=0,j=0;"]
+        const decl_i = new declarator(null,new idNode(null,'i'),'0')
+        const decl_j = new declarator(null,new idNode(null,'j'),'0')
+        const dNode =  new declareNode(null, 'int',[decl_i,decl_j])
+        const stmts = [dNode]; // let stmts = ["int i=0,j=0;"]
         outputs.forEach((name, idx) => {
-            stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[j++];`)
+            // 下面代码等价于 stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[j++];`)
+            const init = new binopNode(null,'i','=','0')
+            const cond = new binopNode(null, 'i','<',args[idx])
+            const next = new unaryNode(null, '++', 'i')
+            const binop_left = new matrix_section(null, name, [new matrix_slice_pair(null,'i')])
+            const binop_righ = new matrix_section(null, inputs[0], [new matrix_slice_pair(null,'j++')])
+            const statement = new binopNode(null, binop_left, '=', binop_righ)
+            stmts.push(new forNode(null, init, cond, next, statement))
         })
-        let work = '{\n' + stmts.join('\n') + '\n}\n'
+        let work = new blockNode(null, '{', stmts, '}')
         return work
     }
     function MakeRoundrobinWindow(inputs, args, outputs) {
@@ -367,14 +378,22 @@ UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs, args, output
 
     /**
      * 构建 duplicate 的 work 部分
-     * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
      */
     function MakeDuplicateWork(inputs, args, outputs) {
-        let stmts = ["int i=0;"]
+        const decl = new declarator(null,new idNode(null,'i'),'0')
+        const dNode =  new declareNode(null, 'int',[decl])
+        const stmts = [dNode]; // let stmts = ["int i=0;"]
         outputs.forEach((name, idx) => {
-            stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[i];`)
+            // 下面代码等价于 stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[i];`)
+            const init = new binopNode(null,'i','=','0')
+            const cond = new binopNode(null, 'i','<',args[idx])
+            const next = new unaryNode(null, '++', 'i')
+            const binop_left = new matrix_section(null, name, [new matrix_slice_pair(null,'i')])
+            const binop_righ = new matrix_section(null, inputs[0], [new matrix_slice_pair(null,'i')])
+            const statement = new binopNode(null, binop_left, '=', binop_righ)
+            stmts.push(new forNode(null, init, cond, next, statement))
         })
-        let work = '{\n' + stmts.join('\n') + '\n}\n'
+        let work = new blockNode(null, '{', stmts, '}')
         return work
     }
     function MakeDuplicateWindow(inputs, args, outputs) {
@@ -423,14 +442,24 @@ UnfoldComposite.prototype.MakeJoinOperator = function (inputs, args, outputs) {
 
     /**
      * 构建 join 的 work 部分
-     * FIXME:此处实现和杨飞不同, 仅仅是为了简单而对 work 使用字符串
      */
     function MakeJoinWork(inputs, args, outputs) {
-        let stmts = ["int i=0,j=0;"]
+        // 下面代码等价于 let stmts = ["int i=0,j=0;"]
+        const decl_i = new declarator(null,new idNode(null,'i'),'0')
+        const decl_j = new declarator(null,new idNode(null,'j'),'0')
+        const dNode =  new declareNode(null, 'int',[decl_i,decl_j])
+        const stmts = [dNode]; // let stmts = ["int i=0,j=0;"]
         inputs.forEach((name, idx) => {
-            stmts.push(`for(i=0;i<${args[idx]};++i)  ${outputs[0]}[j++] = ${name}[i];`)
+            // 下面代码等价于 stmts.push(`for(i=0;i<${args[idx]};++i)  ${outputs[0]}[j++] = ${name}[i];`)
+            const init = new binopNode(null,'i','=','0')
+            const cond = new binopNode(null, 'i','<',args[idx])
+            const next = new unaryNode(null, '++', 'i')
+            const binop_left = new matrix_section(null, outputs[0], [new matrix_slice_pair(null,'j++')])
+            const binop_righ = new matrix_section(null, name, [new matrix_slice_pair(null,'i')])
+            const statement = new binopNode(null, binop_left, '=', binop_righ)
+            stmts.push(new forNode(null, init, cond, next, statement))
         })
-        let work = '{\n' + stmts.join('\n') + '\n}\n'
+        let work = new blockNode(null, '{', stmts, '}')
         return work
     }
     function MakeJoinWindow(inputs, args, outputs) {
