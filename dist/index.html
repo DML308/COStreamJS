@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/vue-material.min.css">
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
     <link rel="stylesheet" type="text/css" href="./main.css">
-    <title>COStreamJS-v0.5.1</title>
+    <title>COStreamJS-v0.6.1</title>
     <style> .md-snackbar{ max-height: none!important;} </style>
 </head>
 
@@ -131,8 +131,8 @@
             editor.session.setValue(`//...正在加载` + url);
             window.onload = function () {
                 axios.get('https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/multiOutputs.cos').then(res => {
-                    showCode(str);
-                    str = res.data
+                    window.str = res.data
+                    showCode(window.str);
                 })
             }
         } else {

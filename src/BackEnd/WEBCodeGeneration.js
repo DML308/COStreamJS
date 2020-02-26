@@ -47,8 +47,8 @@ WEBCodeGeneration.prototype.CGStreamData = function () {
 WEBCodeGeneration.prototype.CGGlobalvar = function () {
     var buf = 
     `/*---------------------------*/
-    /*     主流程开始              */
-    /*---------------------------*/
+     /*     主流程开始             */
+     /*---------------------------*/
     `;
     for (let node of COStreamJS.ast) {
         if (node instanceof declareNode) {
@@ -92,7 +92,7 @@ WEBCodeGeneration.prototype.CGGlobal = function () {
             }
 
             let edgename = flat.name + '_' + out.name
-            buf += `let ${edgename} = new Buffer(${size},${copySize},${copyStartPos});`
+            buf += `let ${edgename} = new Buffer(${size},${copySize},${copyStartPos});\n`
         }
     }
 
