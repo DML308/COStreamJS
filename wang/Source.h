@@ -35,7 +35,6 @@ class Source{
   Producer<streamData>Source_0_B_1;
   int steadyScheduleCount;	//稳态时一次迭代的执行次数
   int initScheduleCount;
-  int i;
   
   void popToken(){
   }
@@ -46,7 +45,6 @@ class Source{
   void initVarAndState() {
   }
   void init() {
-    i=0;
     if(1){
       cout<<1<<endl;
     }
@@ -55,6 +53,7 @@ class Source{
   
   void work(){
     
+    int i;
     for(i=0;i<8;i++){
       Source_0_B_1[i].x=aaa[i];
     }

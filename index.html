@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
     <link rel="stylesheet" type="text/css" href="./main.css">
     <title>COStreamJS-v0.5.1</title>
+    <style> .md-snackbar{ max-height: none!important;} </style>
 </head>
 
 <body>
@@ -218,9 +219,10 @@
                 onToggleTargetCode() {
                     if (this.status == 1) {
                         showCode(COStreamJS.files["main.cpp"], "ace/mode/javascript");
+                        editor.getSession().foldAll()
                         this.status = 2
                     } else if (this.status == 2) {
-                        showCode(str)
+                        showCode(old_code)
                         this.status = 1
                     }
                 },
@@ -228,6 +230,7 @@
                     hackerConsoleLog.isDebugging = true
                     try {
                         eval(editor.getValue());
+                        hackerConsoleLog.flush()
                     } catch (err) {
                         console.warn(err)
                         this.snackBarMessage = err
@@ -239,11 +242,17 @@
         })
 
         hackerConsoleLog.isDebugging = false
+        hackerConsoleLog.cachedMessages = []
         hackerConsoleLog.originLog = console.log
+        /** 输出缓存的控制台信息 */
+        hackerConsoleLog.flush = function flush(){
+            window.app.snackBarMessage = ("控制台输出结果:\n" + hackerConsoleLog.cachedMessages.join('')).replace(/\n/g, '<br>')
+            window.app.showSnackbar = true
+            hackerConsoleLog.cachedMessages = []
+        }
         function hackerConsoleLog(...args) {
             if (hackerConsoleLog.isDebugging) {
-                window.app.snackBarMessage = ("控制台输出结果:\n" + args.join('')).replace(/\n/g, '<br>')
-                window.app.showSnackbar = true
+                hackerConsoleLog.cachedMessages = hackerConsoleLog.cachedMessages.concat(args)
             }
             hackerConsoleLog.originLog.apply(console, args)
         }
