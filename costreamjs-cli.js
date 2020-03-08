@@ -12,8 +12,20 @@ var COStreamJS = (function () {
         const line = args[0].first_line || args[0];
         console.log(`%c line:${line} %c ${args[1]} `, "color: #00bc00", "color: #0598bd", ...args.slice(2));
     }
+    const errors = [];
     function error$1(...args) {
-        console.log("%c " + args[0], "color: #cd3131", ...args.slice(1));
+        const error_obj = { msg:'', other:[] };
+        args.forEach(arg =>{
+            if(typeof arg === "string"){
+                error_obj.msg += arg;
+            }else if(typeof arg === 'object' && arg.first_line !== undefined){
+                error_obj.loc = arg;
+            }else{
+                error_obj.other.push(arg);
+            }
+        });
+        errors.push(error_obj);
+        console.log("%c " + error_obj.msg, "color: #cd3131", ...error_obj.other);
     }
 
     /**
@@ -137,14 +149,33 @@ var COStreamJS = (function () {
         }
     }
 
-
+    function checkBraceMatching(str = ''){
+        let stack = [], line = 0;
+        let symmetry = { '[':']', '(':')', '{':'}' };
+        for(let s of str){
+            if(s == '(' || s == '[' || s == '{'){
+                stack.push(s);
+            }else if( s == ')' || s == ']' || s == '}'){
+                let top = stack.pop();
+                if(symmetry[top] !== s){
+                    error$1({first_line:line}, `括号不匹配`);
+                    return false
+                }
+            }else if( s == '\n'){
+                line++;
+            }
+        }
+        return true
+    }
 
     var utils = /*#__PURE__*/Object.freeze({
         __proto__: null,
+        checkBraceMatching: checkBraceMatching,
         debug: debug$1,
         line: line,
         error: error$1,
         green: green,
+        errors: errors,
         ast2dot: ast2dot,
         deepCloneWithoutCircle: deepCloneWithoutCircle
     });
@@ -181,10 +212,10 @@ var COStreamJS = (function () {
         return result
     };
 
-    class Node {
+    class Node$1 {
         constructor(loc) {
             this._loc = loc;
-            ['_loc'].forEach(key => {
+            ['_loc','_symbol_table'].forEach(key => {
                 definePrivate(this, key);
             });
         }
@@ -192,14 +223,14 @@ var COStreamJS = (function () {
     /********************************************************/
     /*              1.1 declaration                         */
     /********************************************************/
-    class declareNode extends Node {
+    class declareNode extends Node$1 {
         constructor(loc, type, init_declarator_list) {
             super(loc);
             this.type = type;
             this.init_declarator_list = [].concat(init_declarator_list);
         }
     }
-    class idNode extends Node{
+    class idNode extends Node$1{
         constructor(loc, name, arg){
             super(loc);
             this.name = name;
@@ -210,7 +241,7 @@ var COStreamJS = (function () {
             } 
         }
     }
-    class declarator extends Node {
+    class declarator extends Node$1 {
         constructor(loc, identifier, initializer) {
             super(loc);
             this.identifier = identifier;
@@ -222,7 +253,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /*              1.2 function.definition 函数声明          */
     /********************************************************/
-    class function_definition extends Node {
+    class function_definition extends Node$1 {
         constructor(loc, type, declarator,param_list, compound) {
             super(loc);
             this.type = type;
@@ -236,7 +267,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /*        2. composite                                  */
     /********************************************************/
-    class compositeNode extends Node {
+    class compositeNode extends Node$1 {
         constructor(loc, head = {}, body = {}) {
             super(loc);
             Object.assign(this, {
@@ -247,25 +278,25 @@ var COStreamJS = (function () {
             });
         }
     }
-    class compHeadNode extends Node {
+    class compHeadNode extends Node$1 {
         constructor(loc, compName, inout) {
             super(loc);
             Object.assign(this, { op: 'composite', compName, inout });
         }
     }
-    class ComInOutNode extends Node {
-        constructor(loc, input_list, output_list) {
+    class ComInOutNode extends Node$1 {
+        constructor(loc, input_list = [], output_list = []) {
             super(loc);
             Object.assign(this, { op1: 'input', input_list, op2: 'output', output_list });
         }
     }
-    class inOutdeclNode extends Node {
+    class inOutdeclNode extends Node$1 {
         constructor(loc, strType, id) {
             super(loc);
             Object.assign(this, { strType, id });
         }
     }
-    class strdclNode extends Node {
+    class strdclNode extends Node$1 {
         constructor(loc, type, identifier) {
             super(loc);
             this.op = 'stream<';
@@ -275,7 +306,7 @@ var COStreamJS = (function () {
             this.op2 = '>';
         }
     }
-    class compBodyNode extends Node {
+    class compBodyNode extends Node$1 {
         constructor(loc, param, stmt_list) {
             super(loc);
             Object.assign(this, {
@@ -286,7 +317,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class paramNode extends Node {
+    class paramNode extends Node$1 {
         constructor(loc, param_list) {
             super(loc);
             if (param_list) {
@@ -295,7 +326,7 @@ var COStreamJS = (function () {
             this.param_list = param_list;
         }
     }
-    class operBodyNode extends Node {
+    class operBodyNode extends Node$1 {
         constructor(loc, stmt_list, init, work, win) {
             super(loc);
             Object.assign(this, {
@@ -306,38 +337,38 @@ var COStreamJS = (function () {
             });
         }
     }
-    class winStmtNode extends Node {
-        constructor(loc, winName, options ={}) {
+    class winStmtNode extends Node$1 {
+        constructor(loc, winName, options = {}) {
             super(loc);
             Object.assign(this, {
                 winName,
                 type: options.type,
-                arg_list: options.arg_list
+                arg_list: options.arg_list || []
             });
         }
     }
     /********************************************************/
     /*        3. statement 花括号内以';'结尾的结构是statement   */
     /********************************************************/
-    class blockNode extends Node {
+    class blockNode extends Node$1 {
         constructor(loc, op1, stmt_list, op2) {
             super(loc);
             Object.assign(this, { op1, stmt_list, op2 });
         }
     }
-    class jump_statement extends Node {
+    class jump_statement extends Node$1 {
         constructor(loc, op1, op2) {
             super(loc);
             Object.assign(this, { op1, op2 });
         }
     }
-    class labeled_statement extends Node {
+    class labeled_statement extends Node$1 {
         constructor(loc, op1, op2, op3, statement) {
             super(loc);
             Object.assign(this, { op1, op2, op3, statement });
         }
     }
-    class selection_statement extends Node {
+    class selection_statement extends Node$1 {
         constructor(loc, op1, op2, exp, op3, statement, op4, else_statement) {
             super(loc);
             Object.assign(this, {
@@ -346,7 +377,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class whileNode extends Node {
+    class whileNode extends Node$1 {
         constructor(loc, exp, statement) {
             super(loc);
             Object.assign(this, {
@@ -358,7 +389,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class doNode extends Node {
+    class doNode extends Node$1 {
         constructor(loc, exp, statement) {
             super(loc);
             Object.assign(this, {
@@ -371,7 +402,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class forNode extends Node {
+    class forNode extends Node$1 {
         constructor(loc, init, cond, next, statement) {
             super(loc);
             Object.assign(this, {
@@ -387,7 +418,7 @@ var COStreamJS = (function () {
     /*        4. expression 计算表达式头节点                   */
     /********************************************************/
 
-    class expNode extends Node {
+    class expNode extends Node$1 {
         constructor(loc) {
             super(loc);
             //检查是否有常量传播插件提供的 getValue 函数
@@ -442,7 +473,7 @@ var COStreamJS = (function () {
             }
         }
     }
-    class callNode$1 extends expNode {
+    class callNode extends expNode {
         constructor(loc, name, arg_list) {
             super(loc);
             this.name = name;
@@ -460,7 +491,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /* operNode in expression's right                       */
     /********************************************************/
-    class operNode extends Node {
+    class operNode extends Node$1 {
         constructor(loc) {
             super(loc);
             this.outputs = [];
@@ -512,7 +543,7 @@ var COStreamJS = (function () {
             definePrivate(this, 'replace_composite');
         }
     }
-    class splitNode extends Node {
+    class splitNode extends Node$1 {
         constructor(loc, node = {}) {
             super(loc);
             this.name = "split";
@@ -522,7 +553,7 @@ var COStreamJS = (function () {
             }
         }
     }
-    class joinNode extends Node {
+    class joinNode extends Node$1 {
         constructor(loc, node = {}) {
             super(loc);
             this.name = "join";
@@ -532,19 +563,19 @@ var COStreamJS = (function () {
             }
         }
     }
-    class duplicateNode extends Node {
+    class duplicateNode extends Node$1 {
         constructor(loc, arg_list) {
             super(loc);
             this.arg_list = arg_list;
         }
     }
-    class roundrobinNode extends Node {
+    class roundrobinNode extends Node$1 {
         constructor(loc, arg_list) {
             super(loc);
             this.arg_list = arg_list;
         }
     }
-    class addNode extends Node {
+    class addNode extends Node$1 {
         constructor(loc, content) {
             super(loc);
             this.name = "add";
@@ -555,7 +586,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /* 矩阵相关 node                       */
     /********************************************************/
-    class matrix_constant extends Node{
+    class matrix_constant extends Node$1{
         constructor(loc, rawData){
             super(loc);
             this.rawData = rawData.map(x => (
@@ -578,7 +609,7 @@ var COStreamJS = (function () {
        * [:5]  --- { start: _, op:':', end: 5 }
        * [:]   --- { start: _, op:':', end: _ }
        * [0]   --- { start: 0, op: _ , end: _ }   */
-    class matrix_slice_pair extends Node {
+    class matrix_slice_pair extends Node$1 {
         constructor(loc, start, op, end) {
             super(loc);
             this.start = start;
@@ -588,7 +619,7 @@ var COStreamJS = (function () {
     }
 
     /** 存放 name[1:4, 2:5] 的结构, 寓意为矩阵切片结果 */
-    class matrix_section extends Node{
+    class matrix_section extends expNode{
         constructor(loc, exp, slice_pair_list){
             super(loc);
             this.exp = exp;
@@ -596,7 +627,7 @@ var COStreamJS = (function () {
         }
     }
 
-    class lib_binopNode extends Node{
+    class lib_binopNode extends Node$1{
         constructor(loc, lib_name,function_name){
             super(loc);
             this.lib_name = lib_name;
@@ -606,7 +637,7 @@ var COStreamJS = (function () {
 
     var NodeTypes = /*#__PURE__*/Object.freeze({
         __proto__: null,
-        Node: Node,
+        Node: Node$1,
         declareNode: declareNode,
         idNode: idNode,
         declarator: declarator,
@@ -634,7 +665,7 @@ var COStreamJS = (function () {
         ternaryNode: ternaryNode,
         parenNode: parenNode,
         arrayNode: arrayNode,
-        callNode: callNode$1,
+        callNode: callNode,
         constantNode: constantNode,
         operNode: operNode,
         compositeCallNode: compositeCallNode,
@@ -652,7 +683,7 @@ var COStreamJS = (function () {
         lib_binopNode: lib_binopNode
     });
 
-    var version = "0.6.1";
+    var version = "0.7.0";
 
     //对外的包装对象
     var COStreamJS = {
@@ -990,11 +1021,11 @@ var COStreamJS = (function () {
     break;
     case 109:
      
-                                                                    if(this.$ instanceof callNode$1){
+                                                                    if(this.$ instanceof callNode){
                                                                         this.$ = new compositeCallNode(this._$,$$[$0-1].name,$$[$0-1].arg_list,$$[$0]);
                                                                     }         
                                                                     else{
-                                                                        this.$ = new callNode$1(this._$,$$[$0-1],$$[$0]);
+                                                                        this.$ = new callNode(this._$,$$[$0-1],$$[$0]);
                                                                     }
                                                                 
     break;
@@ -1630,6 +1661,433 @@ var COStreamJS = (function () {
     return new Parser;
     })();
 
+    const MAX_SCOPE_DEPTH = 10; //定义最大嵌套深度为100
+    /*level表示当前嵌套深度，version表示嵌套域计数器 */
+
+    const current_version = Array.from({length:MAX_SCOPE_DEPTH}).fill(0);
+
+    const symbolTableMap = Array.from({length:MAX_SCOPE_DEPTH}).map(_ => []); // 二维数组
+
+
+    class Constant {
+        constructor(/* string */ type, val) {
+            this.type = type;
+            /** @type{number} */
+            this.val = val;
+        }
+        print(/* boolean */ isArray) {
+            console.log(`[Constant] type: ${this.type} val: ${this.val}`);
+        }
+
+    }
+    class ArrayConstant {
+        constructor(type /* string */) {
+            this.type = type;
+            /** @type{ Array<Constant> } */
+            this.values = [];
+        }
+        print() { };
+    }
+    class Variable {
+        constructor(valType, name, i) {
+            this.type = valType;
+            this.name = name;
+            this.level = undefined;
+            this.version = undefined;
+            if (i instanceof Constant) {
+                this.value = i;
+            }
+            else if (i instanceof ArrayConstant) {
+                this.array = i;
+            }
+            else {
+                this.value = new Constant(valType, i);
+            }
+        }
+    }
+
+    class CompositeSymbol {
+        constructor(/** @type {compositeNode} */ comp) {
+            this.composite = comp;
+            this.count = 0; // 用于区分多次调用同一 composite
+        }
+    }
+    class SymbolTable {
+        constructor(prev, loc) {
+            this.loc = loc;
+            this.prev = prev;
+            let Level = SymbolTable.Level;
+            symbolTableMap[Level][current_version[Level]] = this;
+
+            this.funcTable = {};
+            /** @type {Dict<inOutdeclNode>} */
+            this.streamTable = {};  
+            // this.identifyTable = undefined; // 没发现这个的用处
+            this.memberTable = {}; // 专门用来存储一个operator的成员变量字段
+            this.variableTable = {}; //变量
+            this.compTable = {}; // composite
+            this.optTable = {}; //operator
+        };
+        getPrev() {
+            return this.prev;
+        }
+        /** @returns { {type: 'variable'|'stream' |'func'|'oper'|'member', origin: SymbolTable}}  */
+        searchName(name){
+            if(this.variableTable[name]) return { type: 'variable', origin: this}
+            if(this.streamTable[name])   return { type: 'stream', origin: this}
+            if(this.funcTable[name])     return { type: 'func', origin: this}
+            if(this.optTable[name])      return { type: 'oper', origin: this}
+            if(this.memberTable[name])   return { type: 'member', origin: this}
+            if(this.prev)                return this.prev.searchName(name)
+            return undefined;
+        }
+        getExactSymbolTable(name){
+            if(this.variableTable[name]) return this
+            return this.prev && this.prev.getExactSymbolTable(name)
+        }
+        /** @returns{Variable} */
+        LookupIdentifySymbol(name){
+            if(this.variableTable[name]) return this.variableTable[name]
+            if(this.prev){
+                return this.prev.LookupIdentifySymbol(name)
+            }else{
+                console.warn(`在符号表中查找不到该变量的值: ${name}`);
+            }
+        }
+        InsertCompositeSymbol(/** @type {compositeNode} */comp){
+            this.compTable[comp.compName] = new CompositeSymbol(comp);
+            comp._symbol_table = this;
+        }
+        InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
+            const name = inOutNode.id;
+            this.streamTable[name] ? console.log(`stream ${name} has been declared`)
+            : this.streamTable[name]= inOutNode;
+        }
+        InsertOperatorSymbol(name, operatorNode){
+            this.optTable[name] = operatorNode;
+            operatorNode._symbol_table = this;
+        }
+        InsertMemberSymbol(/** @type {declareNode} */ decl){
+            let type = decl.type;
+            decl.init_declarator_list.forEach((/** @type {declarator} */de) =>{
+                let name = de.identifier.name;
+                this.memberTable[name] = new Constant(type,0);
+            });
+        }
+        LookupFunctionSymbol(name){
+            if(this.funcTable[name]) return this.funcTable[name]
+            if(this.prev){
+                return this.prev.LookupFunctionSymbol(name)
+            }else{
+                console.warn(`在符号表中查找不到该函数: ${name}`);
+            }
+        }
+    }
+    // 将 Level 挂载为该类的静态变量 
+    SymbolTable.Level = 0;
+
+    SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(node, /** @type {Constant} */ constant){
+        const Level = SymbolTable.Level;
+        if(node instanceof Node){
+            if(node instanceof declarator){
+                let name = node.identifier.name;
+                let variable = new Variable(node.type, name, constant); // 无论传入的是常量还是变量, 归一为 Variable 结构
+                node.level = Level;
+                node.version = current_version[Level];
+                variable.level = Level;
+                variable.version = current_version[Level];
+
+                this.variableTable[name] ? console.log(`${name} had been declared`)
+                                     : this.variableTable[name]= variable;
+            }else if(node instanceof inOutdeclNode){
+                let name = node.id; // 是否需要设置 level version ?
+                debugger;
+                console.warn("FIXME: inOutdeclNode 的 Variable 被设置为空");
+                this.variableTable[name] ? console.log(`${name} had been declared`)
+                                     : this.variableTable[name]= null;
+            }
+        }else if(node instanceof Variable){
+            let name = node.name;
+            node.level = Level;
+            node.version = current_version[Level];
+            this.variableTable[name] ? console.log(`${name} had been declared`)
+                                     : this.variableTable[name]= node;
+        }else{
+            throw new Error("插入 IndetifySymbol 时出错, node 类型错误")
+        }
+    };
+
+    /** @type{SymbolTable} */
+    let top;
+    let saved = [];
+
+    function EnterScopeFn(/** @type {YYLTYPE}*/loc){ 
+        SymbolTable.Level++;
+        saved.push(top);
+        top = new SymbolTable(top,loc);
+    }
+
+    function ExitScopeFn(){
+        current_version[SymbolTable.Level]++; //创建了新的符号表,当前层的 version + 1 
+        SymbolTable.Level--;
+        top = saved.pop();
+    }
+
+    /**
+     * 生成符号表
+     */
+    function generateSymbolTables(program){
+        let S = new SymbolTable();
+        S.loc = {first_line:0,last_line:Infinity};
+        symbolTableMap[0][0] = S;
+        top = S;
+        
+        program.forEach(node => {
+            if(node instanceof declareNode){
+                generateDeclareNode(node);
+            }
+            else if(node instanceof compositeNode){
+                top.InsertCompositeSymbol(node);
+                EnterScopeFn(node._loc);/* 进入 composite 块级作用域 */ 
+                generateComposite(node);
+                ExitScopeFn(); /* 退出 composite 块级作用域 */ 
+            } 
+            else if(node instanceof function_definition){
+                console.warn("目前未支持函数符号表");
+            }       
+        });
+        return symbolTableMap;
+    }
+
+    function generateDeclareNode(/** @type{declareNode} */node){
+        node.init_declarator_list.forEach(init_node=>{
+            if(Array.isArray(init_node.initializer)){ //是数组
+                let array = new ArrayConstant(node.type);
+                array.values = (init_node.initializer||[]).map(init => new Constant(node.type, init.value));
+                const variable = new Variable("array",init_node.identifier.name,array);
+                top.InsertIdentifySymbol(variable);
+
+            }else{
+                // 不是数组的情况
+                const constant = new Constant(node.type, (init_node.initializer || {}).value);
+                top.InsertIdentifySymbol(init_node,constant);
+            }
+        });
+    }
+
+    // 解析 Composite 节点 
+    function generateComposite(/** @type{compositeNode} */composite) {
+        let inout = composite.inout || {}; //输入输出参数
+        let body = composite.body; //body
+        // 第一步, 解析输入输出流 inout
+        (inout.input_list || []).forEach(input => {
+            const copy = deepCloneWithoutCircle(input);
+            top.InsertStreamSymbol(copy);
+        });
+        (inout.output_list || []).forEach(output => {
+            const copy = deepCloneWithoutCircle(output);
+            top.InsertStreamSymbol(copy);
+        });
+        // 第二步 解析 param
+        if(body.param && body.param.param_list){
+            (body.param.param_list|| []).forEach(decl => top.InsertIdentifySymbol(decl));
+        }
+        // 第三步 解析 body
+        body.stmt_list.forEach(stmt => generateStmt(stmt));
+    }
+
+    // 解析 语句
+    const ignoreTypes = [unaryNode$1, ternaryNode, parenNode, castNode, constantNode, matrix_section];
+    function generateStmt(/** @type {Node} */stmt) {
+        switch (stmt.constructor) {
+            case String: {
+                if (!top.searchName(stmt)) throw new Error(`在当前符号表链中未找到${stmt}的定义`, top)
+                break;
+            }
+            case declareNode: {
+                if (stmt.type instanceof strdclNode) {
+                    generateStrDlcNode(stmt);
+                } else {
+                    generateDeclareNode(stmt);
+                }
+                break;
+            }
+            case binopNode: {
+                /** 常见的 binop 节点有2种情况, 
+                 * 1. Out = Method(In){ ... } 这样右边是 operator 的, 则分别左右两边 generatStmt 即可进入流程
+                 * 2. c = a+b+c 对于这种尝试进行常量传播
+                 * 3. Out[0].x = In[0].x 对这种情况要校验流变量类型成员中是否有 x 字段 */
+                if(stmt.op === '.'){
+                    if(stmt.left instanceof matrix_section){
+                        let streamName = stmt.left.exp;
+                        let memberName = stmt.right;
+                        const current = top.searchName(streamName).origin;
+                        const type_list = current.streamTable[streamName].strType.id_list;
+                        if(type_list.every(obj=> obj.identifier!=memberName)){
+                            error$1(stmt._loc, `流 ${streamName} 上不存在成员 ${memberName}`);
+                        }
+                        
+                    }
+                }else{
+                    if (stmt.op === '=' && stmt.left instanceof String && stmt.right instanceof expNode) {
+                        let variable = top.LookupIdentifySymbol(stmt.left);
+                        variable.value = right.value;
+                    }
+                    generateStmt(stmt.left);
+                    generateStmt(stmt.right);
+                }
+                break;
+            }
+            case operatorNode: {
+                top.InsertOperatorSymbol(stmt.operName, stmt);
+                EnterScopeFn(stmt._loc);
+                generateOperatorNode(stmt);  //解析 operator 节点
+                ExitScopeFn();
+                break;
+            }
+            case blockNode: {
+                stmt.stmt_list.forEach(st => generateStmt(st)); // 深入 { 代码块 } 内部进行遍历
+                break;
+            }
+            case whileNode: {
+                EnterScopeFn(stmt._loc);
+                generateStmt(stmt.exp);
+                generateStmt(stmt.statement);
+                ExitScopeFn();
+                break;
+            }
+            case forNode: {
+                EnterScopeFn(stmt._loc);
+                const { init, cond, next, statement } = stmt;
+                [init, cond, next, statement].forEach(generateStmt);
+                ExitScopeFn();
+                break;
+            }
+            case doNode: {
+                EnterScopeFn(stmt);
+                generateStmt(stmt.exp);
+                generateStmt(stmt.statement);
+                ExitScopeFn();
+                break;
+            }
+            case selection_statement: {
+                /** FIXME 暂未处理分支预测 */
+                break;
+            }
+            case callNode: {
+                /** FIXME: 函数调用这一块不够完美 */
+                const BUILTIN_FUNCTIONS = ['print','println', 'pow', 'sin','cos','tan','floor','ceil','abs'];
+                if(BUILTIN_FUNCTIONS.includes(stmt.name)) return 
+
+                let func = top.LookupFunctionSymbol(stmt.name);
+                stmt.actual_callnode = func;
+                // 检查传入的参数是否存在
+                break;
+            }
+            case splitjoinNode: generateSplitjoin(stmt); break;
+            case pipelineNode: generatePipeline(stmt); break;
+            case addNode: {
+                generateStmt(stmt.content);
+                break
+            }
+            case compositeCallNode: {
+                /** 不确定是否要在这里做 actual_composite 这个操作 ?
+                let actual_comp = S.LookupCompositeSymbol(stmt.compName)->composite;
+                stmt.actual_composite = actual_comp;
+                // 检查传入的参数是否存在 以及 获得参数值 FIXME */
+                if(! symbolTableMap[0][0].compTable[stmt.compName]){
+                    error$1(stmt._loc, `此处调用的 composite 未定义:${stmt.compName}`);
+                }
+                break
+            }
+            default: {
+                if (ignoreTypes.some(ignoreType => stmt instanceof ignoreType)) ; else {
+                    console.warn("[generateStmt] FIXME: 暂未识别的 stmt 类型");
+                }
+            }
+        }
+    }
+
+    // 处理 stream 声明变量的语句
+    function generateStrDlcNode(/** @type {declareNode}*/ decl){  //stream "<int x,int y>" 这部分
+        decl.init_declarator_list.forEach( identifier_name => {
+            let stream_dlc = new inOutdeclNode();
+            stream_dlc.strType = decl.type;
+            stream_dlc.id = identifier_name;
+            top.InsertStreamSymbol(stream_dlc);
+        });
+    }
+    function generateOperatorNode(/** @type {operatorNode}*/oper){
+        let inputs = oper.inputs;
+        let outputs = oper.outputs;
+        let body = oper.operBody;
+        
+        const checkStreamId = name => {
+            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+                throw new Error(`当前 operator: ${oper.operName} 相关的流 ${name} 在作用域中未声明`)
+            }
+        };
+
+        inputs && inputs.forEach(checkStreamId);
+        outputs && outputs.forEach(checkStreamId);
+
+        if(body){
+            if(body.stmt_list){
+                body.stmt_list.forEach(decl=>{
+                    decl instanceof declareNode ? top.InsertMemberSymbol(decl)
+                        :console.warn("[generateOperatorNode] 目前 operator 内部仅支持声明成员变量");
+                });
+            }
+            if(body.init){
+                generateStmt(body.init);
+            }
+            if(body.work){
+                EnterScopeFn(body.work._loc);
+                generateStmt(body.work);
+                ExitScopeFn();
+            }
+            if(body.window){
+                body.window.forEach(winStmt =>checkStreamId(winStmt.winName));
+            }
+        }
+    }
+
+    // 解析 splitjoin
+    function generateSplitjoin(/** @type {splitjoinNode} */ splitjoin){
+        const checkStreamId = name => {
+            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+                throw new Error(`当前 operator: ${splitjoin.compName} 相关的流 ${name} 在作用域中未声明`)
+            }
+        }
+
+        ;(splitjoin.inputs||[]).forEach(checkStreamId)
+        ;(splitjoin.outputs||[]).forEach(checkStreamId)
+        ;(splitjoin.body_stmts||[]).forEach(generateStmt)
+        ;(splitjoin.stmt_list||[]).forEach(generateStmt);
+
+        if(splitjoin.split){
+            // 保证参数列表中不出现未声明的字符
+            (splitjoin.split.arg_list||[]).forEach(generateStmt);
+        }
+     
+        if(splitjoin.join){
+            (splitjoin.join.arg_list||[]).forEach(generateStmt);
+        }
+    }
+
+    // 解析 pipeline 节点 
+    function generatePipeline(/** @type {pipelineNode} */pipe){
+        const checkStreamId = name => {
+            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+                throw new Error(`当前 operator: ${pipe.compName} 相关的流 ${name} 在作用域中未声明`)
+            }
+        }
+
+        ;(pipe.inputs||[]).forEach(checkStreamId)
+        ;(pipe.outputs||[]).forEach(checkStreamId)
+        ;(pipe.body_stmts||[]).forEach(generateStmt);
+    }
+
     /**
      * 加载常量传播插件后,表达式 node 可以计算数值
      */
@@ -1663,6 +2121,13 @@ var COStreamJS = (function () {
         return NaN
     };
 
+    Object.defineProperty(String.prototype,'value',{
+        get(){
+            debugger; 
+            return top.LookupIdentifySymbol(this).value.val; 
+        }
+    });
+
     binopNode.prototype.getValue = function () {
         var handlers = {
             '+': (a, b) => a.value + b.value,
@@ -1694,12 +2159,23 @@ var COStreamJS = (function () {
     arrayNode.prototype.getValue = function () {
         return NaN
     };
-    callNode$1.prototype.getValue = function () {
+    callNode.prototype.getValue = function () {
         return NaN
     };
 
     constantNode.prototype.getValue = function(){
         return Number(this.source)
+    };
+
+    matrix_section.prototype.getValue = function(){
+        let values = top.LookupIdentifySymbol(this.exp).array.values;
+        debugger;
+        if(this.slice_pair_list.length == 1){
+            let index = this.slice_pair_list[0].start;
+            return values[index].val
+        }else{
+            throw new Error("FIXME 目前只处理了数组取地址, 未处理矩阵取址")
+        }
     };
 
     function ast2String(root) {
@@ -1878,7 +2354,7 @@ var COStreamJS = (function () {
         'WEB': args => 'console.log(' + list2String(args, ',') + `,'\\n')`,
         'default': args => 'println(' + list2String(args, ',') + ')'
     };
-    callNode$1.prototype.toString = function () {
+    callNode.prototype.toString = function () {
         const platform = COStreamJS.options.platform;
 
         if (this.name === "print") {
@@ -2265,7 +2741,7 @@ var COStreamJS = (function () {
                 let call = new compositeCallNode(null, compCall.compName, inputs);
                 call.outputs = outputs;
                 //TODO: 符号表修改后要修改对应的这个地方
-                let comp = COStreamJS.S.LookUpCompositeSymbol(compCall.compName);
+                let comp = COStreamJS.S.compTable[compCall.compName].composite;
                 comp = deepCloneWithoutCircle(comp); //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
                 call.actual_composite = UnfoldComposite.prototype.compositeCallStreamReplace(comp, inputs, outputs);
 
@@ -2374,7 +2850,7 @@ var COStreamJS = (function () {
             let it = compositeCall_list[i];
 
             if (it instanceof compositeCallNode) {
-                let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName);
+                let comp = COStreamJS.S.compTable[it.compName].composite;
                 comp = deepCloneWithoutCircle(comp); //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
                 let call = new compositeCallNode(null, it.compName, [splitStreams[i]], null);
                 call.outputs = joinStreams[i];
@@ -2600,7 +3076,7 @@ var COStreamJS = (function () {
             let it = stmt instanceof binopNode ? stmt.right : stmt; //获取到要处理的 operator(){}
           
             if (it instanceof compositeCallNode) {
-                let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName);
+                let comp = COStreamJS.S.compTable[it.compName].composite;
                 comp = deepCloneWithoutCircle(comp);
                 it.actual_composite = unfold.streamReplace(comp,it.inputs,it.outputs, 1);
             }
@@ -2665,419 +3141,6 @@ var COStreamJS = (function () {
                 GraphToOperators(exp.replace_composite, ssg, unfold);
             }
         }
-    }
-
-    let symbol_tables = [];
-
-    class SymbolTable {
-        constructor(p, loc) {
-            this.compTable = new Map();
-            this.idTable = new Map();
-            this.optTable = new Map();
-            this.prev = p;
-            this.loc = loc;
-            if (p) {
-                p.children = p.children || [];
-                p.children.push(this);
-            }
-            symbol_tables.push(this);
-            /*program.filter(node=> node instanceof compositeNode).forEach(node=>{
-                this.compTable.set(node.compName,node)
-            })*/
-        }
-        LookUpCompositeSymbol(name) {
-            return this.compTable.get(name)
-        }
-        InsertCompositeSymbol(node) {
-            if (this.compTable.get(node.compName)) {
-                console.log('composite: ' + node.compName + 'is already defined in this scope');
-                return;
-            }
-            this.compTable.set(node.compName, node);
-        }
-        LookUpIdSymbol(name) {
-            let idNode = this.idTable.get(name);
-            if (idNode) {
-                return idNode;
-            }
-            let prev = this.prev;
-            while (prev) {
-                idNode = prev.idTable.get(name);
-                if (idNode) {
-                    return idNode
-                }
-                prev = prev.prev;
-            }
-            return undefined;
-        }
-        InsertIdSymbol(node, name) {
-            if (this.idTable.get(node.name)) {
-                console.log(node.name + 'is already defined in this scope');
-                return;
-            }
-            name = name ? name : node.name;
-            this.idTable.set(name, node);
-        }
-
-        printSymbol() {
-            let result = {};
-            let print_name = ['compTable', 'idTable'];
-            print_name.forEach(key => {
-                result[key] || (result[key] = []);
-                for (let [mapkey, value] of this[key]) {
-                    result[key].push(mapkey);
-                }
-            });
-            return result;
-        }
-
-        printAllSymbol() {
-            let all_tables_name = [];
-            all_tables_name.push(this.printSymbol());
-            if (this.children) {
-                this.children.forEach(child => {
-                    all_tables_name = all_tables_name.concat(child.printAllSymbol());
-                });
-            }
-            return all_tables_name;
-        }
-    }
-
-    // 查找第一个大于 target 的 值
-    function getFirstBigger(target,symbol_tables) {
-        var left = 0,
-            right = symbol_tables.length - 1,
-            middle = 0;
-        while (left <= right) {
-            middle = Math.floor((left + right) / 2);
-            if (symbol_tables[middle].loc.last_line > target)
-                right = middle - 1;
-            else if (symbol_tables[middle].loc.last_line < target)
-                left = middle + 1;
-            else
-                return middle;
-        }
-        return left;
-    }
-
-    // 查找最后 一个小于 target 的 值
-    function getLastSmaller(target,symbol_tables) {
-        var left = 0,
-        right = symbol_tables.length - 1,
-            middle = 0;
-        while (left <= right) {
-            middle = Math.floor((left + right) / 2);
-            if (symbol_tables[middle].loc.first_line > target)
-                right = middle - 1;
-            else if (symbol_tables[middle].loc.first_line < target)
-                left = middle + 1;
-            else
-                return middle;
-        }
-       return right;
-    }
-
-
-    var isSorted = false;
-
-    function initIsSort(){
-        isSorted = false;
-    }
-    var first_symbol_tables,last_symbol_tables;
-
-    SymbolTable.FindRightSymbolTable = function (target) {
-        if(!isSorted){
-            last_symbol_tables = symbol_tables.slice();
-            first_symbol_tables = symbol_tables.slice();
-            first_symbol_tables.sort((a,b)=>a.loc.first_line - b.loc.first_line);
-            last_symbol_tables.sort((a,b)=>a.loc.last_line - b.loc.last_line);
-            isSorted = true;
-        }
-        var line_start, line_end;
-        line_end = getFirstBigger(target,last_symbol_tables);
-        line_start = getLastSmaller(target,first_symbol_tables);
-
-        var last_loc = last_symbol_tables[line_end].loc;
-        var first_loc = first_symbol_tables[line_start].loc;
-        if(last_loc.first_line<= target && last_loc.last_line >= target){
-            return last_symbol_tables[line_end];
-        }else {
-            return first_symbol_tables[line_start];
-        }
-
-
-
-        
-
-
-    };
-
-    let top;
-    let saved = [];
-
-    function EnterScope(loc){ 
-        saved.push(top);
-        top = new SymbolTable(top,loc);
-    }
-
-    function ExitScope(){
-        top = saved.pop();
-    }
-
-    /**
-     * 生成符号表
-     */
-    function generateSymbolTables(program){
-        initIsSort();
-        symbol_tables.length = 0;
-        let S = new SymbolTable();
-        S.pre = null;
-        S.loc = {first_line:0,last_line:Infinity};
-        //symbol_tables.push(S);
-        top = S;
-        
-        program.forEach(node => {
-            if(node instanceof declareNode){
-                generateDeclareNode(node);
-            }
-            else if(node instanceof compositeNode){
-                top.InsertCompositeSymbol(node);
-                EnterScope(node._loc);
-                generateComposite(node);
-                ExitScope();
-            } 
-            else if(node instanceof function_definition){
-                top.InsertFunctionSymbol(node);
-            }       
-        });
-        return S;
-    }
-
-    function generateDeclareNode(node){
-        node.init_declarator_list.forEach(init_node=>top.InsertIdSymbol(init_node,init_node.identifier.name));
-        //todo: check node.initializer 
-    }
-    function generateStrDlc(node){
-        node.init_declarator_list.forEach(id_node=>top.InsertIdSymbol(node.type,id_node));
-        
-    }
-    function generateComposite(node){
-        let inout = node.inout;
-        let body = node.body;
-
-        // 参数列表 加入到符号表中
-        let input_list = inout && inout.input_list;
-        let output_list = inout && inout.output_list;
-
-        if(input_list){
-            input_list.forEach(node=>top.InsertIdSymbol(node.strType,node.id));
-        }
-        if(output_list){
-            output_list.forEach(node=>top.InsertIdSymbol(node.strType,node.id));
-        }
-
-        //解析body
-        let param = body && body.param;
-        let body_stmt = body && body.stmt_list;
-        
-        if(param){
-            param.param_list.forEach(node=>top.InsertIdSymbol(node,node.identifier.name));
-        }
-
-        if(body_stmt){
-            body_stmt.forEach(node=>generateStmt(node));
-        }
-
-    }
-
-    function generateBlock(node){
-        node.stmt_list.forEach(stmt=>generateStmt(stmt));
-    }
-
-    function generateWindow(node){
-        node.forEach(win_node=>{
-            //todo check
-            checkId(win_node.winName);
-            if(win_node.arg_list){
-                win_node.arg_list.forEach(arg_node=>generateStmt(arg_node));
-            }
-        });
-    }
-
-    function generateOperator(node){
-        let inputs = node.inputs;
-        let outputs = node.outputs;
-        let body = node.operBody;
-        if(inputs){
-            //todo check
-            inputs.forEach(input=>checkId());
-        }
-        if(outputs){
-            //todo check
-            outputs.forEach(output=>checkId());
-        }
-        if(body){
-            if(body.stmt_list){
-                body.stmt_list.forEach(stmt=>generateStmt(stmt));
-            }
-            if(body.init){
-                generateStmt(body.init);
-            }
-            if(body.work){
-                EnterScope(body.work._loc);
-                generateStmt(body.work);
-                ExitScope();
-            }
-            //check
-            if(body.win){
-                generateWindow(body.win);
-            }
-        }
-    }
-
-    function generateSplitjoin(node){
-        //check
-        if(node.inputs){
-            node.inputs.forEach(input=>generateStmt(input));
-        }
-        //check
-        if(node.outputs){
-            node.outputs.forEach(output=>generateStmt(output));
-        }
-        if(node.stmt_list){
-            node.stmt_list.forEach(stmt=>generateStmt(stmt));
-        }
-        //check
-        if(node.split.arg_list){
-            node.split.arg_list.forEach(arg_ndoe=>generateStmt(arg_list));
-        }
-        if(node.body_stmts){
-            node.body_stmts.forEach(stmt=>generateStmt(stmt));
-        }
-        //check
-        if(node.join.arg_list){
-            node.join.arg_list.forEach(arg_ndoe=>generateStmt(arg_list));
-        }
-    }
-
-    function generatePipeline(node){
-        //check
-        if(node.inputs){
-            node.inputs.forEach(input=>generateStmt(input));
-        }
-        //check
-        if(node.outputs){
-            node.outputs.forEach(output=>generateStmt(output));
-        }
-        if(node.body_stmts){
-            node.body_stmts.forEach(stmt=>generateStmt(stmt));
-        }
-    }
-
-    function generateStmt(node){
-        // todo check
-        if(node instanceof binopNode){
-            if(node.op === '.'){
-                //读取 stream 中的变量
-                return ;
-            }
-            generateStmt(node.left);
-            generateStmt(node.right);
-        }
-        else if(node instanceof declareNode){
-            if(node.type instanceof strdclNode){
-                generateStrDlc(node);
-            }
-            else{
-                generateDeclareNode(node);
-            }
-            
-        }
-        // todo check
-        else if(node instanceof unaryNode$1){
-            generateStmt(node.second);
-        }
-        // todo check
-        else if(node instanceof parenNode){
-            generateStmt(node.exp);
-        }
-        // todo check
-        else if(node instanceof arrayNode){
-            checkId(node.exp);
-            node.arg_list.forEach(arg_node=>{
-                // arg_node:string constant exp
-                generateStmt(arg_node);
-            });
-            generateStmt(node.exp);
-        }
-        //todo check
-        else if(typeof node === 'string');
-        //todo check
-        else if(node instanceof compositeCallNode){
-            checkComposite(node.compName);
-            if(node.inputs){
-                node.inputs.forEach(input_node=>{
-                    generateStmt(input_node);
-                });
-            }
-            node.params&& generateStmt(node.params);
-            
-        }
-        //todo check
-        else if(node instanceof callNode){
-            checkFunction(node.name);
-            node.arg_list.forEach(arg_node=>{
-                //arg_ndoe : exp
-                generateStmt(arg_node);
-            });
-        }
-        else if(node instanceof operatorNode){
-            EnterScope(node._loc);
-            generateOperator(node);
-            ExitScope();
-        }
-        else if(node instanceof splitjoinNode){
-            generateSplitjoin(node);
-        }
-        else if(node instanceof pipelineNode){
-            generatePipeline(node);
-        }
-        else if(node instanceof whileNode){
-            EnterScope(node._loc);
-            generateStmt(node.exp);
-            generateStmt(node.statement);
-            ExitScope();
-        }
-        else if(node instanceof doNode){
-            EnterScope(node._loc);
-            generateStmt(node.exp);
-            generateStmt(node.statement);
-            ExitScope();
-        }
-        else if(node instanceof forNode){
-            EnterScope(node._loc);
-            generateStmt(node.init);
-            generateStmt(node.cond);
-            generateStmt(node.next);
-            generateStmt(node.statement);
-            ExitScope();
-        }
-        else if(node instanceof blockNode){
-            generateBlock(node);
-        }
-        
-    }
-
-    function checkId(){
-
-    }
-
-    function checkComposite(){
-
-    }
-
-    function checkFunction(){
-
     }
 
     /**
@@ -4988,22 +5051,37 @@ extern int MAX_ITER;
         codeGeneration,
         SymbolTable,
     });
+
     COStreamJS.main = function(str, cpuCoreNum = 4){
         debugger
+        COStreamJS.global.errors = [];
+        // 1. 先检查括号是否匹配
+        if(!checkBraceMatching(str)) return
+        // 2. 词语法分析构建语法树
         this.ast = COStreamJS.parser.parse(str);
-        //this.S = new SymbolTable(this.ast)
-        this.S = generateSymbolTables(this.ast);
+        // 3. 遍历语法树进行语义分析和构建符号表
+        this.symbolTableMap = generateSymbolTables(this.ast);
+        if(COStreamJS.global.errors.length) return;
+        this.S = this.symbolTableMap[0][0];
         this.gMainComposite = this.SemCheck.findMainComposite(this.ast);
+        
+        // 4. 语法树转数据流图
         this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold);
+        // 5. 工作量估计
         WorkEstimate(this.ssg);
+        // 6. 调度
         ShedulingSSG(this.ssg);
+        // 7. 划分
         this.mp = new this.GreedyPartition(this.ssg);
         this.mp.setCpuCoreNum(cpuCoreNum);
         this.mp.SssgPartition(this.ssg);
         this.mp.computeCommunication();
+        // 8. 输出统计信息
         let SI = this.GetSpeedUpInfo(this.ssg,this.mp);
         debug(this.PrintSpeedUpInfo(SI));
+        // 9. 阶段赋值
         this.MaxStageNum = this.StageAssignment(this.ssg,this.mp);
+        // 10.目标代码生成
         this.files = {};
         this.codeGeneration(this.mp.finalParts,this.ssg,this.mp);
     };
