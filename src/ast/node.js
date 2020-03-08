@@ -4,7 +4,7 @@ import { error } from "../utils";
 export class Node {
     constructor(loc) {
         this._loc = loc;
-        ['_loc'].forEach(key => {
+        ['_loc','_symbol_table'].forEach(key => {
             definePrivate(this, key)
         })
     }
@@ -74,7 +74,7 @@ export class compHeadNode extends Node {
     }
 }
 export class ComInOutNode extends Node {
-    constructor(loc, input_list, output_list) {
+    constructor(loc, input_list = [], output_list = []) {
         super(loc)
         Object.assign(this, { op1: 'input', input_list, op2: 'output', output_list })
     }
@@ -127,12 +127,12 @@ export class operBodyNode extends Node {
     }
 }
 export class winStmtNode extends Node {
-    constructor(loc, winName, options ={}) {
+    constructor(loc, winName, options = {}) {
         super(loc)
         Object.assign(this, {
             winName,
             type: options.type,
-            arg_list: options.arg_list
+            arg_list: options.arg_list || []
         })
     }
 }
@@ -409,7 +409,7 @@ export class matrix_slice_pair extends Node {
 }
 
 /** 存放 name[1:4, 2:5] 的结构, 寓意为矩阵切片结果 */
-export class matrix_section extends Node{
+export class matrix_section extends expNode{
     constructor(loc, exp, slice_pair_list){
         super(loc)
         this.exp = exp

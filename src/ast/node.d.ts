@@ -35,12 +35,11 @@ export class idNode extends Node{
     constructor(loc:YYLTYPE,name:string,arg?:number|string)
 }
 export class declareNode extends Node {
-    type: string
-    init_declarator_list: declarator[]
+    type: string | strdclNode
+    init_declarator_list: declarator[] | string[]
 
     constructor(loc: YYLTYPE, type: string, init_declarator_list: declarator[])
 }
-type parameter_type_list = declarator[]
 /********************************************************/
 /*              1.2 function.definition 函数声明          */
 /********************************************************/
@@ -59,60 +58,40 @@ export class function_definition extends Node {
 /*        2. composite                                  */
 /********************************************************/
 export class compositeNode extends Node {
-    constructor(loc, head, body) {
-        super(loc)
-        Object.assign(this, {
-            op: 'composite',
-            compName: head.compName,
-            inout: head.inout,
-            body
-        })
-    }
+    compName: string
+    inout: ComInOutNode
+    body: compBodyNode
+    constructor(loc: YYLTYPE, head: compHeadNode, body: compBodyNode)
 }
 export class compHeadNode extends Node {
-    constructor(loc, compName, inout) {
-        super(loc)
-        Object.assign(this, { op: 'composite', compName, inout })
-    }
+    compName: string
+    inout: ComInOutNode
+    constructor(loc, compName: string, inout: ComInOutNode)
 }
 export class ComInOutNode extends Node {
-    constructor(loc, input_list, output_list) {
-        super(loc)
-        Object.assign(this, { op1: 'input', input_list, op2: 'output', output_list })
-    }
+    input_list: inOutdeclNode[]
+    output_list: inOutdeclNode[]
+    constructor(loc, input_list?: inOutdeclNode[], output_list?:inOutdeclNode[])
 }
 export class inOutdeclNode extends Node {
-    constructor(loc, strType, id) {
-        super(loc)
-        Object.assign(this, { strType, id })
-    }
+    strType: strdclNode
+    id: string
+    constructor(loc, strType: strdclNode, id: string)
 }
 export class strdclNode extends Node {
-    constructor(loc, type, identifier) {
-        super(loc)
-        this.op = 'stream<'
-        this.id_list = [
-            { type, identifier }
-        ]
-        this.op2 = '>'
-    }
+    id_list: Array<{type:string, identifier:string}>
+    constructor(loc, type:string, identifier: string)
 }
 export class compBodyNode extends Node {
-    constructor(loc, param, stmt_list) {
-        super(loc)
-        Object.assign(this, {
-            op1: '{',
-            param,
-            stmt_list,
-            op2: '}'
-        })
-    }
+    param: paramNode 
+    stmt_list: Node[]
+    constructor(loc: YYLTYPE, param: paramNode, stmt_list: Node[])
 }
 export class paramNode extends Node {
     op?:'param'
-    param_list?:parameter_type_list
+    param_list?:declarator[]
     
-    constructor(loc:YYLTYPE, param_list?:parameter_type_list) 
+    constructor(loc:YYLTYPE, param_list?:declarator[]) 
 }
 export class operBodyNode extends Node{
     stmt_list: Node[]
@@ -127,14 +106,10 @@ export class operBodyNode extends Node{
 }
 
 export class winStmtNode extends Node {
-    constructor(loc, winName, { type, arg_list }) {
-        super(loc)
-        Object.assign(this, {
-            winName,
-            type,
-            arg_list
-        })
-    }
+    winName: string
+    type: 'sliding' | 'tumbling'
+    arg_list: number[]
+    constructor(loc, winName:string, { type:string, arg_list })
 }
 /********************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement   */
@@ -170,29 +145,15 @@ export class selection_statement extends Node {
     }
 }
 export class whileNode extends Node {
-    constructor(loc, exp, statement) {
-        super(loc)
-        Object.assign(this, {
-            type: 'while',
-            op1: '(',
-            exp,
-            op2: ')',
-            statement
-        })
-    }
+    exp: expNode
+    statement: Node
+    constructor(loc, exp:expNode, statement: Node)
 }
 export class doNode extends Node {
-    constructor(loc, exp, statement) {
-        super(loc)
-        Object.assign(this, {
-            type: 'do',
-            op1: '(',
-            statement,
-            op2: ')',
-            op3: 'while',
-            exp
-        })
-    }
+    type: 'do'
+    statement: Node | blockNode
+    exp: Node 
+    constructor(loc, exp: Node, statement: Node)
 }
 export class forNode extends Node {
     init: binopNode
@@ -238,7 +199,7 @@ export class castNode extends expNode {
 }
 
 export class binopNode extends expNode {
-    left: exp
+    left: exp | string
     op: string
     right: exp
     constructor(loc: YYLTYPE, left: exp, op: string, right: exp)
@@ -336,10 +297,35 @@ export class addNode extends Node {
     constructor(loc: YYLTYPE, content: pipelineNode | splitjoinNode)
 }
 
+/********************************************************/
+/* 矩阵相关 node                       */
+/********************************************************/
+
 export class matrix_constant extends Node {
     /** rawData 是存储矩阵原始数据的多维数组. 维数不确定, 1/2/3维分别可表示 向量/矩阵/矩阵数组 */
     rawData: [exp] | [[exp]] | [[[exp]]]
     /** shape 表示矩阵相关数据的维度, 例如一维向量shape为[5], 二维矩阵为[5,5], 图像 RGB 矩阵为[3,28,28]*/
     shape: number[]
     constructor(loc: YYLTYPE, rawData: Array<exp, matrix_constant>)
+}
+
+/* 存放矩阵切片的下标, 例如 vector[0:5] 表示 下标[0,5) 即0~5不含5 
+   兼容多重格式(_表示 undefined), 例如
+   * [1:5] --- { start: 1, op:':', end: 5 }
+   * [1:]  --- { start: 1, op:':', end: _ }
+   * [:5]  --- { start: _, op:':', end: 5 }
+   * [:]   --- { start: _, op:':', end: _ }
+   * [0]   --- { start: 0, op: _ , end: _ }   */
+export class matrix_slice_pair extends Node {
+    start?: number 
+    op?: ':'
+    end?: number
+    constructor(loc, start, op, end)
+}
+
+/** 存放 name[1:4, 2:5] 的结构, 寓意为矩阵切片结果, 也可存储 Out[0]等流变量寻址 */
+export class matrix_section extends expNode{
+    exp:string
+    slice_pair_list: matrix_slice_pair[]
+    constructor(loc, exp, slice_pair_list)
 }

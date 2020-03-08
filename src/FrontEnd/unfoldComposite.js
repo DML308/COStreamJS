@@ -151,7 +151,7 @@ UnfoldComposite.prototype.UnfoldPipeline = function (/* pipelineNode */ node) {
             let call = new compositeCallNode(null, compCall.compName, inputs)
             call.outputs = outputs
             //TODO: 符号表修改后要修改对应的这个地方
-            let comp = COStreamJS.S.LookUpCompositeSymbol(compCall.compName);
+            let comp = COStreamJS.S.compTable[compCall.compName].composite;
             comp = deepCloneWithoutCircle(comp) //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
             call.actual_composite = UnfoldComposite.prototype.compositeCallStreamReplace(comp, inputs, outputs)
 
@@ -260,7 +260,7 @@ UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (com
         let it = compositeCall_list[i]
 
         if (it instanceof compositeCallNode) {
-            let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName)
+            let comp = COStreamJS.S.compTable[it.compName].composite
             comp = deepCloneWithoutCircle(comp) //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
             let call = new compositeCallNode(null, it.compName, [splitStreams[i]], null)
             call.outputs = joinStreams[i]

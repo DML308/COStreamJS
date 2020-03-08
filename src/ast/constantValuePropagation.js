@@ -1,5 +1,7 @@
 import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, arrayNode, constantNode } from "./node.js"
 import { error } from "../utils"
+import { top } from "../FrontEnd/generateSymbolTables"
+import { matrix_section } from "./node.js"
 
 /**
  * 加载常量传播插件后,表达式 node 可以计算数值
@@ -33,6 +35,13 @@ unaryNode.prototype.getValue = function () {
     if (this.first == "!") return !this.second.value
     return NaN
 }
+
+Object.defineProperty(String.prototype,'value',{
+    get(){
+        debugger; 
+        return top.LookupIdentifySymbol(this).value.val; 
+    }
+})
 
 binopNode.prototype.getValue = function () {
     var handlers = {
@@ -71,4 +80,15 @@ callNode.prototype.getValue = function () {
 
 constantNode.prototype.getValue = function(){
     return Number(this.source)
+}
+
+matrix_section.prototype.getValue = function(){
+    let values = top.LookupIdentifySymbol(this.exp).array.values
+    debugger;
+    if(this.slice_pair_list.length == 1){
+        let index = this.slice_pair_list[0].start
+        return values[index].val
+    }else{
+        throw new Error("FIXME 目前只处理了数组取地址, 未处理矩阵取址")
+    }
 }

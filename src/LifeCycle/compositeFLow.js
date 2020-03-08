@@ -10,7 +10,7 @@ export function streamFlow(/* compositeNode */ main) {
         let it = stmt instanceof binopNode ? stmt.right : stmt //获取到要处理的 operator(){}
       
         if (it instanceof compositeCallNode) {
-            let comp = COStreamJS.S.LookUpCompositeSymbol(it.compName)
+            let comp = COStreamJS.S.compTable[it.compName].composite
             comp = deepCloneWithoutCircle(comp)
             it.actual_composite = unfold.streamReplace(comp,it.inputs,it.outputs, 1);
         }

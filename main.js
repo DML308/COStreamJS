@@ -31,22 +31,37 @@ Object.assign(COStreamJS.__proto__, {
     codeGeneration,
     SymbolTable,
 })
+
 COStreamJS.main = function(str, cpuCoreNum = 4){
     debugger
+    COStreamJS.global.errors = []
+    // 1. 先检查括号是否匹配
+    if(!utils.checkBraceMatching(str)) return
+    // 2. 词语法分析构建语法树
     this.ast = COStreamJS.parser.parse(str)
-    //this.S = new SymbolTable(this.ast)
-    this.S = generateSymbolTables(this.ast);
+    // 3. 遍历语法树进行语义分析和构建符号表
+    this.symbolTableMap = generateSymbolTables(this.ast);
+    if(COStreamJS.global.errors.length) return;
+    this.S = this.symbolTableMap[0][0]
     this.gMainComposite = this.SemCheck.findMainComposite(this.ast)
+    
+    // 4. 语法树转数据流图
     this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold)
+    // 5. 工作量估计
     WorkEstimate(this.ssg)
+    // 6. 调度
     ShedulingSSG(this.ssg)
+    // 7. 划分
     this.mp = new this.GreedyPartition(this.ssg)
     this.mp.setCpuCoreNum(cpuCoreNum)
     this.mp.SssgPartition(this.ssg)
     this.mp.computeCommunication()
+    // 8. 输出统计信息
     let SI = this.GetSpeedUpInfo(this.ssg,this.mp)
     debug(this.PrintSpeedUpInfo(SI))
+    // 9. 阶段赋值
     this.MaxStageNum = this.StageAssignment(this.ssg,this.mp)
+    // 10.目标代码生成
     this.files = {}
     this.codeGeneration(this.mp.finalParts,this.ssg,this.mp)
 }

@@ -1,144 +1,163 @@
-export let symbol_tables = [];
+import { compositeNode, inOutdeclNode, declareNode, declarator } from "../ast/node.js"
+
+const MAX_SCOPE_DEPTH = 10 //定义最大嵌套深度为100
+/*level表示当前嵌套深度，version表示嵌套域计数器 */
+
+export const current_version = Array.from({length:MAX_SCOPE_DEPTH}).fill(0);
+export const symbolTableList = /** @type{SymbolTable[]}*/[];
+let isSorted = false;
+
+export const symbolTableMap = Array.from({length:MAX_SCOPE_DEPTH}).map(_ => []); // 二维数组
+
+
+export class Constant {
+    constructor(/* string */ type, val) {
+        this.type = type
+        /** @type{number} */
+        this.val = val
+    }
+    print(/* boolean */ isArray) {
+        console.log(`[Constant] type: ${this.type} val: ${this.val}`)
+    }
+
+};
+
+export class ArrayConstant {
+    constructor(type /* string */) {
+        this.type = type
+        /** @type{ Array<Constant> } */
+        this.values = []
+    }
+    print() { };
+};
+
+export class Variable {
+    constructor(valType, name, i) {
+        this.type = valType
+        this.name = name
+        this.level = undefined
+        this.version = undefined
+        if (i instanceof Constant) {
+            this.value = i;
+        }
+        else if (i instanceof ArrayConstant) {
+            this.array = i
+        }
+        else {
+            this.value = new Constant(valType, i);
+        }
+    }
+}
+
+class CompositeSymbol {
+    constructor(/** @type {compositeNode} */ comp) {
+        this.composite = comp;
+        this.count = 0; // 用于区分多次调用同一 composite
+    }
+};
 
 export class SymbolTable {
-    constructor(p, loc) {
-        this.compTable = new Map();
-        this.idTable = new Map();
-        this.optTable = new Map();
-        this.prev = p;
+    constructor(prev, loc) {
         this.loc = loc;
-        if (p) {
-            p.children = p.children || [];
-            p.children.push(this);
-        }
-        symbol_tables.push(this);
-        /*program.filter(node=> node instanceof compositeNode).forEach(node=>{
-            this.compTable.set(node.compName,node)
-        })*/
+        this.prev = prev
+        symbolTableList.push(this)
+        let Level = SymbolTable.Level
+        symbolTableMap[Level][current_version[Level]] = this
+
+        this.funcTable = {};
+        /** @type {Dict<inOutdeclNode>} */
+        this.streamTable = {};  
+        // this.identifyTable = undefined; // 没发现这个的用处
+        this.memberTable = {} // 专门用来存储一个operator的成员变量字段
+        this.variableTable = {}; //变量
+        this.compTable = {}; // composite
+        this.optTable = {}; //operator
+    };
+    getPrev() {
+        return this.prev;
     }
-    LookUpCompositeSymbol(name) {
-        return this.compTable.get(name)
-    }
-    InsertCompositeSymbol(node) {
-        if (this.compTable.get(node.compName)) {
-            console.log('composite: ' + node.compName + 'is already defined in this scope')
-            return;
-        }
-        this.compTable.set(node.compName, node);
-    }
-    LookUpIdSymbol(name) {
-        let idNode = this.idTable.get(name);
-        if (idNode) {
-            return idNode;
-        }
-        let prev = this.prev
-        while (prev) {
-            idNode = prev.idTable.get(name);
-            if (idNode) {
-                return idNode
-            }
-            prev = prev.prev;
-        }
+    /** @returns { {type: 'variable'|'stream' |'func'|'oper'|'member', origin: SymbolTable}}  */
+    searchName(name){
+        if(this.variableTable[name]) return { type: 'variable', origin: this}
+        if(this.streamTable[name])   return { type: 'stream', origin: this}
+        if(this.funcTable[name])     return { type: 'func', origin: this}
+        if(this.optTable[name])      return { type: 'oper', origin: this}
+        if(this.memberTable[name])   return { type: 'member', origin: this}
+        if(this.prev)                return this.prev.searchName(name)
         return undefined;
     }
-    InsertIdSymbol(node, name) {
-        if (this.idTable.get(node.name)) {
-            console.log(node.name + 'is already defined in this scope')
-            return;
-        }
-        name = name ? name : node.name;
-        this.idTable.set(name, node);
+    getExactSymbolTable(name){
+        if(this.variableTable[name]) return this
+        return this.prev && this.prev.getExactSymbolTable(name)
     }
-
-    printSymbol() {
-        let result = {};
-        let print_name = ['compTable', 'idTable'];
-        print_name.forEach(key => {
-            result[key] || (result[key] = []);
-            for (let [mapkey, value] of this[key]) {
-                result[key].push(mapkey);
-            }
+    /** @returns{Variable} */
+    LookupIdentifySymbol(name){
+        if(this.variableTable[name]) return this.variableTable[name]
+        if(this.prev){
+            return this.prev.LookupIdentifySymbol(name)
+        }else{
+            console.warn(`在符号表中查找不到该变量的值: ${name}`)
+        }
+    }
+    InsertCompositeSymbol(/** @type {compositeNode} */comp){
+        this.compTable[comp.compName] = new CompositeSymbol(comp);
+        comp._symbol_table = this
+    }
+    InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
+        const name = inOutNode.id
+        this.streamTable[name] ? console.log(`stream ${name} has been declared`)
+        : this.streamTable[name]= inOutNode;
+    }
+    InsertOperatorSymbol(name, operatorNode){
+        this.optTable[name] = operatorNode
+        operatorNode._symbol_table = this
+    }
+    InsertMemberSymbol(/** @type {declareNode} */ decl){
+        let type = decl.type
+        decl.init_declarator_list.forEach((/** @type {declarator} */de) =>{
+            let name = de.identifier.name
+            this.memberTable[name] = new Constant(type,0)
         })
-        return result;
     }
-
-    printAllSymbol() {
-        let all_tables_name = [];
-        all_tables_name.push(this.printSymbol());
-        if (this.children) {
-            this.children.forEach(child => {
-                all_tables_name = all_tables_name.concat(child.printAllSymbol());
-            })
+    LookupFunctionSymbol(name){
+        if(this.funcTable[name]) return this.funcTable[name]
+        if(this.prev){
+            return this.prev.LookupFunctionSymbol(name)
+        }else{
+            console.warn(`在符号表中查找不到该函数: ${name}`)
         }
-        return all_tables_name;
     }
 }
+// 将 Level 挂载为该类的静态变量 
+SymbolTable.Level = 0;
 
-// 查找第一个大于 target 的 值
-function getFirstBigger(target,symbol_tables) {
-    var left = 0,
-        right = symbol_tables.length - 1,
-        middle = 0;
-    while (left <= right) {
-        middle = Math.floor((left + right) / 2);
-        if (symbol_tables[middle].loc.last_line > target)
-            right = middle - 1;
-        else if (symbol_tables[middle].loc.last_line < target)
-            left = middle + 1;
-        else
-            return middle;
+SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(node, /** @type {Constant} */ constant){
+    const Level = SymbolTable.Level
+    if(node instanceof Node){
+        if(node instanceof declarator){
+            let name = node.identifier.name;
+            let variable = new Variable(node.type, name, constant); // 无论传入的是常量还是变量, 归一为 Variable 结构
+            node.level = Level;
+            node.version = current_version[Level];
+            variable.level = Level;
+            variable.version = current_version[Level];
+
+            this.variableTable[name] ? console.log(`${name} had been declared`)
+                                 : this.variableTable[name]= variable;
+        }else if(node instanceof inOutdeclNode){
+            let name = node.id // 是否需要设置 level version ?
+            debugger;
+            console.warn("FIXME: inOutdeclNode 的 Variable 被设置为空")
+            this.variableTable[name] ? console.log(`${name} had been declared`)
+                                 : this.variableTable[name]= null;
+        }
+    }else if(node instanceof Variable){
+        let name = node.name;
+        node.level = Level
+        node.version = current_version[Level]
+        this.variableTable[name] ? console.log(`${name} had been declared`)
+                                 : this.variableTable[name]= node;
+    }else{
+        throw new Error("插入 IndetifySymbol 时出错, node 类型错误")
     }
-    return left;
-}
-
-// 查找最后 一个小于 target 的 值
-function getLastSmaller(target,symbol_tables) {
-    var left = 0,
-    right = symbol_tables.length - 1,
-        middle = 0;
-    while (left <= right) {
-        middle = Math.floor((left + right) / 2);
-        if (symbol_tables[middle].loc.first_line > target)
-            right = middle - 1;
-        else if (symbol_tables[middle].loc.first_line < target)
-            left = middle + 1;
-        else
-            return middle;
-    }
-   return right;
-}
-
-
-var isSorted = false;
-
-export function initIsSort(){
-    isSorted = false;
-}
-var first_symbol_tables,last_symbol_tables;
-
-SymbolTable.FindRightSymbolTable = function (target) {
-    if(!isSorted){
-        last_symbol_tables = symbol_tables.slice();
-        first_symbol_tables = symbol_tables.slice();
-        first_symbol_tables.sort((a,b)=>a.loc.first_line - b.loc.first_line);
-        last_symbol_tables.sort((a,b)=>a.loc.last_line - b.loc.last_line);
-        isSorted = true;
-    }
-    var line_start, line_end;
-    line_end = getFirstBigger(target,last_symbol_tables);
-    line_start = getLastSmaller(target,first_symbol_tables);
-
-    var last_loc = last_symbol_tables[line_end].loc;
-    var first_loc = first_symbol_tables[line_start].loc;
-    if(last_loc.first_line<= target && last_loc.last_line >= target){
-        return last_symbol_tables[line_end];
-    }else {
-        return first_symbol_tables[line_start];
-    }
-
-
-
-    
-
-
 }
