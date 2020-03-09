@@ -124,7 +124,7 @@ var COStreamJS = (function () {
     }
 
     /**
-     * 深拷贝一个数据结构, 包括其原型链
+     * 深拷贝一个数据结构, 包括其原型链, 但以下滑线_开头的属性名浅拷贝, 例如 _symbol_table
      */
     function deepCloneWithoutCircle(node) {
         let hasVisitedNode = new WeakMap();
@@ -140,7 +140,11 @@ var COStreamJS = (function () {
                     hasVisitedNode.set(node, true);
                     let obj = new node.constructor();
                     Object.keys(node).forEach(key => {
-                        obj[key] = deepClone(node[key]);
+                        if(key.startsWith('_')){
+                            obj[key] = node[key];
+                        }else{
+                            obj[key] = deepClone(node[key]);
+                        }
                     });
                     return obj
                 }
@@ -214,7 +218,7 @@ var COStreamJS = (function () {
     class Node$1 {
         constructor(loc) {
             this._loc = loc;
-            ['_loc','_symbol_table'].forEach(key => {
+            ['_loc'].forEach(key => {
                 definePrivate(this, key);
             });
         }
@@ -682,7 +686,7 @@ var COStreamJS = (function () {
         lib_binopNode: lib_binopNode
     });
 
-    var version = "0.7.0";
+    var version = "0.7.1";
 
     //对外的包装对象
     var COStreamJS = {
@@ -1732,11 +1736,11 @@ var COStreamJS = (function () {
         }
         /** @returns { {type: 'variable'|'stream' |'func'|'oper'|'member', origin: SymbolTable}}  */
         searchName(name){
-            if(this.variableTable[name]) return { type: 'variable', origin: this}
-            if(this.streamTable[name])   return { type: 'stream', origin: this}
-            if(this.funcTable[name])     return { type: 'func', origin: this}
-            if(this.optTable[name])      return { type: 'oper', origin: this}
-            if(this.memberTable[name])   return { type: 'member', origin: this}
+            if(this.variableTable.hasOwnProperty(name)) return { type: 'variable', origin: this}
+            if(this.streamTable.hasOwnProperty(name))   return { type: 'stream', origin: this}
+            if(this.funcTable.hasOwnProperty(name))     return { type: 'func', origin: this}
+            if(this.optTable.hasOwnProperty(name))      return { type: 'oper', origin: this}
+            if(this.memberTable.hasOwnProperty(name))   return { type: 'member', origin: this}
             if(this.prev)                return this.prev.searchName(name)
             return undefined;
         }
@@ -1755,7 +1759,6 @@ var COStreamJS = (function () {
         }
         InsertCompositeSymbol(/** @type {compositeNode} */comp){
             this.compTable[comp.compName] = new CompositeSymbol(comp);
-            comp._symbol_table = this;
         }
         InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
             const name = inOutNode.id;
@@ -1764,13 +1767,11 @@ var COStreamJS = (function () {
         }
         InsertOperatorSymbol(name, operatorNode){
             this.optTable[name] = operatorNode;
-            operatorNode._symbol_table = this;
         }
         InsertMemberSymbol(/** @type {declareNode} */ decl){
-            let type = decl.type;
             decl.init_declarator_list.forEach((/** @type {declarator} */de) =>{
                 let name = de.identifier.name;
-                this.memberTable[name] = new Constant(type,0);
+                this.memberTable[name] = de.initializer;
             });
         }
         LookupFunctionSymbol(name){
@@ -1800,8 +1801,6 @@ var COStreamJS = (function () {
                                      : this.variableTable[name]= variable;
             }else if(node instanceof inOutdeclNode){
                 let name = node.id; // 是否需要设置 level version ?
-                debugger;
-                console.warn("FIXME: inOutdeclNode 的 Variable 被设置为空");
                 this.variableTable[name] ? console.log(`${name} had been declared`)
                                      : this.variableTable[name]= null;
             }
@@ -1815,6 +1814,9 @@ var COStreamJS = (function () {
             throw new Error("插入 IndetifySymbol 时出错, node 类型错误")
         }
     };
+
+    const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','ceil','abs','log','sqrt'];
+    const BUILTIN_FUNCTIONS = ['print','println'].concat(BUILTIN_MATH);
 
     /** @type{SymbolTable} */
     let top;
@@ -1876,6 +1878,7 @@ var COStreamJS = (function () {
 
     // 解析 Composite 节点 
     function generateComposite(/** @type{compositeNode} */composite) {
+        composite._symbol_table = top;
         let inout = composite.inout || {}; //输入输出参数
         let body = composite.body; //body
         // 第一步, 解析输入输出流 inout
@@ -1900,7 +1903,7 @@ var COStreamJS = (function () {
     function generateStmt(/** @type {Node} */stmt) {
         switch (stmt.constructor) {
             case String: {
-                if (!top.searchName(stmt)) throw new Error(`在当前符号表链中未找到${stmt}的定义`, top)
+                if (!top.searchName(stmt)) error$1(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top);
                 break;
             }
             case declareNode: {
@@ -1975,7 +1978,6 @@ var COStreamJS = (function () {
             }
             case callNode: {
                 /** FIXME: 函数调用这一块不够完美 */
-                const BUILTIN_FUNCTIONS = ['print','println', 'pow', 'sin','cos','tan','floor','ceil','abs'];
                 if(BUILTIN_FUNCTIONS.includes(stmt.name)) return 
 
                 let func = top.LookupFunctionSymbol(stmt.name);
@@ -2017,6 +2019,7 @@ var COStreamJS = (function () {
         });
     }
     function generateOperatorNode(/** @type {operatorNode}*/oper){
+        oper._symbol_table = top;
         let inputs = oper.inputs;
         let outputs = oper.outputs;
         let body = oper.operBody;
@@ -2120,9 +2123,12 @@ var COStreamJS = (function () {
         return NaN
     };
 
+    castNode.prototype.getValue = function (){
+        return this.type == 'int' ? Math.floor(this.exp.value) : this.exp.value
+    };
+
     Object.defineProperty(String.prototype,'value',{
         get(){
-            debugger; 
             return top.LookupIdentifySymbol(this).value.val; 
         }
     });
@@ -2217,7 +2223,9 @@ var COStreamJS = (function () {
             case 'WEB':
                 var str = this.identifier.name;
                 str += this.op ? this.op : '';
-                if (this.initializer instanceof Array) {
+                if(this.identifier.arg_list.length && !this.initializer){
+                    str += ' = []'; // 为数组赋初值
+                }else if (this.initializer instanceof Array) {
                     str += list2String(this.initializer, ',', '[', ']');
                 } else {
                     str += this.initializer ? this.initializer.toString() : '';
@@ -2294,9 +2302,14 @@ var COStreamJS = (function () {
     };
     constantNode.prototype.toString = function () {
         let value = this.value;
-        return Number.isNaN(value) ? this.source : value
+        let escaped = this.source.replace(/\n|↵/g, "\\n");
+        return Number.isNaN(value) ? escaped : value
     };
     castNode.prototype.toString = function () {
+        if(COStreamJS.options.platform === "WEB"){
+            if(this.type === 'int') return `Math.floor(${this.exp})`
+            else return this.exp
+        }
         return '(' + this.type + ')' + this.exp
     };
     parenNode.prototype.toString = function () {
@@ -2360,7 +2373,7 @@ var COStreamJS = (function () {
             return differentPlatformPrint[platform](this.arg_list)
         } else if (this.name === "println") {
             return differentPlatformPrintln[platform](this.arg_list)
-        } else if (["sin","cos","pow"].includes(this.name) && platform === 'WEB'){
+        } else if (BUILTIN_MATH.includes(this.name) && platform === 'WEB'){
             return 'Math.'+this.name + '(' + list2String(this.arg_list, ',') + ')'
         }
         else{
@@ -2681,6 +2694,7 @@ var COStreamJS = (function () {
             let body = new operBodyNode(null, exp.operBody.stmt_list, exp.operBody.init, work, win);
             let oper = new operatorNode(null, exp.operName, exp.inputs, body);
             oper.outputs = exp.outputs;
+            oper._symbol_table = exp._symbol_table;
             UnfoldComposite.prototype.modifyStreamName(oper, inputs, true);
             UnfoldComposite.prototype.modifyStreamName(oper, outputs, false);
             return oper
@@ -4786,14 +4800,11 @@ extern int MAX_ITER;
             
             //写入init部分前的statement定义，调用tostring()函数，解析成规范的类变量定义格式
 
-            /* FIXME: CGactorsStmts 这部分需要符号表支持 */
-            // buf += this.CGactorsStmts(flat.contents.operBody.stmt_list);
-
             buf += this.CGactorsPopToken(flat, inEdgeNames);
             buf += this.CGactorsPushToken(flat, outEdgeNames);
             //init部分前的statement赋值
             buf += this.CGactorsinitVarAndState(flat.contents.operBody.stmt_list);
-            buf += this.CGactorsInit(flat.contents.operBody.init);
+            buf += this.CGactorsInit(flat, flat.contents.operBody.init);
              buf += this.CGactorsWork(flat.contents.operBody.work, flat, inEdgeNames, outEdgeNames);
             /* 类体结束*/
             buf += "}\n";
@@ -4820,9 +4831,15 @@ extern int MAX_ITER;
         this.initScheduleCount = ${flat.initCount};
         ${inEdgeNames.map(src => `this.${src} = new Consumer(${src});`).join('\n')}
         ${outEdgeNames.map(out => `this.${out} = new Producer(${out});`).join('\n')}
-	}
     `;
-        return buf
+        if(flat.contents._symbol_table){
+            for(let name of Object.keys(flat.contents._symbol_table.memberTable)){
+                let initializer = flat.contents._symbol_table.memberTable[name];
+                buf += `this.${name} = ${initializer};\n`;
+                debugger
+            }
+        }
+        return buf+'}'
     };
 
     WEBCodeGeneration.prototype.CGactorsRunInitScheduleWork = function (inEdgeNames, outEdgeNames) {
@@ -4849,25 +4866,6 @@ extern int MAX_ITER;
         (outEdgeNames || []).forEach(out => buf += 'this.' + out + '.resetTail();\n');
         (inEdgeNames || []).forEach(src => buf += 'this.' + src + '.resetHead();\n');
         return buf + '}\n'
-    };
-
-    /**
-     * 将.cos 文件中的 operator 的 init 前的变量声明转为新的 class 的 private 成员,例如 
-     * private: 
-     *   let i; 
-     *   let j;
-     * 而赋值操作放到 initVarAndState 中去做
-     * @param {declareNode[]} stmt_list
-     */
-    WEBCodeGeneration.prototype.CGactorsStmts = function (stmt_list) {
-        /*解析等号类似let i=0,j=1形式变成let i; let j;的形式,因为类的成员变量定义不能初始化*/
-        var result = '';
-        stmt_list.forEach(declare => {
-            declare.init_declarator_list.forEach(item => {
-                result += item.type + ' ' + item.identifier + ';\n';
-            });
-        });
-        return result;
     };
 
     /**
@@ -4912,8 +4910,15 @@ extern int MAX_ITER;
         });
         return result+'}';
     };
-    WEBCodeGeneration.prototype.CGactorsInit = function(init){
-        return `init() ${init|| '{ }'} \n`
+    WEBCodeGeneration.prototype.CGactorsInit = function(flat, init){
+        const memberTable = (flat.contents._symbol_table||{}).memberTable || {} ;
+        let buf = (init||'{ }').toString();
+        Object.keys(memberTable).forEach(memberName =>{
+            const reg  = new RegExp(`\\b(?<!\\.)${memberName}\\b`,'g');
+            buf = buf.replace(reg, 'this.'+memberName);
+        });
+
+        return `init() ${buf} \n`
     };
 
     /** 
@@ -4922,19 +4927,27 @@ extern int MAX_ITER;
      */
     WEBCodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
         // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
-        var innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, ''); 
+        let innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, ''); 
+        // 替换符号表中的成员变量的访问 
+        const memberTable = (flat.contents._symbol_table||{}).memberTable || {} ;
+        Object.keys(memberTable).forEach(name => replaceWithoutDot(name, 'this.'+name));
         // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 this.B_1_Sink_2
-        flat.contents.inputs.forEach((src, idx) => replace(src, 'this.'+inEdgeNames[idx]));
-        flat.contents.outputs.forEach((out, idx) => replace(out, 'this.'+outEdgeNames[idx]));
-        
+        flat.contents.inputs.forEach((src, idx) => replaceStream(src, 'this.'+inEdgeNames[idx]));
+        flat.contents.outputs.forEach((out, idx) => replaceStream(out, 'this.'+outEdgeNames[idx]));
         return `work(){
         ${innerWork}
         this.pushToken();
         this.popToken();
     }\n`
 
-        function replace(A, B) {
-            const reg = new RegExp(`\\b${A}\\b`, 'g');
+        function replaceWithoutDot(A,B){
+            const reg = new RegExp(`\\b(?<!\\.)${A}\\b`, 'g');
+            innerWork = innerWork.replace(reg, B);
+        }
+        function replaceStream(A, B) {
+            let reg = new RegExp(`${A}(?=\\s+(tumbling|sliding))`, 'g');
+            innerWork = innerWork.replace(reg, B);
+            reg = new RegExp(`${A}(?=\\[)`, 'g');
             innerWork = innerWork.replace(reg, B);
         }
     };
