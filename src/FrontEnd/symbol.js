@@ -78,11 +78,11 @@ export class SymbolTable {
     }
     /** @returns { {type: 'variable'|'stream' |'func'|'oper'|'member', origin: SymbolTable}}  */
     searchName(name){
-        if(this.variableTable[name]) return { type: 'variable', origin: this}
-        if(this.streamTable[name])   return { type: 'stream', origin: this}
-        if(this.funcTable[name])     return { type: 'func', origin: this}
-        if(this.optTable[name])      return { type: 'oper', origin: this}
-        if(this.memberTable[name])   return { type: 'member', origin: this}
+        if(this.variableTable.hasOwnProperty(name)) return { type: 'variable', origin: this}
+        if(this.streamTable.hasOwnProperty(name))   return { type: 'stream', origin: this}
+        if(this.funcTable.hasOwnProperty(name))     return { type: 'func', origin: this}
+        if(this.optTable.hasOwnProperty(name))      return { type: 'oper', origin: this}
+        if(this.memberTable.hasOwnProperty(name))   return { type: 'member', origin: this}
         if(this.prev)                return this.prev.searchName(name)
         return undefined;
     }
@@ -101,7 +101,6 @@ export class SymbolTable {
     }
     InsertCompositeSymbol(/** @type {compositeNode} */comp){
         this.compTable[comp.compName] = new CompositeSymbol(comp);
-        comp._symbol_table = this
     }
     InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
         const name = inOutNode.id
@@ -110,13 +109,11 @@ export class SymbolTable {
     }
     InsertOperatorSymbol(name, operatorNode){
         this.optTable[name] = operatorNode
-        operatorNode._symbol_table = this
     }
     InsertMemberSymbol(/** @type {declareNode} */ decl){
-        let type = decl.type
         decl.init_declarator_list.forEach((/** @type {declarator} */de) =>{
             let name = de.identifier.name
-            this.memberTable[name] = new Constant(type,0)
+            this.memberTable[name] = de.initializer
         })
     }
     LookupFunctionSymbol(name){
@@ -146,8 +143,6 @@ SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(node,
                                  : this.variableTable[name]= variable;
         }else if(node instanceof inOutdeclNode){
             let name = node.id // 是否需要设置 level version ?
-            debugger;
-            console.warn("FIXME: inOutdeclNode 的 Variable 被设置为空")
             this.variableTable[name] ? console.log(`${name} had been declared`)
                                  : this.variableTable[name]= null;
         }

@@ -1,4 +1,4 @@
-import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, arrayNode, constantNode } from "./node.js"
+import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, arrayNode, constantNode, castNode } from "./node.js"
 import { error } from "../utils"
 import { top } from "../FrontEnd/generateSymbolTables"
 import { matrix_section } from "./node.js"
@@ -36,9 +36,12 @@ unaryNode.prototype.getValue = function () {
     return NaN
 }
 
+castNode.prototype.getValue = function (){
+    return this.type == 'int' ? Math.floor(this.exp.value) : this.exp.value
+}
+
 Object.defineProperty(String.prototype,'value',{
     get(){
-        debugger; 
         return top.LookupIdentifySymbol(this).value.val; 
     }
 })

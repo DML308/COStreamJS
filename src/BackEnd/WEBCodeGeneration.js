@@ -284,14 +284,11 @@ WEBCodeGeneration.prototype.CGactors = function () {
         
         //写入init部分前的statement定义，调用tostring()函数，解析成规范的类变量定义格式
 
-        /* FIXME: CGactorsStmts 这部分需要符号表支持 */
-        // buf += this.CGactorsStmts(flat.contents.operBody.stmt_list);
-
         buf += this.CGactorsPopToken(flat, inEdgeNames);
         buf += this.CGactorsPushToken(flat, outEdgeNames);
         //init部分前的statement赋值
         buf += this.CGactorsinitVarAndState(flat.contents.operBody.stmt_list);
-        buf += this.CGactorsInit(flat.contents.operBody.init);
+        buf += this.CGactorsInit(flat, flat.contents.operBody.init);
          buf += this.CGactorsWork(flat.contents.operBody.work, flat, inEdgeNames, outEdgeNames);
         /* 类体结束*/
         buf += "}\n";
@@ -318,9 +315,15 @@ WEBCodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, ou
         this.initScheduleCount = ${flat.initCount};
         ${inEdgeNames.map(src => `this.${src} = new Consumer(${src});`).join('\n')}
         ${outEdgeNames.map(out => `this.${out} = new Producer(${out});`).join('\n')}
-	}
     `
-    return buf
+    if(flat.contents._symbol_table){
+        for(let name of Object.keys(flat.contents._symbol_table.memberTable)){
+            let initializer = flat.contents._symbol_table.memberTable[name];
+            buf += `this.${name} = ${initializer};\n`
+            debugger
+        }
+    }
+    return buf+'}'
 }
 
 WEBCodeGeneration.prototype.CGactorsRunInitScheduleWork = function (inEdgeNames, outEdgeNames) {
@@ -347,25 +350,6 @@ WEBCodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames
     (outEdgeNames || []).forEach(out => buf += 'this.' + out + '.resetTail();\n');
     (inEdgeNames || []).forEach(src => buf += 'this.' + src + '.resetHead();\n');
     return buf + '}\n'
-}
-
-/**
- * 将.cos 文件中的 operator 的 init 前的变量声明转为新的 class 的 private 成员,例如 
- * private: 
- *   let i; 
- *   let j;
- * 而赋值操作放到 initVarAndState 中去做
- * @param {declareNode[]} stmt_list
- */
-WEBCodeGeneration.prototype.CGactorsStmts = function (stmt_list) {
-    /*解析等号类似let i=0,j=1形式变成let i; let j;的形式,因为类的成员变量定义不能初始化*/
-    var result = ''
-    stmt_list.forEach(declare => {
-        declare.init_declarator_list.forEach(item => {
-            result += item.type + ' ' + item.identifier + ';\n'
-        })
-    })
-    return result;
 }
 
 /**
@@ -410,8 +394,15 @@ WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
     })
     return result+'}';
 }
-WEBCodeGeneration.prototype.CGactorsInit = function(init){
-    return `init() ${init|| '{ }'} \n`
+WEBCodeGeneration.prototype.CGactorsInit = function(flat, init){
+    const memberTable = (flat.contents._symbol_table||{}).memberTable || {} ;
+    let buf = (init||'{ }').toString();
+    Object.keys(memberTable).forEach(memberName =>{
+        const reg  = new RegExp(`\\b(?<!\\.)${memberName}\\b`,'g')
+        buf = buf.replace(reg, 'this.'+memberName)
+    })
+
+    return `init() ${buf} \n`
 }
 
 /** 
@@ -420,19 +411,27 @@ WEBCodeGeneration.prototype.CGactorsInit = function(init){
  */
 WEBCodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
     // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
-    var innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
+    let innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
+    // 替换符号表中的成员变量的访问 
+    const memberTable = (flat.contents._symbol_table||{}).memberTable || {} ;
+    Object.keys(memberTable).forEach(name => replaceWithoutDot(name, 'this.'+name))
     // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 this.B_1_Sink_2
-    flat.contents.inputs.forEach((src, idx) => replace(src, 'this.'+inEdgeNames[idx]))
-    flat.contents.outputs.forEach((out, idx) => replace(out, 'this.'+outEdgeNames[idx]))
-    
+    flat.contents.inputs.forEach((src, idx) => replaceStream(src, 'this.'+inEdgeNames[idx]))
+    flat.contents.outputs.forEach((out, idx) => replaceStream(out, 'this.'+outEdgeNames[idx]))
     return `work(){
         ${innerWork}
         this.pushToken();
         this.popToken();
     }\n`
 
-    function replace(A, B) {
-        const reg = new RegExp(`\\b${A}\\b`, 'g')
+    function replaceWithoutDot(A,B){
+        const reg = new RegExp(`\\b(?<!\\.)${A}\\b`, 'g')
+        innerWork = innerWork.replace(reg, B)
+    }
+    function replaceStream(A, B) {
+        let reg = new RegExp(`${A}(?=\\s+(tumbling|sliding))`, 'g')
+        innerWork = innerWork.replace(reg, B)
+        reg = new RegExp(`${A}(?=\\[)`, 'g')
         innerWork = innerWork.replace(reg, B)
     }
 }

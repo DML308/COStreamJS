@@ -1,6 +1,7 @@
 import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode } from "./node.js"
 import { COStreamJS } from "../FrontEnd/global"
 import { error } from "../utils/color.js";
+import { BUILTIN_MATH } from "../FrontEnd/built-in-function.js";
 
 export function ast2String(root) {
     var result = ''
@@ -43,7 +44,9 @@ declarator.prototype.toString = function () {
         case 'WEB':
             var str = this.identifier.name
             str += this.op ? this.op : ''
-            if (this.initializer instanceof Array) {
+            if(this.identifier.arg_list.length && !this.initializer){
+                str += ' = []' // 为数组赋初值
+            }else if (this.initializer instanceof Array) {
                 str += list2String(this.initializer, ',', '[', ']')
             } else {
                 str += this.initializer ? this.initializer.toString() : ''
@@ -121,9 +124,14 @@ arrayNode.prototype.toString = function () {
 }
 constantNode.prototype.toString = function () {
     let value = this.value
-    return Number.isNaN(value) ? this.source : value
+    let escaped = this.source.replace(/\n|↵/g, "\\n")
+    return Number.isNaN(value) ? escaped : value
 }
 castNode.prototype.toString = function () {
+    if(COStreamJS.options.platform === "WEB"){
+        if(this.type === 'int') return `Math.floor(${this.exp})`
+        else return this.exp
+    }
     return '(' + this.type + ')' + this.exp
 }
 parenNode.prototype.toString = function () {
@@ -189,7 +197,7 @@ callNode.prototype.toString = function () {
         return differentPlatformPrint[platform](this.arg_list)
     } else if (this.name === "println") {
         return differentPlatformPrintln[platform](this.arg_list)
-    } else if (["sin","cos","pow"].includes(this.name) && platform === 'WEB'){
+    } else if (BUILTIN_MATH.includes(this.name) && platform === 'WEB'){
         return 'Math.'+this.name + '(' + list2String(this.arg_list, ',') + ')'
     }
     else{

@@ -92,6 +92,7 @@ UnfoldComposite.prototype.compositeCallStreamReplace = function (/*compositeNode
         let body = new operBodyNode(null, exp.operBody.stmt_list, exp.operBody.init, work, win)
         let oper = new operatorNode(null, exp.operName, exp.inputs, body)
         oper.outputs = exp.outputs
+        oper._symbol_table = exp._symbol_table
         UnfoldComposite.prototype.modifyStreamName(oper, inputs, true);
         UnfoldComposite.prototype.modifyStreamName(oper, outputs, false);
         return oper

@@ -1,5 +1,5 @@
 /**
- * 深拷贝一个数据结构, 包括其原型链
+ * 深拷贝一个数据结构, 包括其原型链, 但以下滑线_开头的属性名浅拷贝, 例如 _symbol_table
  */
 export function deepCloneWithoutCircle(node) {
     let hasVisitedNode = new WeakMap()
@@ -15,7 +15,11 @@ export function deepCloneWithoutCircle(node) {
                 hasVisitedNode.set(node, true)
                 let obj = new node.constructor()
                 Object.keys(node).forEach(key => {
-                    obj[key] = deepClone(node[key])
+                    if(key.startsWith('_')){
+                        obj[key] = node[key]
+                    }else{
+                        obj[key] = deepClone(node[key])
+                    }
                 })
                 return obj
             }

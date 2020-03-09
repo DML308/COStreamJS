@@ -1,3 +1,5 @@
+import { SymbolTable } from "../FrontEnd/symbol"
+
 export interface YYLTYPE {
     first_line: number
     last_line: number
@@ -61,6 +63,7 @@ export class compositeNode extends Node {
     compName: string
     inout: ComInOutNode
     body: compBodyNode
+    _symbol_table: SymbolTable
     constructor(loc: YYLTYPE, head: compHeadNode, body: compBodyNode)
 }
 export class compHeadNode extends Node {
@@ -120,6 +123,7 @@ export class blockNode extends Node {
     op1: '{'
     stmt_list: Node[]
     op2: '}'
+    _symbol_table: SymbolTable
     constructor(loc: YYLTYPE, op1: '{', stmt_list: Node[], op2: '}')
 }
 
@@ -253,6 +257,7 @@ export class operatorNode extends operNode {
     operName: string
     inputs: string[]
     operBody: operBodyNode
+    _symbol_table: SymbolTable
     constructor(loc: YYLTYPE, operName: string, inputs: string[], operBody: operBodyNode)
 }
 export class splitjoinNode extends operNode {

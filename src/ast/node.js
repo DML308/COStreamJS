@@ -4,7 +4,7 @@ import { error } from "../utils";
 export class Node {
     constructor(loc) {
         this._loc = loc;
-        ['_loc','_symbol_table'].forEach(key => {
+        ['_loc'].forEach(key => {
             definePrivate(this, key)
         })
     }

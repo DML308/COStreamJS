@@ -2,6 +2,7 @@ import { SymbolTable, symbolTableMap, Constant, ArrayConstant, Variable, current
 import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode} from "../ast/node";
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
+import { BUILTIN_FUNCTIONS } from "./built-in-function";
 
 /** @type{SymbolTable} */
 export let top;
@@ -63,6 +64,7 @@ function generateDeclareNode(/** @type{declareNode} */node){
 
 // 解析 Composite 节点 
 function generateComposite(/** @type{compositeNode} */composite) {
+    composite._symbol_table = top;
     let inout = composite.inout || {}; //输入输出参数
     let body = composite.body; //body
     // 第一步, 解析输入输出流 inout
@@ -87,7 +89,7 @@ const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, 
 function generateStmt(/** @type {Node} */stmt) {
     switch (stmt.constructor) {
         case String: {
-            if (!top.searchName(stmt)) throw new Error(`在当前符号表链中未找到${stmt}的定义`, top)
+            if (!top.searchName(stmt)) error(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top)
             break;
         }
         case declareNode: {
@@ -162,7 +164,6 @@ function generateStmt(/** @type {Node} */stmt) {
         }
         case callNode: {
             /** FIXME: 函数调用这一块不够完美 */
-            const BUILTIN_FUNCTIONS = ['print','println', 'pow', 'sin','cos','tan','floor','ceil','abs'];
             if(BUILTIN_FUNCTIONS.includes(stmt.name)) return 
 
             let func = top.LookupFunctionSymbol(stmt.name);
@@ -206,6 +207,7 @@ function generateStrDlcNode(/** @type {declareNode}*/ decl){  //stream "<int x,i
     })
 }
 function generateOperatorNode(/** @type {operatorNode}*/oper){
+    oper._symbol_table = top
     let inputs = oper.inputs;
     let outputs = oper.outputs;
     let body = oper.operBody
