@@ -14,11 +14,11 @@ describe("blackbox 黑盒测试: 代码生成结果是否可运行 -- WEB 后端
     var files = [
         "wang.cos", 
         "multiOutputs.cos",
-        // "DCT.cos", FIXME: 符号表引起的 this.i 未解决
+        // "DCT.cos",
         // "matrix.cos", FIXME: WEB 后端目前未支持矩阵
-        // "pipeline.cos", // FIXME: 符号表引起的 this.current 未解决
+        "pipeline.cos",
         "scheduler.test.cos",
-        //"splitjoinTest.cos" FIXME: 符号表引起的 this.i 未解决
+        "splitjoinTest.cos"
         ]
 
     files.forEach(file => {
@@ -27,7 +27,6 @@ describe("blackbox 黑盒测试: 代码生成结果是否可运行 -- WEB 后端
 
             var str = fs.readFileSync(resolve(__dirname, `../../examples/${file}`), "utf8")
             console.warn(COStreamJS.options.platform)
-            console.log(COStreamJS.files["main.cpp"])
             COStreamJS.main(str)
             assert(COStreamJS.files["main.cpp"])
             eval(COStreamJS.files["main.cpp"])
