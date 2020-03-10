@@ -687,7 +687,7 @@ var COStreamJS = (function () {
         lib_binopNode: lib_binopNode
     });
 
-    var version = "0.7.1";
+    var version = "0.7.2";
 
     //对外的包装对象
     var COStreamJS = {
@@ -1685,10 +1685,12 @@ var COStreamJS = (function () {
 
     }
     class ArrayConstant {
-        constructor(type /* string */) {
+        constructor(type /* string */, values, arg_list) {
             this.type = type;
-            /** @type{ Array<Constant> } */
-            this.values = [];
+            /** @type {Array<Constant>} */
+            this.values = values;
+            /** @type {number[]} */
+            this.arg_list = arg_list || [];
         }
         print() { };
     }
@@ -1698,6 +1700,7 @@ var COStreamJS = (function () {
             this.name = name;
             this.level = undefined;
             this.version = undefined;
+            this._loc = undefined;
             if (i instanceof Constant) {
                 this.value = i;
             }
@@ -1727,6 +1730,7 @@ var COStreamJS = (function () {
             /** @type {Dict<inOutdeclNode>} */
             this.streamTable = {};  
             // this.identifyTable = undefined; // 没发现这个的用处
+            /** @type {Dict<Variable>} */
             this.memberTable = {}; // 专门用来存储一个operator的成员变量字段
             this.variableTable = {}; //变量
             this.compTable = {}; // composite
@@ -1772,7 +1776,15 @@ var COStreamJS = (function () {
         InsertMemberSymbol(/** @type {declareNode} */ decl){
             decl.init_declarator_list.forEach((/** @type {declarator} */de) =>{
                 let name = de.identifier.name;
-                this.memberTable[name] = de.initializer;
+                let { initializer, arg_list } = de.identifier;
+                if(de.identifier.arg_list.length){
+                    let array_c = new ArrayConstant(de.type,initializer, arg_list.map(_=>_.value));
+                    var variable = new Variable(de.type,name,array_c);
+                }else{
+                    var variable = new Variable(de.type,name,initializer);
+                }
+                variable._loc = decl._loc;
+                this.memberTable[name] = variable;
             });
         }
         LookupFunctionSymbol(name){
@@ -1816,7 +1828,7 @@ var COStreamJS = (function () {
         }
     };
 
-    const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','ceil','abs','log','sqrt'];
+    const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','round','ceil','abs','log','sqrt'];
     const BUILTIN_FUNCTIONS = ['print','println'].concat(BUILTIN_MATH);
 
     /** @type{SymbolTable} */
@@ -2065,8 +2077,8 @@ var COStreamJS = (function () {
 
         ;(splitjoin.inputs||[]).forEach(checkStreamId)
         ;(splitjoin.outputs||[]).forEach(checkStreamId)
-        ;(splitjoin.body_stmts||[]).forEach(generateStmt)
-        ;(splitjoin.stmt_list||[]).forEach(generateStmt);
+        ;(splitjoin.stmt_list||[]).forEach(generateStmt)
+        ;(splitjoin.body_stmts||[]).forEach(generateStmt);
 
         if(splitjoin.split){
             // 保证参数列表中不出现未声明的字符
@@ -3118,7 +3130,7 @@ var COStreamJS = (function () {
         ssg.ResetFlatNodeNames();
         ssg.SetFlatNodesWeights();
         debug$1("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n");
-        typeof window !== 'undefined' && debug$1(ssg);
+        // typeof window !== 'undefined' && debug("COStreamJS.ssg:", ssg);
         return ssg
     }
 
@@ -4614,7 +4626,6 @@ extern int MAX_ITER;
         }
 
         COStreamJS.files['Global.cpp'] = buf.beautify();
-        debugger
     };
 
     WEBCodeGeneration.prototype.CopyLib = function () {
@@ -4823,7 +4834,7 @@ extern int MAX_ITER;
      *  this.i = 0
      * }
     **/
-    WEBCodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, outEdgeNames) {
+    WEBCodeGeneration.prototype.CGactorsConstructor = function(/** @type {FlatNode} */flat, inEdgeNames, outEdgeNames) {
         var OutAndInEdges = (outEdgeNames || []).concat(inEdgeNames); // 把 out 放前面, in 放后面
         var buf = 'constructor(/* Buffer<StreamData>& */';
         buf += OutAndInEdges.join(',') + '){';
@@ -4835,9 +4846,24 @@ extern int MAX_ITER;
     `;
         if(flat.contents._symbol_table){
             for(let name of Object.keys(flat.contents._symbol_table.memberTable)){
-                let initializer = flat.contents._symbol_table.memberTable[name];
+                let variable = flat.contents._symbol_table.memberTable[name];
+                // 若该成员变量被声明为数组类型
+                if(variable.array){
+                    let { length } = variable.array.arg_list;
+                    if(length > 2){
+                        error$1(variable._loc,"暂不支持二维以上的数组");
+                    }else if(length === 2){
+                        const firstDim = variable.array.arg_list[0];
+                        var initializer = `Array.from({length:${firstDim}}).map(_=>[])`;
+                    }else if(length === 1){
+                        var initializer = `[]`;
+                    }
+                }
+                // 非数组类型
+                else{
+                    var initializer = variable.value.val;
+                }
                 buf += `this.${name} = ${initializer};\n`;
-                debugger
             }
         }
         return buf+'}'
