@@ -4,6 +4,7 @@ import { FlatNode } from "../FrontEnd/FlatNode"
 import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
 import { Partition } from "./Partition"
 import Plugins from "../plugins"
+import { error } from "../utils";
 
 export class WEBCodeGeneration {
 
@@ -97,7 +98,6 @@ WEBCodeGeneration.prototype.CGGlobal = function () {
     }
 
     COStreamJS.files['Global.cpp'] = buf.beautify()
-    debugger
 }
 
 WEBCodeGeneration.prototype.CopyLib = function () {
@@ -306,7 +306,7 @@ WEBCodeGeneration.prototype.CGactors = function () {
  *  this.i = 0
  * }
 **/
-WEBCodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, outEdgeNames) {
+WEBCodeGeneration.prototype.CGactorsConstructor = function(/** @type {FlatNode} */flat, inEdgeNames, outEdgeNames) {
     var OutAndInEdges = (outEdgeNames || []).concat(inEdgeNames) // 把 out 放前面, in 放后面
     var buf = 'constructor(/* Buffer<StreamData>& */'
     buf += OutAndInEdges.join(',') + '){'
@@ -318,9 +318,24 @@ WEBCodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, ou
     `
     if(flat.contents._symbol_table){
         for(let name of Object.keys(flat.contents._symbol_table.memberTable)){
-            let initializer = flat.contents._symbol_table.memberTable[name];
+            let variable = flat.contents._symbol_table.memberTable[name];
+            // 若该成员变量被声明为数组类型
+            if(variable.array){
+                let { length } = variable.array.arg_list
+                if(length > 2){
+                    error(variable._loc,"暂不支持二维以上的数组")
+                }else if(length === 2){
+                    const firstDim = variable.array.arg_list[0]
+                    var initializer = `Array.from({length:${firstDim}}).map(_=>[])`
+                }else if(length === 1){
+                    var initializer = `[]`;
+                }
+            }
+            // 非数组类型
+            else{
+                var initializer = variable.value.val;
+            }
             buf += `this.${name} = ${initializer};\n`
-            debugger
         }
     }
     return buf+'}'

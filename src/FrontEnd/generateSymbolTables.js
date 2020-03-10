@@ -252,8 +252,8 @@ function generateSplitjoin(/** @type {splitjoinNode} */ splitjoin){
 
     ;(splitjoin.inputs||[]).forEach(checkStreamId)
     ;(splitjoin.outputs||[]).forEach(checkStreamId)
-    ;(splitjoin.body_stmts||[]).forEach(generateStmt)
     ;(splitjoin.stmt_list||[]).forEach(generateStmt)
+    ;(splitjoin.body_stmts||[]).forEach(generateStmt)
 
     if(splitjoin.split){
         // 保证参数列表中不出现未声明的字符

@@ -22,7 +22,7 @@ export function AST2FlatStaticStreamGraph(mainComposite,unfold){
     ssg.ResetFlatNodeNames();
     ssg.SetFlatNodesWeights();
     debug("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n");
-    typeof window !== 'undefined' && debug(ssg);
+    // typeof window !== 'undefined' && debug("COStreamJS.ssg:", ssg);
     return ssg
 }
 

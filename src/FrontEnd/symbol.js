@@ -23,10 +23,12 @@ export class Constant {
 };
 
 export class ArrayConstant {
-    constructor(type /* string */) {
+    constructor(type /* string */, values, arg_list) {
         this.type = type
-        /** @type{ Array<Constant> } */
-        this.values = []
+        /** @type {Array<Constant>} */
+        this.values = values
+        /** @type {number[]} */
+        this.arg_list = arg_list || []
     }
     print() { };
 };
@@ -37,6 +39,7 @@ export class Variable {
         this.name = name
         this.level = undefined
         this.version = undefined
+        this._loc = undefined
         if (i instanceof Constant) {
             this.value = i;
         }
@@ -68,6 +71,7 @@ export class SymbolTable {
         /** @type {Dict<inOutdeclNode>} */
         this.streamTable = {};  
         // this.identifyTable = undefined; // 没发现这个的用处
+        /** @type {Dict<Variable>} */
         this.memberTable = {} // 专门用来存储一个operator的成员变量字段
         this.variableTable = {}; //变量
         this.compTable = {}; // composite
@@ -113,7 +117,15 @@ export class SymbolTable {
     InsertMemberSymbol(/** @type {declareNode} */ decl){
         decl.init_declarator_list.forEach((/** @type {declarator} */de) =>{
             let name = de.identifier.name
-            this.memberTable[name] = de.initializer
+            let { initializer, arg_list } = de.identifier
+            if(de.identifier.arg_list.length){
+                let array_c = new ArrayConstant(de.type,initializer, arg_list.map(_=>_.value))
+                var variable = new Variable(de.type,name,array_c)
+            }else{
+                var variable = new Variable(de.type,name,initializer)
+            }
+            variable._loc = decl._loc
+            this.memberTable[name] = variable
         })
     }
     LookupFunctionSymbol(name){
