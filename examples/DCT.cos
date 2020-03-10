@@ -57,7 +57,7 @@ composite DCT_Result(output stream<double x> Out,input stream<double x> In)
 		work
 		{
 			int t;
-			t = (int)floor(10*In[0].x);
+			t = (int)round(10*In[0].x);
 			Out[0].x = t/10;
 			//println(Out[0].x);
 		}

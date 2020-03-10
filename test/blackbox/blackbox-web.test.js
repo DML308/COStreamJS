@@ -11,10 +11,29 @@ const resolve = require('path').resolve
 
 
 describe("blackbox 黑盒测试: 代码生成结果是否可运行 -- WEB 后端", () => {
+    /** 下面这段代码用于屏蔽 node.js 在测试通过时的大段输出, 
+     *  来自https://stackoverflow.com/questions/53100760 */
+    const originalLogFunction = console.log;
+    let output;
+    beforeEach(function (done) {
+        output = '';
+        console.log = (msg) => {
+            output += msg + '\n';
+        };
+        done();
+    });
+    afterEach(function () {
+        console.log = originalLogFunction; 
+        if (this.currentTest.state === 'failed') {
+            console.log(output);
+        }
+    });
+
+    /** 开始使用文件测试 */
     var files = [
         "wang.cos", 
         "multiOutputs.cos",
-        // "DCT.cos",
+        "DCT.cos",
         // "matrix.cos", FIXME: WEB 后端目前未支持矩阵
         "pipeline.cos",
         "scheduler.test.cos",
