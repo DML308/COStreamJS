@@ -1,4 +1,6 @@
 import { FlatNode } from "./FlatNode";
+import { top } from "./generateSymbolTables"
+import { error } from "../utils";
 
 export class StaticStreamGraph {
     constructor() {
@@ -42,58 +44,50 @@ export class StaticStreamGraph {
 
 /**
  * 创建一个新的 FlatNode, 例如对 out = operator(in){ init work window } , 
- * 标记 out 的 up 指向 flat, 同时标记 in 的 down 指向 flat,
- * 如果 in 是由 parent 产生的, 则 parent 指向 flat
  */
-StaticStreamGraph.prototype.GenerateFlatNodes = function (/* operatorNode* */ u) {
+StaticStreamGraph.prototype.GenerateFlatNodes = function (/* operatorNode* */ u, param_list) {
 
-    const flat = new FlatNode(u)
+    const flat = new FlatNode(u, param_list)
+    flat._symbol_table = top
 
     /* 寻找输出流  建立节点的输入输出流关系
-     * 例如 out = call(in) 对 edgeName:out 来说, call 是它的"上端"节点, 所以插入 mapEdge2UpFlatNode */
-    if (u.outputs) u.outputs.forEach(edgeName => this.mapEdge2UpFlatNode.set(edgeName, flat))
+     * 例如 out = call(in) 对 edgeName:out 来说, call 是它的"来源"节点 fromFlatNode */
+    if (u.outputs) u.outputs.forEach((edgeName,index) => {
+        top.streamTable[edgeName].fromIndex = index
+        top.streamTable[edgeName].fromFlatNode = flat
+    })
+
+    /* 例如 out = call(in), 对 in 来说, call 是它的"去向"节点 toFlatNode */
+    if (u.inputs) u.inputs.forEach((edgeName,index) => {
+        const stream = top.streamTable[edgeName]
+        stream.toIndex = index
+        stream.toFlatNode = flat
+        if(stream.fromFlatNode){
+            /** 下面两行代码的作用是建立 FlatNodes 之间的输入输出关系, 例如 
+             *     (S0, S1) = oper1()
+             *     (S2) = oper2(S1)
+             * 则设置 
+             * oper1.outFlatNodes[1] = oper2
+             * oper2.inFlatNodes[0] = oper1
+             */
+            stream.fromFlatNode.outFlatNodes[stream.fromIndex] = flat
+            flat.inFlatNodes[index] = stream.fromFlatNode
+        }else{
+            error(u._loc, `流 ${edgeName} 没有上层计算节点, 请检查`)
+        }
+        
+    })
 
     this.flatNodes.push(flat)
 
-    /* 例如 out = call(in), 对 in 来说, call 是它的"下端"节点, 所以插入 mapEdge2DownFlatNode */
-    if (u.inputs) {
-        u.inputs.forEach(inEdgeName => {
-            this.mapEdge2DownFlatNode.set(inEdgeName, flat)
-
-            /* 同时还要找找看 in 是由哪个 operator 输出的, 如果找得到则建立连接*/
-            if (this.mapEdge2UpFlatNode.has(inEdgeName)) {
-                var parent = this.mapEdge2UpFlatNode.get(inEdgeName)
-                parent.AddOutEdges(flat)
-                flat.AddInEdges(parent)
-            }
-        })
-    }
-}
-
-
-/**
- * 设置 flatNode 的边的 weight
- * @eaxmple
- * window{
- *   In  sliding(1,2); //则分别设置inPeekWeights 为1, inPopWeights 为2
- *   Out tumbling(2);  //设置 outPushWeights 为2
- * }
- */
-StaticStreamGraph.prototype.SetFlatNodesWeights = function () {
-    for (let flat of this.flatNodes) {
-        let oper = flat.contents
-        let win_stmts = oper.operBody.win
-        for(let it of win_stmts){
-            let edgeName = it.winName
-            if(it.type === "sliding"){
-                flat.inPeekString.push(edgeName)
-                flat.inPopString.push(edgeName)
-                flat.inPeekWeights.push(it.arg_list[0].value)
-                flat.inPopWeights.push(it.arg_list[1].value)
-            }else if(it.type === "tumbling"){
-                flat.outPushString.push(edgeName)
-                flat.outPushWeights.push(it.arg_list[0].value)
-            }
+    // 下面 设置 flatNode 的边的 weight
+    let win_stmts = u.operBody.win
+    for(let it of win_stmts){
+        if(it.type === "sliding"){
+            flat.inPeekWeights.push(it.arg_list[0].value)
+            flat.inPopWeights.push(it.arg_list[1].value)
+        }else if(it.type === "tumbling"){
+            flat.outPushWeights.push(it.arg_list[0].value)
         }
     }
 }

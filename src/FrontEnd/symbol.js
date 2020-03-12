@@ -1,13 +1,12 @@
-import { compositeNode, inOutdeclNode, declareNode, declarator } from "../ast/node.js"
+import { compositeNode, inOutdeclNode, declareNode, declarator, strdclNode } from "../ast/node.js"
+import { FlatNode } from "./FlatNode"
 
 const MAX_SCOPE_DEPTH = 10 //定义最大嵌套深度为100
-/*level表示当前嵌套深度，version表示嵌套域计数器 */
 
+/** @type {SymbolTable[]} */
+export let runningStack = [];
 export const current_version = Array.from({length:MAX_SCOPE_DEPTH}).fill(0);
 export const symbolTableList = /** @type{SymbolTable[]}*/[];
-let isSorted = false;
-
-export const symbolTableMap = Array.from({length:MAX_SCOPE_DEPTH}).map(_ => []); // 二维数组
 
 
 export class Constant {
@@ -34,12 +33,10 @@ export class ArrayConstant {
 };
 
 export class Variable {
-    constructor(valType, name, i) {
+    constructor(valType, name, i, _loc) {
         this.type = valType
         this.name = name
-        this.level = undefined
-        this.version = undefined
-        this._loc = undefined
+        this._loc = _loc
         if (i instanceof Constant) {
             this.value = i;
         }
@@ -61,18 +58,20 @@ class CompositeSymbol {
 
 export class SymbolTable {
     constructor(prev, loc) {
+        this.count = 0; // FIXME: 不确定有什么用
         this.loc = loc;
+        /** @type {SymbolTable} */
         this.prev = prev
         symbolTableList.push(this)
-        let Level = SymbolTable.Level
-        symbolTableMap[Level][current_version[Level]] = this
+        this.sid = SymbolTable.sid++
 
         this.funcTable = {};
-        /** @type {Dict<inOutdeclNode>} */
+        /** @type {Dict<{strType: strdclNode, fromIndex: number, fromFlatNode:FlatNode, toIndex: number, toFlatNode: FlatNode}>} */
         this.streamTable = {};  
-        // this.identifyTable = undefined; // 没发现这个的用处
+        
         /** @type {Dict<Variable>} */
         this.memberTable = {} // 专门用来存储一个operator的成员变量字段
+        this.paramNames = []
         this.variableTable = {}; //变量
         this.compTable = {}; // composite
         this.optTable = {}; //operator
@@ -109,7 +108,7 @@ export class SymbolTable {
     InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
         const name = inOutNode.id
         this.streamTable[name] ? console.log(`stream ${name} has been declared`)
-        : this.streamTable[name]= inOutNode;
+        : this.streamTable[name]= { strType: inOutNode.strType };
     }
     InsertOperatorSymbol(name, operatorNode){
         this.optTable[name] = operatorNode
@@ -120,9 +119,9 @@ export class SymbolTable {
             let { initializer, arg_list } = de.identifier
             if(de.identifier.arg_list.length){
                 let array_c = new ArrayConstant(de.type,initializer, arg_list.map(_=>_.value))
-                var variable = new Variable(de.type,name,array_c)
+                var variable = new Variable(de.type,name,array_c, de._loc)
             }else{
-                var variable = new Variable(de.type,name,initializer)
+                var variable = new Variable(de.type,name,initializer, de._loc)
             }
             variable._loc = decl._loc
             this.memberTable[name] = variable
@@ -137,31 +136,23 @@ export class SymbolTable {
         }
     }
 }
-// 将 Level 挂载为该类的静态变量 
-SymbolTable.Level = 0;
+SymbolTable.sid = 0; // 类的静态类型, 类似 vue 的 cid, 用来区分生成的符号表的顺序
 
 SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(node, /** @type {Constant} */ constant){
-    const Level = SymbolTable.Level
     if(node instanceof Node){
         if(node instanceof declarator){
             let name = node.identifier.name;
-            let variable = new Variable(node.type, name, constant); // 无论传入的是常量还是变量, 归一为 Variable 结构
-            node.level = Level;
-            node.version = current_version[Level];
-            variable.level = Level;
-            variable.version = current_version[Level];
+            let variable = new Variable(node.type, name, constant, node._loc); // 无论传入的是常量还是变量, 归一为 Variable 结构
 
             this.variableTable[name] ? console.log(`${name} had been declared`)
                                  : this.variableTable[name]= variable;
         }else if(node instanceof inOutdeclNode){
-            let name = node.id // 是否需要设置 level version ?
+            let name = node.id
             this.variableTable[name] ? console.log(`${name} had been declared`)
                                  : this.variableTable[name]= null;
         }
     }else if(node instanceof Variable){
         let name = node.name;
-        node.level = Level
-        node.version = current_version[Level]
         this.variableTable[name] ? console.log(`${name} had been declared`)
                                  : this.variableTable[name]= node;
     }else{

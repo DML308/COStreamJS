@@ -40,13 +40,13 @@ COStreamJS.main = function(str, cpuCoreNum = 4){
     // 2. 词语法分析构建语法树
     this.ast = COStreamJS.parser.parse(str)
     // 3. 遍历语法树进行语义分析和构建符号表
-    this.symbolTableMap = generateSymbolTables(this.ast);
+    this.symbolTableList = generateSymbolTables(this.ast);
     if(COStreamJS.global.errors.length) return;
-    this.S = this.symbolTableMap[0][0]
+    this.S = this.symbolTableList[0]
     this.gMainComposite = this.SemCheck.findMainComposite(this.ast)
     
     // 4. 语法树转数据流图
-    this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold)
+    this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold, this.S)
     // 5. 工作量估计
     WorkEstimate(this.ssg)
     // 6. 调度

@@ -1,5 +1,5 @@
 import { COStreamJS } from "../FrontEnd/global"
-import { declareNode, function_definition, compositeNode, strdclNode, blockNode } from "../ast/node";
+import { declareNode, function_definition, compositeNode, strdclNode, blockNode, operatorNode } from "../ast/node";
 import { FlatNode } from "../FrontEnd/FlatNode"
 import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
 import { Partition } from "./Partition"
@@ -189,8 +189,8 @@ WEBCodeGeneration.prototype.CGMain = function CGMain() {
         buf = `\n/** 构建 operator Instance */\n`
 
         this.ssg.flatNodes.forEach(flat => {
-            //准备构造如下格式的声明语句: const Name_obj = new Name(out1,out2,in1,in2);
-            buf += `const ${flat.name}_obj = new ${flat.PreName}(`
+            //准备构造如下格式的声明语句: const Name = new PreName(out1,out2,in1,in2);
+            buf += `const ${flat.name} = new ${flat.PreName}(`
             let streamNames = []
             flat.outFlatNodes.forEach(out => {
                 let edgename = flat.name + '_' + out.name
@@ -200,7 +200,10 @@ WEBCodeGeneration.prototype.CGMain = function CGMain() {
                 let edgename = src.name + '_' + flat.name
                 streamNames.push(edgename) 
             })
-            buf += streamNames.join(',') + ');'
+            buf += streamNames.join(',') + ','
+            buf += flat.steadyCount + ',' + flat.initCount;
+            flat.params.length > 0 ? buf += ',' + flat.params.join(',') : '';
+            buf += ');'
             buf += '\n'
         })
 
@@ -219,7 +222,7 @@ WEBCodeGeneration.prototype.CGMain = function CGMain() {
             let ifStr = `if(${stage} == _stageNum){`
             //获取在这个 stage 上的 actor 集合
             let flatVec = this.ssg.flatNodes.filter(flat => flat.stageNum == stage)
-            ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n'
+            ifStr += flatVec.map(flat => flat.name + '.runInitScheduleWork();\n').join('') + '}\n'
             forBody += ifStr
         }
         buf += initFor.replace('#SLOT', forBody)
@@ -236,7 +239,7 @@ WEBCodeGeneration.prototype.CGMain = function CGMain() {
             let ifStr = `if(stage[${stage}]){`
             //获取既在在这个 stage 上的 actor 集合
             let flatVec = this.ssg.flatNodes.filter(flat => flat.stageNum == stage)
-            ifStr += flatVec.map(flat => flat.name + '_obj.runSteadyScheduleWork();\n').join('') + '}\n'
+            ifStr += flatVec.map(flat => flat.name + '.runSteadyScheduleWork();\n').join('') + '}\n'
             forBody += ifStr
         }
         forBody += 
@@ -276,20 +279,21 @@ WEBCodeGeneration.prototype.CGactors = function () {
         //开始构建 class
         buf += `class ${flat.PreName}{\n`
         /*写入类成员函数*/
-        let inEdgeNames = flat.inFlatNodes.map(src => src.name + '_' + flat.name)
-        let outEdgeNames = flat.outFlatNodes.map(out => flat.name + '_' + out.name)
-        buf += this.CGactorsConstructor(flat, inEdgeNames, outEdgeNames); 
+        let oper = flat.contents
+        let inEdgeNames = oper.inputs
+        let outEdgeNames = oper.outputs
+        buf += this.CGactorsConstructor(oper,inEdgeNames, outEdgeNames); 
         buf += this.CGactorsRunInitScheduleWork(inEdgeNames, outEdgeNames);
         buf += this.CGactorsRunSteadyScheduleWork(inEdgeNames, outEdgeNames);
         
         //写入init部分前的statement定义，调用tostring()函数，解析成规范的类变量定义格式
 
-        buf += this.CGactorsPopToken(flat, inEdgeNames);
-        buf += this.CGactorsPushToken(flat, outEdgeNames);
+        buf += this.CGactorsPopToken(oper);
+        buf += this.CGactorsPushToken(oper);
         //init部分前的statement赋值
-        buf += this.CGactorsinitVarAndState(flat.contents.operBody.stmt_list);
-        buf += this.CGactorsInit(flat, flat.contents.operBody.init);
-         buf += this.CGactorsWork(flat.contents.operBody.work, flat, inEdgeNames, outEdgeNames);
+        buf += this.CGactorsinitVarAndState(oper.operBody.stmt_list);
+        buf += this.CGactorsInit(oper, oper.operBody.init);
+        buf += this.CGactorsWork(oper.operBody.work, oper);
         /* 类体结束*/
         buf += "}\n";
         COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
@@ -299,26 +303,32 @@ WEBCodeGeneration.prototype.CGactors = function () {
 /**
  * 生成actors constructor
  * @example
- * constructor(Source_0_B_1) {
- *  this.steadyScheduleCount = 1;
- *  this.initScheduleCount = 0;
+ * constructor(Source_0_B_1, steadyC,initC, param1 ) {
+ *  this.steadyScheduleCount = steadyC;
+ *  this.initScheduleCount = initC;
  *  this.Source_0_B_1 = new Producer(Source_0_B_1)
+ *  this.paramName1 = param1;
  *  this.i = 0
  * }
 **/
-WEBCodeGeneration.prototype.CGactorsConstructor = function(/** @type {FlatNode} */flat, inEdgeNames, outEdgeNames) {
+WEBCodeGeneration.prototype.CGactorsConstructor = function(/** @type {operatorNode} */oper,inEdgeNames, outEdgeNames) {
+    let paramNames = oper._symbol_table.prev.paramNames
     var OutAndInEdges = (outEdgeNames || []).concat(inEdgeNames) // 把 out 放前面, in 放后面
     var buf = 'constructor(/* Buffer<StreamData>& */'
-    buf += OutAndInEdges.join(',') + '){'
+    buf += OutAndInEdges.join(',')
+    buf += ',steadyC,initC';
+    paramNames.length ? buf += ',' + paramNames.join(',') : '';
+    buf += '){'
     buf += `
-        this.steadyScheduleCount = ${flat.steadyCount};
-        this.initScheduleCount = ${flat.initCount};
+        this.steadyScheduleCount = steadyC;
+        this.initScheduleCount = initC;
         ${inEdgeNames.map(src => `this.${src} = new Consumer(${src});`).join('\n')}
         ${outEdgeNames.map(out => `this.${out} = new Producer(${out});`).join('\n')}
+        ${paramNames.map(param => `this.${param} = ${param};`).join('\n')}
     `
-    if(flat.contents._symbol_table){
-        for(let name of Object.keys(flat.contents._symbol_table.memberTable)){
-            let variable = flat.contents._symbol_table.memberTable[name];
+    if(oper._symbol_table){
+        for(let name of Object.keys(oper._symbol_table.memberTable)){
+            let variable = oper._symbol_table.memberTable[name];
             // 若该成员变量被声明为数组类型
             if(variable.array){
                 let { length } = variable.array.arg_list
@@ -373,12 +383,21 @@ WEBCodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames
  *		this.Rstream0_0.updatehead(1);
  *		this.Rstream0_1.updatehead(1);
  * }
- * @param {FlatNode} flat
+ * @param {operatorNode} oper
  */
-WEBCodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
-    const pop = flat.inPopWeights[0]
-    const stmts = inEdgeNames.map(src => `this.${src}.updatehead(${pop});\n`).join('')
-    return `\n popToken(){ ${stmts} }\n`
+WEBCodeGeneration.prototype.CGactorsPopToken = function (oper) {
+    const stmts = [];
+    (oper.operBody.win||[]).forEach(winStmt =>{
+        if(winStmt.type == 'sliding'){
+            let pop = winStmt.arg_list[0].toString()
+            oper._symbol_table.prev.paramNames.forEach(name =>{
+                const reg = new RegExp(`\\b(?<!\\.)${name}\\b`, 'g')
+                pop = pop.replace(reg, 'this.'+name)
+            })
+            stmts.push(`this.${winStmt.winName}.updatehead(${pop});`)
+        }
+    })
+    return `\n popToken(){ ${stmts.join('\n')} }\n`
 }
 
 /**
@@ -388,10 +407,19 @@ WEBCodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
  * }
  * @param {FlatNode} flat
  */
-WEBCodeGeneration.prototype.CGactorsPushToken = function (flat, outEdgeNames) {
-    const push = flat.outPushWeights[0]
-    const stmts = outEdgeNames.map(out => `this.${out}.updatetail(${push});\n`).join('')
-    return `\n pushToken(){ ${stmts} }\n`
+WEBCodeGeneration.prototype.CGactorsPushToken = function (oper) {
+    const stmts = [];
+    (oper.operBody.win||[]).forEach(winStmt =>{
+        if(winStmt.type == 'tumbling'){
+            let push = winStmt.arg_list[0].toString()
+            oper._symbol_table.prev.paramNames.forEach(name =>{
+                const reg = new RegExp(`\\b(?<!\\.)${name}\\b`, 'g')
+                push = push.replace(reg, 'this.'+name)
+            })
+            stmts.push(`this.${winStmt.winName}.updatetail(${push});`)
+        }
+    })
+    return `\n pushToken(){ ${stmts.join('\n')} }\n`
 }
 
 /** 
@@ -409,8 +437,8 @@ WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
     })
     return result+'}';
 }
-WEBCodeGeneration.prototype.CGactorsInit = function(flat, init){
-    const memberTable = (flat.contents._symbol_table||{}).memberTable || {} ;
+WEBCodeGeneration.prototype.CGactorsInit = function(oper, init){
+    const memberTable = (oper._symbol_table||{}).memberTable || {} ;
     let buf = (init||'{ }').toString();
     Object.keys(memberTable).forEach(memberName =>{
         const reg  = new RegExp(`\\b(?<!\\.)${memberName}\\b`,'g')
@@ -422,17 +450,18 @@ WEBCodeGeneration.prototype.CGactorsInit = function(flat, init){
 
 /** 
  * @param {blockNode} work 
- * @param {FlatNode} flat
+ * @param {operatorNode} oper
  */
-WEBCodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
+WEBCodeGeneration.prototype.CGactorsWork = function (work, oper){
     // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
     let innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
     // 替换符号表中的成员变量的访问 
-    const memberTable = (flat.contents._symbol_table||{}).memberTable || {} ;
+    const memberTable = (oper._symbol_table||{}).memberTable || {} ;
     Object.keys(memberTable).forEach(name => replaceWithoutDot(name, 'this.'+name))
+    oper._symbol_table.prev.paramNames.forEach(name => replaceWithoutDot(name, 'this.'+name))
     // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 this.B_1_Sink_2
-    flat.contents.inputs.forEach((src, idx) => replaceStream(src, 'this.'+inEdgeNames[idx]))
-    flat.contents.outputs.forEach((out, idx) => replaceStream(out, 'this.'+outEdgeNames[idx]))
+    oper.inputs.forEach(src => replaceStream(src, 'this.'+src))
+    oper.outputs.forEach(out => replaceStream(out, 'this.'+out))
     return `work(){
         ${innerWork}
         this.pushToken();

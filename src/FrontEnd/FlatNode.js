@@ -1,15 +1,18 @@
 import { operatorNode } from "../ast/node"
 
 export class FlatNode {
-    constructor(/** @type {operatorNode} */ node) {
+    constructor(/** @type {operatorNode} */ node, params = []) {
         this.name = node.operName       // opeator名字
         this.PreName = node.operName    // cwb记录Operator被重命名前的名字
         this.visitTimes = 0             // 表示该结点是否已经被访问过,与dumpdot有关
 
+        this._symbol_table = undefined // 存储对应 operator 所在的 composite 的符号表. 主要目的是获取 paramNames
+
         /** @type {operatorNode} 指向operator(经常量传播后的) */
         this.contents = node
-        // 指向原始operator
-        this.oldContents = node
+
+        /** @type {number[]}*/
+        this.params = params
 
         this.nOut = 0 // 输 出 边个数
         this.nIn = 0  // 输 入 边个数
@@ -34,11 +37,6 @@ export class FlatNode {
         this.outPushWeights = [] // 输 出 边各权重
         this.inPopWeights = []   // 输 入 边各权重
         this.inPeekWeights = []  // 输 入 边各权重
-
-        /** @type {string[]} */
-        this.outPushString = []
-        this.inPopString = []
-        this.inPeekString = []
 
         /** init调度次数 */
         this.initCount = 0

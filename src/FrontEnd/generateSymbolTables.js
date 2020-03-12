@@ -1,22 +1,21 @@
-import { SymbolTable, symbolTableMap, Constant, ArrayConstant, Variable, current_version} from "./symbol";
-import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode} from "../ast/node";
+import { runningStack, SymbolTable, Constant, ArrayConstant, Variable, symbolTableList} from "./symbol";
+import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode} from "../ast/node";
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
 import { BUILTIN_FUNCTIONS } from "./built-in-function";
 
-/** @type{SymbolTable} */
+/** @type {SymbolTable} */
 export let top;
+export function setTop(newTop){ top = newTop; }
+
 let saved = [];
 
 function EnterScopeFn(/** @type {YYLTYPE}*/loc){ 
-    SymbolTable.Level++
     saved.push(top);
     top = new SymbolTable(top,loc);
 }
 
 function ExitScopeFn(){
-    current_version[SymbolTable.Level]++; //创建了新的符号表,当前层的 version + 1 
-    SymbolTable.Level--;
     top = saved.pop();
 }
 
@@ -26,7 +25,7 @@ function ExitScopeFn(){
 export function generateSymbolTables(program){
     let S = new SymbolTable();
     S.loc = {first_line:0,last_line:Infinity};
-    symbolTableMap[0][0] = S;
+    symbolTableList.push(S)
     top = S;
     
     program.forEach(node => {
@@ -43,7 +42,7 @@ export function generateSymbolTables(program){
             console.warn("目前未支持函数符号表")
         }       
     });
-    return symbolTableMap;
+    return symbolTableList;
 }
 
 function generateDeclareNode(/** @type{declareNode} */node){
@@ -78,7 +77,10 @@ function generateComposite(/** @type{compositeNode} */composite) {
     });
     // 第二步 解析 param
     if(body.param && body.param.param_list){
-        (body.param.param_list|| []).forEach(decl => top.InsertIdentifySymbol(decl))
+        (body.param.param_list|| []).forEach(decl => { 
+            top.InsertIdentifySymbol(decl)
+            top.paramNames.push(decl.identifier.name)
+        })
     }
     // 第三步 解析 body
     body.stmt_list.forEach(stmt => generateStmt(stmt))
@@ -178,11 +180,8 @@ function generateStmt(/** @type {Node} */stmt) {
             break
         }
         case compositeCallNode: {
-            /** 不确定是否要在这里做 actual_composite 这个操作 ?
-            let actual_comp = S.LookupCompositeSymbol(stmt.compName)->composite;
-            stmt.actual_composite = actual_comp;
-            // 检查传入的参数是否存在 以及 获得参数值 FIXME */
-            if(! symbolTableMap[0][0].compTable[stmt.compName]){
+            /** 检查传入的参数是否存在 以及 获得参数值 FIXME */
+            if(! symbolTableList[0].compTable[stmt.compName]){
                 error(stmt._loc, `此处调用的 composite 未定义:${stmt.compName}`)
             }
             break
@@ -276,4 +275,48 @@ function generatePipeline(/** @type {pipelineNode} */pipe){
     ;(pipe.inputs||[]).forEach(checkStreamId)
     ;(pipe.outputs||[]).forEach(checkStreamId)
     ;(pipe.body_stmts||[]).forEach(generateStmt)
+}
+
+
+/**
+ * 
+ * @param {operNode} call 
+ * @param {compositeNode} composite 
+ * @param {number[]} params
+ */
+export function generateCompositeRunningContext(call,composite,params=[]){
+    top = new SymbolTable(top, composite._loc)
+
+    generateComposite(composite)
+
+    if(!composite.body) return top
+    // 处理 param
+    if(composite.body.param){
+        composite.body.param.param_list.forEach((decla, index)=>{
+            const variable = top.variableTable[decla.identifier.name]
+            variable.value = new Constant(decla.type, params[index])
+        })
+    }
+
+    // 处理 inputs 和 outputs
+    // 例子 composite Test(input stream<int x>In1, output stream<int x>Out1, stream<int x>Out2)
+    if(composite.inout){
+        composite.inout.input_list.forEach((inDecl, inIndex) => {
+            let prevStream = top.prev.streamTable[call.inputs[inIndex]]
+            let currentStream = top.streamTable[inDecl.id]
+            const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(currentStream.strType);
+            isTypeOK ? top.streamTable[inDecl.id] = prevStream
+                     : error(call._loc, `调用${composite.compName}时输入流类型与定义不吻合`)
+        })
+        composite.inout.output_list.forEach((outDecl, outIndex) => {
+            let prevStream = top.prev.streamTable[call.outputs[outIndex]]
+            let currentStream = top.streamTable[outDecl.id]
+            const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(currentStream.strType);
+            isTypeOK ? top.streamTable[outDecl.id] = prevStream
+                     : error(call._loc, `调用${composite.compName}时输出流类型与定义不吻合`)
+        })
+    }
+
+    debugger;
+    return top
 }
