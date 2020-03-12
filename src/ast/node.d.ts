@@ -103,7 +103,7 @@ export class operBodyNode extends Node{
     op2: 'work'
     work: blockNode
     op3: 'win'
-    window: winStmtNode[]
+    win: winStmtNode[]
 
     constructor(loc: YYLTYPE, stmt_list: Node[], init:blockNode, work: blockNode, window: winStmtNode[]) 
 }
@@ -245,11 +245,13 @@ export class constantNode extends expNode {
 /********************************************************/
 export class operNode extends Node {
     outputs?: string[]
+    inputs?: string[]
 }
 export class compositeCallNode extends operNode {
     compName: string
     inputs?: string[]
     params?: expNode[]
+    _symbol_table: SymbolTable
 
     constructor(loc: YYLTYPE, compName: string, inputs?: string[], params?: expNode[])
 }
