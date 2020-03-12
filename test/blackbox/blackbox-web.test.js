@@ -37,7 +37,8 @@ describe("blackbox 黑盒测试: 代码生成结果是否可运行 -- WEB 后端
         // "matrix.cos", FIXME: WEB 后端目前未支持矩阵
         "pipeline.cos",
         "scheduler.test.cos",
-        "splitjoinTest.cos"
+        "splitjoinTest.cos",
+        "param.cos" // 需要解析 param 的功能成功生效
         ]
 
     files.forEach(file => {

@@ -1,0 +1,49 @@
+//本测试用例用来测试 param 传递
+long long aaa[8] = {0,1,2,3,4,5,6,7};
+composite B(output stream<int x>Out,input stream<int x>In)
+{
+	param
+		int size1,int size2;
+	Out = B(In)
+	{
+		work
+		{
+            int i,j;
+            for(i = 0;i<size1; i++){
+                Out[i].x = In[i].x + i + size2;
+            }
+		}
+		window{
+			In  sliding(size1,size1);
+			Out tumbling(size1);
+		}
+	};
+}
+
+composite Main(){
+	int N =99;
+	stream<int x>S,P;
+	S=Source(){
+		init{
+            if(1) { println(1); }
+		}
+		work{
+			int i;
+			for(i = 0;i < 8;i++){
+				S[i].x=aaa[i];
+			}
+		}
+		window{
+			S tumbling(8);
+		}
+	};
+	P = B(S)(4,3);
+	Sink(P){
+		work{
+			println(P[0].x);
+		}
+		window{
+			P sliding(1,1);
+		}
+	};
+}
