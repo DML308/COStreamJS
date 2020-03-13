@@ -317,6 +317,5 @@ export function generateCompositeRunningContext(call,composite,params=[]){
         })
     }
 
-    debugger;
     return top
 }

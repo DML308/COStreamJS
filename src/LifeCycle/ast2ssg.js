@@ -3,6 +3,7 @@ import { top, setTop, generateCompositeRunningContext } from "../FrontEnd/genera
 import { runningStack, SymbolTable, Variable } from "../FrontEnd/symbol"
 import { debug } from "../utils"
 import { binopNode, operatorNode, compositeCallNode, splitjoinNode, pipelineNode, operNode } from "../ast/node";
+import { COStreamJS } from "../FrontEnd/global";
 /*
  *  功能：将抽象语法树转为平面图
  *  输入参数：gMaincomposite
@@ -39,7 +40,7 @@ export function AST2FlatStaticStreamGraph(mainComposite,unfold,S){
 
 /**
  * 1.遇到 out = call(in){ int / work / window } 形式的 operatorNode, 则在 ssg 中创建该 flatNode 并连接Edge
- * 2.遇到 pipeline 或 splitjoin , 则将其展开为一个真正的 composite 并挂载至 exp.replace_composite
+ * 2.遇到 pipeline 或 splitjoin , 则将其展开为一个真正的 composite 并挂载至 COStream.ast
  * 
  * @param {operNode} call
  * @param {compositeNode} composite
@@ -66,12 +67,15 @@ function GraphToOperators(call, composite, ssg, unfold, S, params = []){
             GraphToOperators(exp,actual_composite, ssg, unfold,S,params);
             
         }else if(exp instanceof splitjoinNode){
-            exp.replace_composite = unfold.UnfoldSplitJoin(exp)
-            GraphToOperators(exp.replace_composite, ssg, unfold,S)
+            const replace_composite = unfold.UnfoldSplitJoin(exp)
+            COStreamJS.ast.push(replace_composite)
+            GraphToOperators(replace_composite, ssg, unfold,S)
 
         }else if(exp instanceof pipelineNode){
-            exp.replace_composite = unfold.UnfoldPipeline(exp)
-            GraphToOperators(exp.replace_composite, ssg, unfold, S)
+            const call = unfold.UnfoldPipeline(exp)
+            debugger
+            const actual_composite = S.compTable[call.compName].composite
+            GraphToOperators(call, actual_composite, ssg, unfold, S)
         }
     }
 

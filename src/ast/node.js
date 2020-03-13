@@ -320,7 +320,6 @@ export class splitjoinNode extends operNode {
         this.split = options.split
         this.body_stmts = options.body_stmts
         this.join = options.join
-        definePrivate(this, 'replace_composite')
     }
 }
 export class pipelineNode extends operNode {
@@ -329,7 +328,6 @@ export class pipelineNode extends operNode {
         this.compName = options.compName
         this.inputs = options.inputs
         this.body_stmts = options.body_stmts
-        definePrivate(this, 'replace_composite')
     }
 }
 export class splitNode extends Node {

@@ -1,8 +1,10 @@
 import { deepCloneWithoutCircle } from "../utils"
 import { compositeCall_list, COStreamJS } from "./global"
-import { addNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode } from "../ast/node";
+import { addNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode } from "../ast/node";
 import { matrix_section } from "../ast/node";
 import { matrix_slice_pair } from "../ast/node";
+import { top } from "./generateSymbolTables"
+
 export class UnfoldComposite {
     constructor() {
         this.num = 0
@@ -117,46 +119,64 @@ UnfoldComposite.prototype.modifyStreamName = function (/*operatorNode **/ oper, 
 }
 
 
-UnfoldComposite.prototype.UnfoldPipeline = function (/* pipelineNode */ node) {
-    compositeCallFlow(node.body_stmts)
-    let compName = this.MakeCompositeName("pipeline")
-    let inout = new ComInOutNode(null, node.inputs, node.outputs)
-    let head = new compHeadNode(null, compName, inout)
-    let stmt_list = generateBodyStmts()
-    let body = new compBodyNode(null, null, stmt_list)
-    let pipeline = new compositeNode(null, head, body)
-    compositeCall_list.length = 0 //清空该数组
-    return pipeline
-
-    /**
+/**
      * 对于如下形式的 pipeline
      * out = pipeline(in) { 
-     *   add A(); 
-     *   add B(); 
-     *   add C();
+     *   add A(1); 
+     *   add B(2); 
+     *   add C(3);
      * } 
-     * 我们要生成的 stmt_list 的格式为{
-     *   //stream<type x>S0_0,S0_1; 理想状态这里应该生成一个 strdcl 语句, 但实际上并没生成
-     *   S0_0 = A(in);
-     *   S0_1 = B(S0_0);
-     *   out= C(S0_1);
-     * }
+     * 我们要生成的 composite 的样式为{
+     *   composite pipeline_0( input stream<int x>S0, output stream<int x>S3){
+     *      stream<int y>S1;
+     *      S1 = A(S0)(1);
+     *      stream<double z>S2; // 注: 不同的 composite 节点的输入输出流类型确实可能不一样
+     *      S2 = B(S1)(2);
+     *      S3 = C(S2)(3);
+     *   }
+     * 将该新生成的 composite 加入 COStreamJS.ast 以及符号表的 S.compTable 中
+     * 然后我们要返回的 compositeCallNode 的样式为
+     *   out = pipeline_0(in);
      */
+UnfoldComposite.prototype.UnfoldPipeline = function (/** @type {pipelineNode} */ node) {
+    compositeCallFlow(node.body_stmts, node)    
+    let compName = this.MakeCompositeName("pipeline")
+    const inStrType = top.streamTable[ node.inputs[0] ].strType, outStrType = top.streamTable[ node.outputs[0] ].strType
+    const input_list = [new inOutdeclNode(null,inStrType, 'S0')]
+    const output_list = [new inOutdeclNode(null,outStrType, 'S'+compositeCall_list.length)]
+    const inout = new ComInOutNode(null, input_list, output_list)
+    const head = new compHeadNode(null, compName, inout)
+    let stmt_list = generateBodyStmts()
+    const body = new compBodyNode(null, null, stmt_list)
+    const pipeline = new compositeNode(null, head, body)
+    
+    COStreamJS.ast.push(pipeline)
+    COStreamJS.S.compTable[compName] = { composite: pipeline };
+    compositeCall_list.length = 0 //清空该数组
+    
+    // 构造 compositeCallNode
+    const compositeCall = new compositeCallNode(null,compName, node.inputs)
+    compositeCall.outputs = node.outputs 
+    return compositeCall
+
+    
     function generateBodyStmts() {
         let result = []
         for (let i = 0; i < compositeCall_list.length; i++) {
-            let inputs = i == 0 ? node.inputs : [compName + '_' + (i - 1)]
-            let outputs = i != compositeCall_list.length - 1 ? [compName + '_' + i] : node.outputs
-
             let compCall = compositeCall_list[i]
-            let call = new compositeCallNode(null, compCall.compName, inputs)
-            call.outputs = outputs
-            //TODO: 符号表修改后要修改对应的这个地方
-            let comp = COStreamJS.S.compTable[compCall.compName].composite;
-            comp = deepCloneWithoutCircle(comp) //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
-            call.actual_composite = UnfoldComposite.prototype.compositeCallStreamReplace(comp, inputs, outputs)
+            const inputNames = ['S'+i], outputNames = ['S'+(i+1)]
+            const comp = COStreamJS.S.compTable[compCall.compName].composite
 
-            let binop = new binopNode(null, outputs, '=', call)
+            // 先检查要不要生成 stream<int y>S1; 这个语句. 只要不是最后一个 add 则都要生成
+            if(i < compositeCall_list.length - 1){
+                const outStrType = comp.inout.output_list[0].strType
+                result.push(new declareNode(null, outStrType, outputNames))  // stream<int x>S1;
+            }
+            // 接着生成 S1 = A(S0)(param1); 这个语句
+            const params = compCall.params.map(exp => exp.value)
+            let call = new compositeCallNode(null, compCall.compName,inputNames, params)
+            call.outputs = outputNames
+            const binop = new binopNode(null, 'S'+(i+1), '=', call)
             result.push(binop)
         }
         return result
@@ -177,7 +197,9 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
 
     function handlerAdd(add) {
         if (add.content instanceof compositeCallNode) {
-            compositeCall_list.push(add.content)
+            let copy = deepCloneWithoutCircle(add.content)
+            copy.params = copy.params.map(exp => exp.value)
+            compositeCall_list.push(copy)
 
         } else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {
             let copy = deepCloneWithoutCircle(add.content)
@@ -187,23 +209,14 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
     /**
      * 对一个静态 for 循环做循环展开, 目前没有符号表, 所以只考虑如下简单例子
      * for(j= 1;j<10;i+=2) //对该例子会将其内部语句展开5次
-     * @warning 得益于 js 的字符串转函数能力, 我们能以一种 hacker 的方式来获取循环次数. 而 C++ 中的做法并非如此
      */
-    function handlerFor(for_stmt) {
+    function handlerFor(/** @type {forNode}*/ for_stmt) {
         /*获得for循环中的init，cond和next值 目前只处理for循环中数据是整型的情况 */
-        let forStr = for_stmt.toString()
-        forStr.match(/([^\{]*)\{/)
-        forStr = RegExp.$1
-        let evalStr = `
-            var count = 0;
-            ${forStr}{
-                count++
-            }
-            return count` ;
-        let count = (new Function(evalStr))()  //得到了 for 循环的实际执行次数
-        //现在需要展开循环的次数 count 和展开循环的循环体都已准备好, 则递归调用.
-        for (let i = 0; i < count; i++) {
+        let itorName = for_stmt.init.left // 获取 for 循环迭代器的 iterator 的名字/初始值
+        top.setVariableValue(itorName, for_stmt.init.right.value)
+        while(for_stmt.cond.value){
             compositeCallFlow(for_stmt.statement.stmt_list)
+            for_stmt.next.value; // 一般是执行 i++
         }
     }
 }

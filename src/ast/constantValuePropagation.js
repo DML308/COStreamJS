@@ -33,6 +33,18 @@ unaryNode.prototype.getValue = function () {
     if (this.first == "-") return -this.second.value
     if (this.first == "~") return ~this.second.value
     if (this.first == "!") return !this.second.value
+    if(this.first == "++"){ // ++i 的情况
+        if(typeof this.second !== 'string') error(this._loc, `++ 运算符的操作对象必须是变量`)
+        let oldVal = top.getVariableValue(this.second)
+        top.setVariableValue(oldVal+1)
+        return oldVal+1
+
+    }else if(this.second == "++"){ // i++ 的情况
+        if(typeof this.first !== 'string') error(this._loc, `++ 运算符的操作对象必须是变量`)
+        let oldVal = top.getVariableValue(this.first)
+        top.setVariableValue(oldVal+1)
+        return oldVal
+    } 
     return NaN
 }
 
@@ -43,6 +55,11 @@ castNode.prototype.getValue = function (){
 Object.defineProperty(String.prototype,'value',{
     get(){
         return top.LookupIdentifySymbol(this).value.val; 
+    }
+})
+Object.defineProperty(Number.prototype,'value',{
+    get(){
+        return this
     }
 })
 
@@ -65,6 +82,11 @@ binopNode.prototype.getValue = function () {
         //c++ 与 js 不同, c++的条件表达式返回 bool 值,而 js 是动态值
         '||': (a, b) => !!(a.value || b.value),
         '&&': (a, b) => !!(a.value && b.value),
+        '=' : (a, b) => top.setVariableValue(a, b.value),
+        '+=': (a, b) => top.setVariableValue(a, a.value + b.value),
+        '-=': (a, b) => top.setVariableValue(a, a.value - b.value),
+        '*=': (a, b) => top.setVariableValue(a, a.value * b.value),
+        '/=': (a, b) => top.setVariableValue(a, a.value / b.value),
     }
     if (this.op in handlers) {
         return this._value = handlers[this.op](this.left, this.right)
