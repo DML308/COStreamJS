@@ -125,7 +125,7 @@ arrayNode.prototype.toString = function () {
 constantNode.prototype.toString = function () {
     let value = this.value
     let escaped = this.source.replace(/\n|↵/g, "\\n")
-    return Number.isNaN(value) ? escaped : value
+    return Number.isNaN(value) ? escaped : value.toString()
 }
 castNode.prototype.toString = function () {
     if(COStreamJS.options.platform === "WEB"){
