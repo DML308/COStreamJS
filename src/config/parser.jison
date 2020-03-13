@@ -282,7 +282,7 @@ join_statement:
         ;
 operator_default_call:
           IDENTIFIER  '(' ')' ';'                           { $$ = new compositeCallNode(@$,$1)    }
-        | IDENTIFIER  '(' argument_expression_list ')' ';'  { $$ = new compositeCallNode(@$,$1,$3) }
+        | IDENTIFIER  '(' argument_expression_list ')' ';'  { $$ = new compositeCallNode(@$,$1,[],$3) }
         ;                 
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
