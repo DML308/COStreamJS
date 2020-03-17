@@ -291,9 +291,9 @@ WEBCodeGeneration.prototype.CGactors = function () {
         buf += this.CGactorsPopToken(oper);
         buf += this.CGactorsPushToken(oper);
         //init部分前的statement赋值
-        buf += this.CGactorsinitVarAndState(oper.operBody.stmt_list);
+        buf += this.CGactorsinitVarAndState(oper.operBody.stmt_list, oper);
         buf += this.CGactorsInit(oper, oper.operBody.init);
-        buf += this.CGactorsWork(oper.operBody.work, oper);
+        buf += this.CGactorsWork(oper.operBody.work, oper, flat);
         /* 类体结束*/
         buf += "}\n";
         COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
@@ -426,15 +426,35 @@ WEBCodeGeneration.prototype.CGactorsPushToken = function (oper) {
  * 将 stmt_list 中的 let i=0部分转换为 this.i=0; 
  * @param {declareNode[]} stmt_list
  */
-WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
+WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list, oper){
+    // 基于符号表来把 变量名 转化为 string
+    const originToString = String.prototype.toString;
+    String.prototype.toString = function (){
+        let searchResult = oper._symbol_table.searchName(this)
+        if(oper._symbol_table.prev.paramNames.includes(this)){
+            return 'this.'+this
+        }else if(searchResult){
+            // 替换符号表中的成员变量和流变量的访问 
+            if(searchResult.type === 'stream' || searchResult.type === 'member'){
+                return 'this.'+this
+            }else if(searchResult.type === 'variable'){
+                // 替换 oper 对上层符号表的数据的访问
+                if(searchResult.origin !== oper._symbol_table){
+                    return oper._symbol_table.getVariableValue(this)
+                }
+            }
+        }
+        return this
+    }
     var result = 'initVarAndState() {'
     stmt_list.forEach( declare =>{
         declare.init_declarator_list.forEach(item =>{
             if(item.initializer){
-                result += 'this.' + item.identifier + '=' + item.initializer +';\n'
+                result += item.identifier + '=' + item.initializer +';\n'
             }
         })
     })
+    String.prototype.toString = originToString;
     return result+'}';
 }
 WEBCodeGeneration.prototype.CGactorsInit = function(oper, init){
@@ -452,30 +472,35 @@ WEBCodeGeneration.prototype.CGactorsInit = function(oper, init){
  * @param {blockNode} work 
  * @param {operatorNode} oper
  */
-WEBCodeGeneration.prototype.CGactorsWork = function (work, oper){
+WEBCodeGeneration.prototype.CGactorsWork = function (work, oper, flat){
+    // 基于符号表来把 work 转化为 string
+    const originToString = String.prototype.toString;
+    String.prototype.toString = function (){
+        debugger;
+        let searchResult = oper._symbol_table.searchName(this)
+        if(flat._symbol_table.paramNames.includes(this)){
+            return 'this.'+this
+        }else if(searchResult){
+            // 替换符号表中的成员变量和流变量的访问 
+            if(searchResult.type === 'stream' || searchResult.type === 'member'){
+                return 'this.'+this
+            }else if(searchResult.type === 'variable'){
+                // 替换 oper 对上层符号表的数据的访问
+                if(searchResult.origin !== oper._symbol_table){
+                    return oper._symbol_table.getVariableValue(this)
+                }
+            }
+        }
+        return this
+    }
+
     // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
     let innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
-    // 替换符号表中的成员变量的访问 
-    const memberTable = (oper._symbol_table||{}).memberTable || {} ;
-    Object.keys(memberTable).forEach(name => replaceWithoutDot(name, 'this.'+name))
-    oper._symbol_table.prev.paramNames.forEach(name => replaceWithoutDot(name, 'this.'+name))
-    // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 this.B_1_Sink_2
-    oper.inputs.forEach(src => replaceStream(src, 'this.'+src))
-    oper.outputs.forEach(out => replaceStream(out, 'this.'+out))
+    String.prototype.toString = originToString;
+
     return `work(){
         ${innerWork}
         this.pushToken();
         this.popToken();
     }\n`
-
-    function replaceWithoutDot(A,B){
-        const reg = new RegExp(`\\b(?<!\\.)${A}\\b`, 'g')
-        innerWork = innerWork.replace(reg, B)
-    }
-    function replaceStream(A, B) {
-        let reg = new RegExp(`${A}(?=\\s+(tumbling|sliding))`, 'g')
-        innerWork = innerWork.replace(reg, B)
-        reg = new RegExp(`${A}(?=\\[)`, 'g')
-        innerWork = innerWork.replace(reg, B)
-    }
 }

@@ -58,7 +58,7 @@ declarator.prototype.toString = function () {
     
 }
 idNode.prototype.toString = function(){
-    return this.name + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
+    return this.name.toString() + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
 }
 declareNode.prototype.toString = function () {
     let type = COStreamJS.options.platform === 'WEB' ? 'let' : this.type
@@ -117,7 +117,8 @@ labeled_statement.prototype.toString = function () {
 }
 //expNode 的子类
 binopNode.prototype.toString = function () {
-    return this.left + this.op + this.right
+    // 强制执行 toString 来实现对 N 等标识符在符号表中的查询
+    return this.left.toString() + this.op + this.right.toString()
 }
 arrayNode.prototype.toString = function () {
     return '' + this.exp + list2String(this.arg_list, '][', '[', ']')
@@ -230,10 +231,10 @@ matrix_section.prototype.toString = function (){
     }
     // 如果是矩阵切片节点(两个数字), 例如 data[i,j] 转义为 data(i,j)
     else if(this.slice_pair_list.length == 2){
-        return this.exp + '(' + list2String(this.slice_pair_list, ',') + ')'
+        return this.exp.toString() + '(' + list2String(this.slice_pair_list, ',') + ')'
     }
     // 其他情况
-    return this.exp + '[' + list2String(this.slice_pair_list, ',') + ']'
+    return this.exp.toString() + '[' + list2String(this.slice_pair_list, ',') + ']'
 }
 lib_binopNode.prototype.toString = function (){
     if(this.lib_name === 'Matrix'){
