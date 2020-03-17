@@ -23,7 +23,7 @@ composite B(output stream<int x>Out,input stream<int x>In)
 
 composite Main(){
 	int N =99;
-	stream<int x,double y>S,P;
+	stream<int x>S,P;
 	S=Source(){
 		init{
             if(1) { println(1); }
