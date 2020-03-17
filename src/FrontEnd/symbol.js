@@ -1,4 +1,4 @@
-import { compositeNode, inOutdeclNode, declareNode, declarator, strdclNode } from "../ast/node.js"
+import { compositeNode, inOutdeclNode, declareNode, declarator, strdclNode, Node } from "../ast/node.js"
 import { FlatNode } from "./FlatNode"
 
 const MAX_SCOPE_DEPTH = 10 //定义最大嵌套深度为100

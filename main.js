@@ -58,7 +58,7 @@ COStreamJS.main = function(str, cpuCoreNum = 4){
     this.mp.computeCommunication()
     // 8. 输出统计信息
     let SI = this.GetSpeedUpInfo(this.ssg,this.mp)
-    debug(this.PrintSpeedUpInfo(SI))
+    utils.debug(this.PrintSpeedUpInfo(SI))
     // 9. 阶段赋值
     this.MaxStageNum = this.StageAssignment(this.ssg,this.mp)
     // 10.目标代码生成
