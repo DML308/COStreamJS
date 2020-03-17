@@ -288,21 +288,17 @@ export class operNode extends Node {
     }
 }
 export class compositeCallNode extends operNode {
-    constructor(loc, compName, inputs, params) {
+    constructor(loc, compName, inputs, params = []) {
         super(loc)
         Object.assign(this, {
             compName,
             op1: '(',
             inputs,
-            op2: ')'
+            op2: ')',
+            op3: '(',
+            params,
+            op4: ')'
         })
-        if (params) {
-            Object.assign(this, {
-                op3: '(',
-                params,
-                op4: ')'
-            })
-        }
     }
 }
 export class operatorNode extends operNode {

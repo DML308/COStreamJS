@@ -250,7 +250,7 @@ export class operNode extends Node {
 export class compositeCallNode extends operNode {
     compName: string
     inputs?: string[]
-    params?: expNode[]
+    params: expNode[]
     _symbol_table: SymbolTable
 
     constructor(loc: YYLTYPE, compName: string, inputs?: string[], params?: expNode[])

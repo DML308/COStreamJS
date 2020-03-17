@@ -59,6 +59,7 @@ class CompositeSymbol {
 export class SymbolTable {
     constructor(prev, loc) {
         this.count = 0; // FIXME: 不确定有什么用
+        this.root = prev ? prev.root : this // 标记全局最根部的符号表
         this.loc = loc;
         /** @type {SymbolTable} */
         this.prev = prev

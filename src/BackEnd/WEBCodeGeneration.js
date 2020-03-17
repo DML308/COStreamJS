@@ -476,7 +476,6 @@ WEBCodeGeneration.prototype.CGactorsWork = function (work, oper, flat){
     // 基于符号表来把 work 转化为 string
     const originToString = String.prototype.toString;
     String.prototype.toString = function (){
-        debugger;
         let searchResult = oper._symbol_table.searchName(this)
         if(flat._symbol_table.paramNames.includes(this)){
             return 'this.'+this
@@ -485,8 +484,15 @@ WEBCodeGeneration.prototype.CGactorsWork = function (work, oper, flat){
             if(searchResult.type === 'stream' || searchResult.type === 'member'){
                 return 'this.'+this
             }else if(searchResult.type === 'variable'){
-                // 替换 oper 对上层符号表的数据的访问
-                if(searchResult.origin !== oper._symbol_table){
+                // 如果该变量是属于根符号表中的全局变量
+                if(searchResult.origin === oper._symbol_table.root){
+                    return this
+                }
+                // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
+                else if(searchResult.origin !== oper._symbol_table){
+                    if(!oper._symbol_table.LookupIdentifySymbol(this).value){
+                        debugger;
+                    }
                     return oper._symbol_table.getVariableValue(this)
                 }
             }

@@ -25,7 +25,8 @@ function ExitScopeFn(){
 export function generateSymbolTables(program){
     let S = new SymbolTable();
     S.loc = {first_line:0,last_line:Infinity};
-    symbolTableList.push(S)
+    symbolTableList.length = 0; // 清空旧的符号表(当程序重复执行时可能会遇到符号表 List 不为空的情况)
+    symbolTableList.push(S) 
     top = S;
     
     program.forEach(node => {
