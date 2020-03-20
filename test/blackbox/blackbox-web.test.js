@@ -33,11 +33,11 @@ describe("blackbox 黑盒测试: 代码生成结果是否可运行 -- WEB 后端
     var files = [
         "wang.cos", 
         "multiOutputs.cos",
-        // "DCT.cos", FIXME: splitjoin 没做
+        "DCT.cos",
         // // "matrix.cos", FIXME: WEB 后端目前未支持矩阵
         "pipeline.cos",
         "scheduler.test.cos",
-        "splitjoinTest.cos",// FIXME: splitjoin 没做
+        "splitjoinTest.cos",
         "param.cos",
         "FFT6.cos"
         ]
