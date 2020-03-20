@@ -5,7 +5,7 @@ import "./src/ast/constantValuePropagation"
 import { ast2String } from "./src/ast/toString"
 import { SemCheck } from "./src/LifeCycle/semcheck"
 import { AST2FlatStaticStreamGraph } from "./src/LifeCycle/ast2ssg"
-import { unfold } from "./src/FrontEnd/unfoldComposite"
+import { UnfoldComposite } from "./src/FrontEnd/unfoldComposite"
 import { COStreamJS } from "./src/FrontEnd/global"
 import { SymbolTable } from "./src/FrontEnd/symbol"
 import {generateSymbolTables} from "./src/FrontEnd/generateSymbolTables"
@@ -21,7 +21,7 @@ import handle_options from './src/LifeCycle/handle_options'
 Object.assign(COStreamJS.__proto__, {
     parser,
     AST2FlatStaticStreamGraph,
-    unfold,
+    unfold : new UnfoldComposite(),
     SemCheck,
     DumpStreamGraph,
     GreedyPartition,
