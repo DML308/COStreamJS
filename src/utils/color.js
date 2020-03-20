@@ -14,7 +14,7 @@ export function error(...args) {
     args.forEach(arg =>{
         if(typeof arg === "string"){
             error_obj.msg += arg
-        }else if(typeof arg === 'object' && arg.first_line !== undefined){
+        }else if(typeof arg === 'object' && arg !== null && arg.first_line !== undefined){
             error_obj.loc = arg
         }else{
             error_obj.other.push(arg)
