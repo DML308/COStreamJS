@@ -260,18 +260,13 @@ WEBCodeGeneration.prototype.Pack = function Pack(){
     COStreamJS.files['main.cpp'] = Object.values(COStreamJS.files).join('\n').beautify();
 }
 
-/** COStream 内建节点, 无需去重 */
-const ProtectedActor = ['join', 'duplicate', 'roundrobin']
 /**
  * 生成各个计算节点, 例如 class Source {}; class Sink {};
  */
 WEBCodeGeneration.prototype.CGactors = function () {
     var hasGenerated = new Set() //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
     this.ssg.flatNodes.forEach(flat => {
-        /** 暂时不对COStream 内建节点做去重操作 */
-        if(ProtectedActor.includes(flat.PreName)){
-            flat.PreName = flat.name
-        } 
+        
         if (hasGenerated.has(flat.PreName)) return
         hasGenerated.add(flat.PreName)
 
@@ -293,7 +288,7 @@ WEBCodeGeneration.prototype.CGactors = function () {
         //init部分前的statement赋值
         buf += this.CGactorsinitVarAndState(oper.operBody.stmt_list, oper);
         buf += this.CGactorsInit(oper, oper.operBody.init);
-        buf += this.CGactorsWork(oper.operBody.work, oper, flat);
+        buf += this.CGactorsWork(oper.operBody.work, flat);
         /* 类体结束*/
         buf += "}\n";
         COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
@@ -472,11 +467,11 @@ WEBCodeGeneration.prototype.CGactorsInit = function(oper, init){
  * @param {blockNode} work 
  * @param {operatorNode} oper
  */
-WEBCodeGeneration.prototype.CGactorsWork = function (work, oper, flat){
+WEBCodeGeneration.prototype.CGactorsWork = function (work, flat){
     // 基于符号表来把 work 转化为 string
     const originToString = String.prototype.toString;
     String.prototype.toString = function (){
-        let searchResult = oper._symbol_table.searchName(this)
+        let searchResult = work._symbol_table.searchName(this)
         if(flat._symbol_table.paramNames.includes(this)){
             return 'this.'+this
         }else if(searchResult){
@@ -485,15 +480,15 @@ WEBCodeGeneration.prototype.CGactorsWork = function (work, oper, flat){
                 return 'this.'+this
             }else if(searchResult.type === 'variable'){
                 // 如果该变量是属于根符号表中的全局变量
-                if(searchResult.origin === oper._symbol_table.root){
+                if(searchResult.origin === work._symbol_table.root){
                     return this
                 }
                 // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
-                else if(searchResult.origin !== oper._symbol_table){
-                    if(!oper._symbol_table.LookupIdentifySymbol(this).value){
+                else if(searchResult.origin !== work._symbol_table){
+                    if(!work._symbol_table.LookupIdentifySymbol(this).value){
                         debugger;
                     }
-                    return oper._symbol_table.getVariableValue(this)
+                    return work._symbol_table.getVariableValue(this)
                 }
             }
         }

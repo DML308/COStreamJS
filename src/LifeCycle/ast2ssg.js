@@ -67,13 +67,12 @@ function GraphToOperators(call, composite, ssg, unfold, S, params = []){
             GraphToOperators(exp,actual_composite, ssg, unfold,S,params);
             
         }else if(exp instanceof splitjoinNode){
-            const replace_composite = unfold.UnfoldSplitJoin(exp)
-            COStreamJS.ast.push(replace_composite)
-            GraphToOperators(replace_composite, ssg, unfold,S)
+            const call = unfold.UnfoldSplitJoin(exp)
+            const actual_composite = S.compTable[call.compName].composite
+            GraphToOperators(call, actual_composite, ssg, unfold,S)
 
         }else if(exp instanceof pipelineNode){
             const call = unfold.UnfoldPipeline(exp)
-            debugger
             const actual_composite = S.compTable[call.compName].composite
             GraphToOperators(call, actual_composite, ssg, unfold, S)
         }

@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode } from "./node.js"
+import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode, splitjoinNode, addNode, splitNode, joinNode } from "./node.js"
 import { COStreamJS } from "../FrontEnd/global"
 import { error } from "../utils/color.js";
 import { BUILTIN_MATH } from "../FrontEnd/built-in-function.js";
@@ -97,7 +97,7 @@ const isNoSemi = node => ['blockNode', 'forNode', 'selection_statement'].include
 
 //将每一行 statement 的';'上提至 blockNode 处理
 blockNode.prototype.toString = function () {
-    if (!this.stmt_list || this.stmt_list == 0) return '{ }'
+    if (!this.stmt_list || this.stmt_list.length == 0) return '{ }'
     var str = '{\n';
     this.stmt_list.forEach(x => {
         str += x.toString()
@@ -118,7 +118,10 @@ labeled_statement.prototype.toString = function () {
 //expNode 的子类
 binopNode.prototype.toString = function () {
     // 强制执行 toString 来实现对 N 等标识符在符号表中的查询
-    return this.left.toString() + this.op + this.right.toString()
+    if(this.op !== '.'){
+        return this.left.toString() + this.op + this.right.toString()
+    }
+    return this.left.toString() + this.op + this.right // 例如 In[0].i = i 时, 对左边的.i 不检查符号表, 而对右侧的 i 检查是否是上层符号表的成员 
 }
 arrayNode.prototype.toString = function () {
     return '' + this.exp + list2String(this.arg_list, '][', '[', ']')
@@ -139,7 +142,7 @@ parenNode.prototype.toString = function () {
     return '(' + this.exp + ')'
 }
 unaryNode.prototype.toString = function () {
-    return '' + this.first + this.second
+    return '' + this.first.toString() + this.second.toString()
 }
 operatorNode.prototype.toString = function () {
     var str = this.operName + '('
@@ -148,7 +151,7 @@ operatorNode.prototype.toString = function () {
 }
 operBodyNode.prototype.toString = function () {
     var str = '{\n'
-    str += this.stmt_list ? list2String(this.stmt_list, ';\n') + ';\n' : ''
+    str += this.stmt_list ? list2String(this.stmt_list, ';\n','',';\n') : ''
     str += this.init ? 'init' + this.init : ''
     str += this.work ? 'work' + this.work : ''
     str += this.win ? 'window{' + list2String(this.win, ';\n') + ';\n' + '}' : ''
@@ -163,6 +166,7 @@ forNode.prototype.toString = function () {
     str += this.cond ? this.cond.toString() + ';' : ';'
     str += this.next ? this.next.toString() : ''
     str += ')' + this.statement.toString()
+    str += this.statement instanceof blockNode ? '' : ';' // 若该 for 只有一条语句, 则补充一个分号
     return str
 }
 whileNode.prototype.toString = function (){
@@ -179,6 +183,22 @@ selection_statement.prototype.toString = function () {
     } else if (this.op1 == 'switch') {
 
     }
+}
+splitNode.prototype.toString = function (){
+    return this.name + ' ' + this.type + '(' + list2String(this.arg_list,',') + ');';
+}
+joinNode.prototype.toString = function (){
+    return this.name + ' ' + this.type + '(' + list2String(this.arg_list,',') + ');';
+}
+splitjoinNode.prototype.toString = function (){
+    var str =  this.compName + '(' + list2String(this.inputs,',') + ')' + '{\n' 
+    str += this.split + '\n'
+    str += list2String(this.body_stmts,'\n')
+    str += this.join + '\n}'
+    return str
+}
+addNode.prototype.toString = function (){
+    return this.name + ' ' + this.content.toString()
 }
 
 const differentPlatformPrint = {

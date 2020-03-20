@@ -36,13 +36,13 @@ unaryNode.prototype.getValue = function () {
     if(this.first == "++"){ // ++i 的情况
         if(typeof this.second !== 'string') error(this._loc, `++ 运算符的操作对象必须是变量`)
         let oldVal = top.getVariableValue(this.second)
-        top.setVariableValue(oldVal+1)
+        top.setVariableValue(this.first, oldVal+1)
         return oldVal+1
 
     }else if(this.second == "++"){ // i++ 的情况
         if(typeof this.first !== 'string') error(this._loc, `++ 运算符的操作对象必须是变量`)
         let oldVal = top.getVariableValue(this.first)
-        top.setVariableValue(oldVal+1)
+        top.setVariableValue(this.first, oldVal+1)
         return oldVal
     } 
     return NaN
@@ -54,6 +54,9 @@ castNode.prototype.getValue = function (){
 
 Object.defineProperty(String.prototype,'value',{
     get(){
+        if(!Number.isNaN(parseFloat(this))){
+            return parseFloat(this); // 如果这个字符串本身就是一个数字, 则直接返回, 例如'0;
+        }
         return top.LookupIdentifySymbol(this).value.val; 
     }
 })
@@ -73,6 +76,8 @@ binopNode.prototype.getValue = function () {
         '|': (a, b) => a.value | b.value,
         '&': (a, b) => a.value & b.value,
         '^': (a, b) => a.value ^ b.value,
+        '<': (a, b) => a.value < b.value,
+        '>': (a, b) => a.value > b.value,
         '==': (a, b) => a.value == b.value,
         '!=': (a, b) => a.value != b.value,
         '<=': (a, b) => a.value <= b.value,

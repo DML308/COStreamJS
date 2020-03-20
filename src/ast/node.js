@@ -275,7 +275,7 @@ export class callNode extends expNode {
 export class constantNode extends expNode {
     constructor(loc, sourceStr='') {
         super(loc)
-        this.source = sourceStr
+        this.source = sourceStr.toString()
     }
 }
 /********************************************************/

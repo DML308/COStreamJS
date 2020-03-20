@@ -91,6 +91,7 @@ function generateComposite(/** @type{compositeNode} */composite) {
 const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section]
 function generateStmt(/** @type {Node} */stmt) {
     switch (stmt.constructor) {
+        case Number: break;
         case String: {
             if (!top.searchName(stmt)) error(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top)
             break;
@@ -229,11 +230,15 @@ function generateOperatorNode(/** @type {operatorNode}*/oper){
             })
         }
         if(body.init){
-            generateStmt(body.init);
+            EnterScopeFn(body.init._loc);
+            generateStmt(body.init)
+            body.init._symbol_table = top
+            ExitScopeFn();
         }
         if(body.work){
             EnterScopeFn(body.work._loc);
-            generateStmt(body.work);
+            generateStmt(body.work)
+            body.work._symbol_table = top
             ExitScopeFn();
         }
         if(body.window){
