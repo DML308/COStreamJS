@@ -47,7 +47,7 @@ export class GreedyPartition extends Partition {
     }
     setCpuCoreNum(num) {
         this.mnparts = num
-        this.X = Array.from({ length: num }).map(_ => [])
+        this.X = Array.from({ length: num }).map(_ => []) // 初始化一个二维数组(先创建一个长度为 num 的一维数组, 再将每个位置映射为一个新数组)
         this.w = Array.from({ length: num }).fill(0)
     }
 }

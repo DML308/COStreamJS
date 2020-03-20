@@ -8,6 +8,7 @@ import { SymbolTable } from "./symbol";
 
 export class UnfoldComposite {
     constructor() {
+        /** @type {number} 用于对展开的 pipeline spitjoin 的 name 添加序号 */
         this.num = 0
         /** @type {Array<{ compName: string, content:string }>} 用于保存展开结果的记录, 避免重复展开 */
         this.cached = []

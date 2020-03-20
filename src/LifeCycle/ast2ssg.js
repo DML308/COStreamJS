@@ -68,7 +68,7 @@ function GraphToOperators(call, composite, ssg, unfold, S, params = []){
             
         }else if(exp instanceof splitjoinNode){
             const call = unfold.UnfoldSplitJoin(exp)
-            const actual_composite = S.compTable[call.compName].composite
+            const actual_composite = S.compTable[call.compName].composite // 查看该生成的结构: debug(actual_composite.toString().beautify())
             GraphToOperators(call, actual_composite, ssg, unfold,S)
 
         }else if(exp instanceof pipelineNode){
