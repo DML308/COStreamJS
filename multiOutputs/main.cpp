@@ -16,9 +16,8 @@ int MAX_ITER=1;//默认的执行次数是1
 extern void thread_0_fun();
 extern void thread_1_fun();
 extern void thread_2_fun();
-extern void thread_3_fun();
 
-pthread_t tid[4];
+pthread_t tid[3];
 
 void* thread_1_fun_start(void *)
 {
@@ -36,25 +35,16 @@ void* thread_2_fun_start(void *)
 }
 
 
-void* thread_3_fun_start(void *)
-{
-  set_cpu(3, tid[3]);
-  thread_3_fun();
-  return 0;
-}
-
-
 
 int main(int argc,char **argv){
   void setRunIterCount(int,char**);
   setRunIterCount(argc,argv);
   
   set_cpu(0,tid[0]);
-  allocBarrier(4);
+  allocBarrier(3);
   
   pthread_create (&tid[1], NULL, thread_1_fun_start, (void*)NULL);
   pthread_create (&tid[2], NULL, thread_2_fun_start, (void*)NULL);
-  pthread_create (&tid[3], NULL, thread_3_fun_start, (void*)NULL);
   
   
   thread_0_fun();

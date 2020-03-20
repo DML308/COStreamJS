@@ -12,6 +12,7 @@ extern int MAX_ITER;
 void thread_1_fun()
 {
   workerSync(1);
+  Source Source_0_obj(Source_0_B_1);
   Sink Sink_2_obj(B_1_Sink_2);
   char stage[3] = {
     1,0,0
@@ -21,6 +22,9 @@ void thread_1_fun()
     if(2 == _stageNum){
       Sink_2_obj.runInitScheduleWork();
     }
+    if(0 == _stageNum){
+      Source_0_obj.runInitScheduleWork();
+    }
     
     workerSync(1);
     
@@ -29,6 +33,9 @@ void thread_1_fun()
   for(int _stageNum = 3; _stageNum < 2*3+MAX_ITER-1; _stageNum++){
     if(stage[2]){
       Sink_2_obj.runSteadyScheduleWork();
+    }
+    if(stage[0]){
+      Source_0_obj.runSteadyScheduleWork();
     }
     for(int index=2; index>=1; --index){
       stage[index] = stage[index-1];

@@ -6,7 +6,7 @@
 #include <string>
 using namespace std;
 struct streamData{
-  int x;double y;
+  int x;
 };
 
 extern Buffer<streamData>Source_0_B_1;

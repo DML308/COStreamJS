@@ -2,7 +2,7 @@
 var COStreamJS = (function () {
     'use strict';
 
-    function debug$1(...args) {
+    function debug(...args) {
         console.log("%c " + args[0], "color: #0598bd", ...args.slice(1));
     }
     function green(...args) {
@@ -18,9 +18,9 @@ var COStreamJS = (function () {
         args.forEach(arg =>{
             if(typeof arg === "string"){
                 error_obj.msg += arg;
-            }else if(typeof arg === 'object' && arg.first_line !== undefined){
+            }else if(typeof arg === 'object' && arg !== null && arg.first_line !== undefined){
                 error_obj.loc = arg;
-            }else{
+            }else {
                 error_obj.other.push(arg);
             }
         });
@@ -58,10 +58,10 @@ var COStreamJS = (function () {
                         var nChild = dumpdot(node[i]);
                         body += `    ${nThis}:${tag++} -> ${nChild}\n`;
                     }
-                }else{
+                }else {
                     return ast2dot.count++
                 }
-            }else{
+            }else {
                 //生成一个dot 文件中的行
                 var nThis = newNode(node);
                 //遍历它的孩子将 nThis 和 nChild 进行连线
@@ -114,7 +114,7 @@ var COStreamJS = (function () {
                     types = types.join(" or ");
                     if (node[i].length > 0) line += `[${node[i].length} ${types}]`; 
                     else line += `[ ]`;
-                }else{
+                }else {
                     line+= ' ';
                 }
             }
@@ -143,7 +143,7 @@ var COStreamJS = (function () {
                     Object.keys(node).forEach(key => {
                         if(key.startsWith('_')){
                             obj[key] = node[key];
-                        }else{
+                        }else {
                             obj[key] = deepClone(node[key]);
                         }
                     });
@@ -175,7 +175,7 @@ var COStreamJS = (function () {
     var utils = /*#__PURE__*/Object.freeze({
         __proto__: null,
         checkBraceMatching: checkBraceMatching,
-        debug: debug$1,
+        debug: debug,
         line: line,
         error: error$1,
         green: green,
@@ -216,7 +216,7 @@ var COStreamJS = (function () {
         return result
     };
 
-    class Node$1 {
+    class Node {
         constructor(loc) {
             this._loc = loc;
             ['_loc'].forEach(key => {
@@ -227,14 +227,14 @@ var COStreamJS = (function () {
     /********************************************************/
     /*              1.1 declaration                         */
     /********************************************************/
-    class declareNode extends Node$1 {
+    class declareNode extends Node {
         constructor(loc, type, init_declarator_list) {
             super(loc);
             this.type = type;
             this.init_declarator_list = [].concat(init_declarator_list);
         }
     }
-    class idNode extends Node$1{
+    class idNode extends Node{
         constructor(loc, name, arg){
             super(loc);
             this.name = name;
@@ -245,7 +245,7 @@ var COStreamJS = (function () {
             } 
         }
     }
-    class declarator extends Node$1 {
+    class declarator extends Node {
         constructor(loc, identifier, initializer) {
             super(loc);
             this.identifier = identifier;
@@ -257,7 +257,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /*              1.2 function.definition 函数声明          */
     /********************************************************/
-    class function_definition extends Node$1 {
+    class function_definition extends Node {
         constructor(loc, type, declarator,param_list, compound) {
             super(loc);
             this.type = type;
@@ -271,7 +271,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /*        2. composite                                  */
     /********************************************************/
-    class compositeNode extends Node$1 {
+    class compositeNode extends Node {
         constructor(loc, head = {}, body = {}) {
             super(loc);
             Object.assign(this, {
@@ -282,25 +282,25 @@ var COStreamJS = (function () {
             });
         }
     }
-    class compHeadNode extends Node$1 {
+    class compHeadNode extends Node {
         constructor(loc, compName, inout) {
             super(loc);
             Object.assign(this, { op: 'composite', compName, inout });
         }
     }
-    class ComInOutNode extends Node$1 {
+    class ComInOutNode extends Node {
         constructor(loc, input_list = [], output_list = []) {
             super(loc);
             Object.assign(this, { op1: 'input', input_list, op2: 'output', output_list });
         }
     }
-    class inOutdeclNode extends Node$1 {
+    class inOutdeclNode extends Node {
         constructor(loc, strType, id) {
             super(loc);
             Object.assign(this, { strType, id });
         }
     }
-    class strdclNode extends Node$1 {
+    class strdclNode extends Node {
         constructor(loc, type, identifier) {
             super(loc);
             this.op = 'stream<';
@@ -310,7 +310,7 @@ var COStreamJS = (function () {
             this.op2 = '>';
         }
     }
-    class compBodyNode extends Node$1 {
+    class compBodyNode extends Node {
         constructor(loc, param, stmt_list) {
             super(loc);
             Object.assign(this, {
@@ -321,7 +321,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class paramNode extends Node$1 {
+    class paramNode extends Node {
         constructor(loc, param_list) {
             super(loc);
             if (param_list) {
@@ -330,7 +330,7 @@ var COStreamJS = (function () {
             this.param_list = param_list;
         }
     }
-    class operBodyNode extends Node$1 {
+    class operBodyNode extends Node {
         constructor(loc, stmt_list, init, work, win) {
             super(loc);
             Object.assign(this, {
@@ -341,7 +341,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class winStmtNode extends Node$1 {
+    class winStmtNode extends Node {
         constructor(loc, winName, options = {}) {
             super(loc);
             Object.assign(this, {
@@ -354,25 +354,25 @@ var COStreamJS = (function () {
     /********************************************************/
     /*        3. statement 花括号内以';'结尾的结构是statement   */
     /********************************************************/
-    class blockNode extends Node$1 {
+    class blockNode extends Node {
         constructor(loc, op1, stmt_list, op2) {
             super(loc);
             Object.assign(this, { op1, stmt_list, op2 });
         }
     }
-    class jump_statement extends Node$1 {
+    class jump_statement extends Node {
         constructor(loc, op1, op2) {
             super(loc);
             Object.assign(this, { op1, op2 });
         }
     }
-    class labeled_statement extends Node$1 {
+    class labeled_statement extends Node {
         constructor(loc, op1, op2, op3, statement) {
             super(loc);
             Object.assign(this, { op1, op2, op3, statement });
         }
     }
-    class selection_statement extends Node$1 {
+    class selection_statement extends Node {
         constructor(loc, op1, op2, exp, op3, statement, op4, else_statement) {
             super(loc);
             Object.assign(this, {
@@ -381,7 +381,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class whileNode extends Node$1 {
+    class whileNode extends Node {
         constructor(loc, exp, statement) {
             super(loc);
             Object.assign(this, {
@@ -393,7 +393,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class doNode extends Node$1 {
+    class doNode extends Node {
         constructor(loc, exp, statement) {
             super(loc);
             Object.assign(this, {
@@ -406,7 +406,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class forNode extends Node$1 {
+    class forNode extends Node {
         constructor(loc, init, cond, next, statement) {
             super(loc);
             Object.assign(this, {
@@ -422,7 +422,7 @@ var COStreamJS = (function () {
     /*        4. expression 计算表达式头节点                   */
     /********************************************************/
 
-    class expNode extends Node$1 {
+    class expNode extends Node {
         constructor(loc) {
             super(loc);
             //检查是否有常量传播插件提供的 getValue 函数
@@ -432,7 +432,7 @@ var COStreamJS = (function () {
         }
     }
 
-    class unaryNode$1 extends expNode {
+    class unaryNode extends expNode {
         constructor(loc, first, second) {
             super(loc);
             Object.assign(this, { first, second });
@@ -489,35 +489,30 @@ var COStreamJS = (function () {
     class constantNode extends expNode {
         constructor(loc, sourceStr='') {
             super(loc);
-            this.source = sourceStr;
+            this.source = sourceStr.toString();
         }
     }
     /********************************************************/
     /* operNode in expression's right                       */
     /********************************************************/
-    class operNode extends Node$1 {
+    class operNode extends Node {
         constructor(loc) {
             super(loc);
             this.outputs = [];
         }
     }
     class compositeCallNode extends operNode {
-        constructor(loc, compName, inputs, params) {
+        constructor(loc, compName, inputs, params = []) {
             super(loc);
             Object.assign(this, {
                 compName,
                 op1: '(',
                 inputs,
-                op2: ')'
+                op2: ')',
+                op3: '(',
+                params,
+                op4: ')'
             });
-            if (params) {
-                Object.assign(this, {
-                    op3: '(',
-                    params,
-                    op4: ')'
-                });
-            }
-            definePrivate(this, 'actual_composite');
         }
     }
     class operatorNode extends operNode {
@@ -535,7 +530,6 @@ var COStreamJS = (function () {
             this.split = options.split;
             this.body_stmts = options.body_stmts;
             this.join = options.join;
-            definePrivate(this, 'replace_composite');
         }
     }
     class pipelineNode extends operNode {
@@ -544,10 +538,9 @@ var COStreamJS = (function () {
             this.compName = options.compName;
             this.inputs = options.inputs;
             this.body_stmts = options.body_stmts;
-            definePrivate(this, 'replace_composite');
         }
     }
-    class splitNode extends Node$1 {
+    class splitNode extends Node {
         constructor(loc, node = {}) {
             super(loc);
             this.name = "split";
@@ -557,7 +550,7 @@ var COStreamJS = (function () {
             }
         }
     }
-    class joinNode extends Node$1 {
+    class joinNode extends Node {
         constructor(loc, node = {}) {
             super(loc);
             this.name = "join";
@@ -567,19 +560,19 @@ var COStreamJS = (function () {
             }
         }
     }
-    class duplicateNode extends Node$1 {
+    class duplicateNode extends Node {
         constructor(loc, arg_list) {
             super(loc);
             this.arg_list = arg_list;
         }
     }
-    class roundrobinNode extends Node$1 {
+    class roundrobinNode extends Node {
         constructor(loc, arg_list) {
             super(loc);
             this.arg_list = arg_list;
         }
     }
-    class addNode extends Node$1 {
+    class addNode extends Node {
         constructor(loc, content) {
             super(loc);
             this.name = "add";
@@ -590,7 +583,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /* 矩阵相关 node                       */
     /********************************************************/
-    class matrix_constant extends Node$1{
+    class matrix_constant extends Node{
         constructor(loc, rawData){
             super(loc);
             this.rawData = rawData.map(x => (
@@ -613,7 +606,7 @@ var COStreamJS = (function () {
        * [:5]  --- { start: _, op:':', end: 5 }
        * [:]   --- { start: _, op:':', end: _ }
        * [0]   --- { start: 0, op: _ , end: _ }   */
-    class matrix_slice_pair extends Node$1 {
+    class matrix_slice_pair extends Node {
         constructor(loc, start, op, end) {
             super(loc);
             this.start = start;
@@ -631,7 +624,7 @@ var COStreamJS = (function () {
         }
     }
 
-    class lib_binopNode extends Node$1{
+    class lib_binopNode extends Node{
         constructor(loc, lib_name,function_name){
             super(loc);
             this.lib_name = lib_name;
@@ -641,7 +634,7 @@ var COStreamJS = (function () {
 
     var NodeTypes = /*#__PURE__*/Object.freeze({
         __proto__: null,
-        Node: Node$1,
+        Node: Node,
         declareNode: declareNode,
         idNode: idNode,
         declarator: declarator,
@@ -663,7 +656,7 @@ var COStreamJS = (function () {
         doNode: doNode,
         forNode: forNode,
         expNode: expNode,
-        unaryNode: unaryNode$1,
+        unaryNode: unaryNode,
         castNode: castNode,
         binopNode: binopNode,
         ternaryNode: ternaryNode,
@@ -687,20 +680,18 @@ var COStreamJS = (function () {
         lib_binopNode: lib_binopNode
     });
 
-    var version = "0.7.2";
+    var version = "0.8.3";
 
     //对外的包装对象
     var COStreamJS = {
         S : null,
         gMainComposite : null,
         files: {},
-        options: { platform: 'X86' },
+        options: { platform: 'default' },
         plugins: { matrix: false, image: false },
         version
     }; 
     COStreamJS.__proto__ = {};
-    //vector<Node *> compositeCall_list; 存储splitjoin/pipeline中的compositeCall调用
-    var compositeCall_list = [];
 
     /* parser generated by jison 0.4.18 */
     /*
@@ -943,7 +934,7 @@ var COStreamJS = (function () {
      this.$ = new compositeCallNode(this._$,$$[$0-3]);    
     break;
     case 61:
-     this.$ = new compositeCallNode(this._$,$$[$0-4],$$[$0-2]); 
+     this.$ = new compositeCallNode(this._$,$$[$0-4],[],$$[$0-2]); 
     break;
     case 70:
      this.$ = new labeled_statement(this._$,$$[$0-3],$$[$0-2],$$[$0-1],$$[$0]);
@@ -1028,7 +1019,7 @@ var COStreamJS = (function () {
                                                                     if(this.$ instanceof callNode){
                                                                         this.$ = new compositeCallNode(this._$,$$[$0-1].name,$$[$0-1].arg_list,$$[$0]);
                                                                     }         
-                                                                    else{
+                                                                    else {
                                                                         this.$ = new callNode(this._$,$$[$0-1],$$[$0]);
                                                                     }
                                                                 
@@ -1040,7 +1031,7 @@ var COStreamJS = (function () {
      this.$ = new binopNode(this._$,$$[$0-2],$$[$0-1],$$[$0]); 
     break;
     case 112: case 113:
-     this.$ = new unaryNode$1(this._$,$$[$0-1],$$[$0]);    
+     this.$ = new unaryNode(this._$,$$[$0-1],$$[$0]);    
     break;
     case 114:
      error("暂不支持FILEREADER");      
@@ -1084,7 +1075,7 @@ var COStreamJS = (function () {
                                                                 
     break;
     case 122: case 123: case 124:
-     this.$ = new unaryNode$1(this._$,$$[$0-1],$$[$0]); 
+     this.$ = new unaryNode(this._$,$$[$0-1],$$[$0]); 
     break;
     case 125:
      this.$ = new castNode(this._$,$$[$0-2],$$[$0]); 
@@ -1099,7 +1090,7 @@ var COStreamJS = (function () {
                       $$[$0].outputs = $$[$0-2].exp.slice();
                   }else if(typeof $$[$0-2] == "string"){
                       $$[$0].outputs = [$$[$0-2]];
-                  }else{
+                  }else {
                       error("只支持 S = oper()() 或 (S1,S2) = oper()() 两种方式",$$[$0-2],$$[$0]); 
                   }
               }
@@ -1665,12 +1656,76 @@ var COStreamJS = (function () {
     return new Parser;
     })();
 
+    class FlatNode {
+        constructor(/** @type {operatorNode} */ node, params = []) {
+            this.name = node.operName;       // opeator名字
+            this.PreName = node.operName;    // cwb记录Operator被重命名前的名字
+            this.visitTimes = 0;             // 表示该结点是否已经被访问过,与dumpdot有关
+
+            this._symbol_table = undefined; // 存储对应 operator 所在的 composite 的符号表. 主要目的是获取 paramNames
+
+            /** @type {operatorNode} 指向operator(经常量传播后的) */
+            this.contents = node;
+
+            /** @type {number[]}*/
+            this.params = params;
+
+            this.nOut = 0; // 输 出 边个数
+            this.nIn = 0;  // 输 入 边个数
+
+            //两级划分算法中,actor所在的place号、thread号、thread中的序列号
+            this.place_id = 0;
+            this.thread_id = 0;
+            this.post_thread_id = 0;
+            this.serial_id = 0;
+
+            //节点work函数的静态工作量
+            this.work_estimate = 0;
+            // opeator在ssg的flatnodes中的顺序编号
+            this.num = 0;
+
+            /** @type {FlatNode[]} 输出边各operator */
+            this.outFlatNodes = [];  
+            /** @type {FlatNode[]} 输入边各operator */
+            this.inFlatNodes = [];
+
+            /** @type {number[]} */
+            this.outPushWeights = []; // 输 出 边各权重
+            this.inPopWeights = [];   // 输 入 边各权重
+            this.inPeekWeights = [];  // 输 入 边各权重
+
+            /** init调度次数 */
+            this.initCount = 0;
+            /** 稳态调度次数 */
+            this.steadyCount = 0;
+            /** 阶段号 */
+            this.stageNum = 0;
+        }
+
+        AddOutEdges(/*FlatNode */ dest) {
+            this.outFlatNodes.push(dest);
+            this.nOut++;
+        }
+        AddInEdges(/*FlatNode */ src) {
+            this.inFlatNodes.push(src);
+            this.nIn++;
+        }
+        // 访问该结点
+        VisitNode() {
+            this.visitTimes++;
+        }
+        ResetVisitTimes() {
+            this.visitTimes = 0;
+        }
+
+    }
+
     const MAX_SCOPE_DEPTH = 10; //定义最大嵌套深度为100
-    /*level表示当前嵌套深度，version表示嵌套域计数器 */
 
+    /** @type {SymbolTable[]} */
+    let runningStack = [];
     const current_version = Array.from({length:MAX_SCOPE_DEPTH}).fill(0);
-
-    const symbolTableMap = Array.from({length:MAX_SCOPE_DEPTH}).map(_ => []); // 二维数组
+    const symbolTableList = /** @type{SymbolTable[]}*/[];
 
 
     class Constant {
@@ -1695,12 +1750,10 @@ var COStreamJS = (function () {
         print() { };
     }
     class Variable {
-        constructor(valType, name, i) {
+        constructor(valType, name, i, _loc) {
             this.type = valType;
             this.name = name;
-            this.level = undefined;
-            this.version = undefined;
-            this._loc = undefined;
+            this._loc = _loc;
             if (i instanceof Constant) {
                 this.value = i;
             }
@@ -1721,17 +1774,21 @@ var COStreamJS = (function () {
     }
     class SymbolTable {
         constructor(prev, loc) {
+            this.count = 0; // FIXME: 不确定有什么用
+            this.root = prev ? prev.root : this; // 标记全局最根部的符号表
             this.loc = loc;
+            /** @type {SymbolTable} */
             this.prev = prev;
-            let Level = SymbolTable.Level;
-            symbolTableMap[Level][current_version[Level]] = this;
+            symbolTableList.push(this);
+            this.sid = SymbolTable.sid++;
 
             this.funcTable = {};
-            /** @type {Dict<inOutdeclNode>} */
+            /** @type {Dict<{strType: strdclNode, fromIndex: number, fromFlatNode:FlatNode, toIndex: number, toFlatNode: FlatNode}>} */
             this.streamTable = {};  
-            // this.identifyTable = undefined; // 没发现这个的用处
+            
             /** @type {Dict<Variable>} */
             this.memberTable = {}; // 专门用来存储一个operator的成员变量字段
+            this.paramNames = [];
             this.variableTable = {}; //变量
             this.compTable = {}; // composite
             this.optTable = {}; //operator
@@ -1749,6 +1806,12 @@ var COStreamJS = (function () {
             if(this.prev)                return this.prev.searchName(name)
             return undefined;
         }
+        getVariableValue(name){
+            return this.LookupIdentifySymbol(name).value.val;
+        }
+        setVariableValue(name,val){
+            return this.LookupIdentifySymbol(name).value.val = val
+        }
         getExactSymbolTable(name){
             if(this.variableTable[name]) return this
             return this.prev && this.prev.getExactSymbolTable(name)
@@ -1758,7 +1821,7 @@ var COStreamJS = (function () {
             if(this.variableTable[name]) return this.variableTable[name]
             if(this.prev){
                 return this.prev.LookupIdentifySymbol(name)
-            }else{
+            }else {
                 console.warn(`在符号表中查找不到该变量的值: ${name}`);
             }
         }
@@ -1768,7 +1831,7 @@ var COStreamJS = (function () {
         InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
             const name = inOutNode.id;
             this.streamTable[name] ? console.log(`stream ${name} has been declared`)
-            : this.streamTable[name]= inOutNode;
+            : this.streamTable[name]= { strType: inOutNode.strType };
         }
         InsertOperatorSymbol(name, operatorNode){
             this.optTable[name] = operatorNode;
@@ -1779,9 +1842,9 @@ var COStreamJS = (function () {
                 let { initializer, arg_list } = de.identifier;
                 if(de.identifier.arg_list.length){
                     let array_c = new ArrayConstant(de.type,initializer, arg_list.map(_=>_.value));
-                    var variable = new Variable(de.type,name,array_c);
-                }else{
-                    var variable = new Variable(de.type,name,initializer);
+                    var variable = new Variable(de.type,name,array_c, de._loc);
+                }else {
+                    var variable = new Variable(de.type,name,initializer, de._loc);
                 }
                 variable._loc = decl._loc;
                 this.memberTable[name] = variable;
@@ -1791,39 +1854,31 @@ var COStreamJS = (function () {
             if(this.funcTable[name]) return this.funcTable[name]
             if(this.prev){
                 return this.prev.LookupFunctionSymbol(name)
-            }else{
+            }else {
                 console.warn(`在符号表中查找不到该函数: ${name}`);
             }
         }
     }
-    // 将 Level 挂载为该类的静态变量 
-    SymbolTable.Level = 0;
+    SymbolTable.sid = 0; // 类的静态类型, 类似 vue 的 cid, 用来区分生成的符号表的顺序
 
     SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(node, /** @type {Constant} */ constant){
-        const Level = SymbolTable.Level;
         if(node instanceof Node){
             if(node instanceof declarator){
                 let name = node.identifier.name;
-                let variable = new Variable(node.type, name, constant); // 无论传入的是常量还是变量, 归一为 Variable 结构
-                node.level = Level;
-                node.version = current_version[Level];
-                variable.level = Level;
-                variable.version = current_version[Level];
+                let variable = new Variable(node.type, name, constant, node._loc); // 无论传入的是常量还是变量, 归一为 Variable 结构
 
                 this.variableTable[name] ? console.log(`${name} had been declared`)
                                      : this.variableTable[name]= variable;
             }else if(node instanceof inOutdeclNode){
-                let name = node.id; // 是否需要设置 level version ?
+                let name = node.id;
                 this.variableTable[name] ? console.log(`${name} had been declared`)
                                      : this.variableTable[name]= null;
             }
         }else if(node instanceof Variable){
             let name = node.name;
-            node.level = Level;
-            node.version = current_version[Level];
             this.variableTable[name] ? console.log(`${name} had been declared`)
                                      : this.variableTable[name]= node;
-        }else{
+        }else {
             throw new Error("插入 IndetifySymbol 时出错, node 类型错误")
         }
     };
@@ -1831,19 +1886,18 @@ var COStreamJS = (function () {
     const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','round','ceil','abs','log','sqrt'];
     const BUILTIN_FUNCTIONS = ['print','println'].concat(BUILTIN_MATH);
 
-    /** @type{SymbolTable} */
+    /** @type {SymbolTable} */
     let top;
+    function setTop(newTop){ top = newTop; }
+
     let saved = [];
 
     function EnterScopeFn(/** @type {YYLTYPE}*/loc){ 
-        SymbolTable.Level++;
         saved.push(top);
         top = new SymbolTable(top,loc);
     }
 
     function ExitScopeFn(){
-        current_version[SymbolTable.Level]++; //创建了新的符号表,当前层的 version + 1 
-        SymbolTable.Level--;
         top = saved.pop();
     }
 
@@ -1853,7 +1907,8 @@ var COStreamJS = (function () {
     function generateSymbolTables(program){
         let S = new SymbolTable();
         S.loc = {first_line:0,last_line:Infinity};
-        symbolTableMap[0][0] = S;
+        symbolTableList.length = 0; // 清空旧的符号表(当程序重复执行时可能会遇到符号表 List 不为空的情况)
+        symbolTableList.push(S); 
         top = S;
         
         program.forEach(node => {
@@ -1870,7 +1925,7 @@ var COStreamJS = (function () {
                 console.warn("目前未支持函数符号表");
             }       
         });
-        return symbolTableMap;
+        return symbolTableList;
     }
 
     function generateDeclareNode(/** @type{declareNode} */node){
@@ -1881,7 +1936,7 @@ var COStreamJS = (function () {
                 const variable = new Variable("array",init_node.identifier.name,array);
                 top.InsertIdentifySymbol(variable);
 
-            }else{
+            }else {
                 // 不是数组的情况
                 const constant = new Constant(node.type, (init_node.initializer || {}).value);
                 top.InsertIdentifySymbol(init_node,constant);
@@ -1905,16 +1960,20 @@ var COStreamJS = (function () {
         });
         // 第二步 解析 param
         if(body.param && body.param.param_list){
-            (body.param.param_list|| []).forEach(decl => top.InsertIdentifySymbol(decl));
+            (body.param.param_list|| []).forEach(decl => { 
+                top.InsertIdentifySymbol(decl);
+                top.paramNames.push(decl.identifier.name);
+            });
         }
         // 第三步 解析 body
         body.stmt_list.forEach(stmt => generateStmt(stmt));
     }
 
     // 解析 语句
-    const ignoreTypes = [unaryNode$1, ternaryNode, parenNode, castNode, constantNode, matrix_section];
+    const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section];
     function generateStmt(/** @type {Node} */stmt) {
         switch (stmt.constructor) {
+            case Number: break;
             case String: {
                 if (!top.searchName(stmt)) error$1(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top);
                 break;
@@ -1943,7 +2002,7 @@ var COStreamJS = (function () {
                         }
                         
                     }
-                }else{
+                }else {
                     if (stmt.op === '=' && stmt.left instanceof String && stmt.right instanceof expNode) {
                         let variable = top.LookupIdentifySymbol(stmt.left);
                         variable.value = right.value;
@@ -2005,11 +2064,8 @@ var COStreamJS = (function () {
                 break
             }
             case compositeCallNode: {
-                /** 不确定是否要在这里做 actual_composite 这个操作 ?
-                let actual_comp = S.LookupCompositeSymbol(stmt.compName)->composite;
-                stmt.actual_composite = actual_comp;
-                // 检查传入的参数是否存在 以及 获得参数值 FIXME */
-                if(! symbolTableMap[0][0].compTable[stmt.compName]){
+                /** 检查传入的参数是否存在 以及 获得参数值 FIXME */
+                if(! symbolTableList[0].compTable[stmt.compName]){
                     error$1(stmt._loc, `此处调用的 composite 未定义:${stmt.compName}`);
                 }
                 break
@@ -2054,11 +2110,15 @@ var COStreamJS = (function () {
                 });
             }
             if(body.init){
+                EnterScopeFn(body.init._loc);
                 generateStmt(body.init);
+                body.init._symbol_table = top;
+                ExitScopeFn();
             }
             if(body.work){
                 EnterScopeFn(body.work._loc);
                 generateStmt(body.work);
+                body.work._symbol_table = top;
                 ExitScopeFn();
             }
             if(body.window){
@@ -2103,6 +2163,49 @@ var COStreamJS = (function () {
         ;(pipe.body_stmts||[]).forEach(generateStmt);
     }
 
+
+    /**
+     * 
+     * @param {operNode} call 
+     * @param {compositeNode} composite 
+     * @param {number[]} params
+     */
+    function generateCompositeRunningContext(call,composite,params=[]){
+        top = new SymbolTable(top, composite._loc);
+
+        generateComposite(composite);
+
+        if(!composite.body) return top
+        // 处理 param
+        if(composite.body.param){
+            composite.body.param.param_list.forEach((decla, index)=>{
+                const variable = top.variableTable[decla.identifier.name];
+                variable.value = new Constant(decla.type, params[index]);
+            });
+        }
+
+        // 处理 inputs 和 outputs
+        // 例子 composite Test(input stream<int x>In1, output stream<int x>Out1, stream<int x>Out2)
+        if(composite.inout){
+            composite.inout.input_list.forEach((inDecl, inIndex) => {
+                let prevStream = top.prev.streamTable[call.inputs[inIndex]];
+                let currentStream = top.streamTable[inDecl.id];
+                const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(currentStream.strType);
+                isTypeOK ? top.streamTable[inDecl.id] = prevStream
+                         : error$1(call._loc, `调用${composite.compName}时输入流类型与定义不吻合`);
+            });
+            composite.inout.output_list.forEach((outDecl, outIndex) => {
+                let prevStream = top.prev.streamTable[call.outputs[outIndex]];
+                let currentStream = top.streamTable[outDecl.id];
+                const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(currentStream.strType);
+                isTypeOK ? top.streamTable[outDecl.id] = prevStream
+                         : error$1(call._loc, `调用${composite.compName}时输出流类型与定义不吻合`);
+            });
+        }
+
+        return top
+    }
+
     /**
      * 加载常量传播插件后,表达式 node 可以计算数值
      */
@@ -2128,11 +2231,23 @@ var COStreamJS = (function () {
     /**
     * 目前只是简单计算值,后续常量传播时要修改此函数
     */
-    unaryNode$1.prototype.getValue = function () {
+    unaryNode.prototype.getValue = function () {
         if (this.first == "+") return this.second.value
         if (this.first == "-") return -this.second.value
         if (this.first == "~") return ~this.second.value
         if (this.first == "!") return !this.second.value
+        if(this.first == "++"){ // ++i 的情况
+            if(typeof this.second !== 'string') error$1(this._loc, `++ 运算符的操作对象必须是变量`);
+            let oldVal = top.getVariableValue(this.second);
+            top.setVariableValue(this.first, oldVal+1);
+            return oldVal+1
+
+        }else if(this.second == "++"){ // i++ 的情况
+            if(typeof this.first !== 'string') error$1(this._loc, `++ 运算符的操作对象必须是变量`);
+            let oldVal = top.getVariableValue(this.first);
+            top.setVariableValue(this.first, oldVal+1);
+            return oldVal
+        } 
         return NaN
     };
 
@@ -2142,7 +2257,15 @@ var COStreamJS = (function () {
 
     Object.defineProperty(String.prototype,'value',{
         get(){
+            if(!Number.isNaN(parseFloat(this))){
+                return parseFloat(this); // 如果这个字符串本身就是一个数字, 则直接返回, 例如'0;
+            }
             return top.LookupIdentifySymbol(this).value.val; 
+        }
+    });
+    Object.defineProperty(Number.prototype,'value',{
+        get(){
+            return this
         }
     });
 
@@ -2156,6 +2279,8 @@ var COStreamJS = (function () {
             '|': (a, b) => a.value | b.value,
             '&': (a, b) => a.value & b.value,
             '^': (a, b) => a.value ^ b.value,
+            '<': (a, b) => a.value < b.value,
+            '>': (a, b) => a.value > b.value,
             '==': (a, b) => a.value == b.value,
             '!=': (a, b) => a.value != b.value,
             '<=': (a, b) => a.value <= b.value,
@@ -2165,6 +2290,11 @@ var COStreamJS = (function () {
             //c++ 与 js 不同, c++的条件表达式返回 bool 值,而 js 是动态值
             '||': (a, b) => !!(a.value || b.value),
             '&&': (a, b) => !!(a.value && b.value),
+            '=' : (a, b) => top.setVariableValue(a, b.value),
+            '+=': (a, b) => top.setVariableValue(a, a.value + b.value),
+            '-=': (a, b) => top.setVariableValue(a, a.value - b.value),
+            '*=': (a, b) => top.setVariableValue(a, a.value * b.value),
+            '/=': (a, b) => top.setVariableValue(a, a.value / b.value),
         };
         if (this.op in handlers) {
             return this._value = handlers[this.op](this.left, this.right)
@@ -2191,7 +2321,7 @@ var COStreamJS = (function () {
         if(this.slice_pair_list.length == 1){
             let index = this.slice_pair_list[0].start;
             return values[index].val
-        }else{
+        }else {
             throw new Error("FIXME 目前只处理了数组取地址, 未处理矩阵取址")
         }
     };
@@ -2249,7 +2379,7 @@ var COStreamJS = (function () {
         
     };
     idNode.prototype.toString = function(){
-        return this.name + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
+        return this.name.toString() + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
     };
     declareNode.prototype.toString = function () {
         let type = COStreamJS.options.platform === 'WEB' ? 'let' : this.type;
@@ -2288,7 +2418,7 @@ var COStreamJS = (function () {
 
     //将每一行 statement 的';'上提至 blockNode 处理
     blockNode.prototype.toString = function () {
-        if (!this.stmt_list || this.stmt_list == 0) return '{ }'
+        if (!this.stmt_list || this.stmt_list.length == 0) return '{ }'
         var str = '{\n';
         this.stmt_list.forEach(x => {
             str += x.toString();
@@ -2308,7 +2438,11 @@ var COStreamJS = (function () {
     };
     //expNode 的子类
     binopNode.prototype.toString = function () {
-        return this.left + this.op + this.right
+        // 强制执行 toString 来实现对 N 等标识符在符号表中的查询
+        if(this.op !== '.'){
+            return this.left.toString() + this.op + this.right.toString()
+        }
+        return this.left.toString() + this.op + this.right // 例如 In[0].i = i 时, 对左边的.i 不检查符号表, 而对右侧的 i 检查是否是上层符号表的成员 
     };
     arrayNode.prototype.toString = function () {
         return '' + this.exp + list2String(this.arg_list, '][', '[', ']')
@@ -2316,7 +2450,7 @@ var COStreamJS = (function () {
     constantNode.prototype.toString = function () {
         let value = this.value;
         let escaped = this.source.replace(/\n|↵/g, "\\n");
-        return Number.isNaN(value) ? escaped : value
+        return Number.isNaN(value) ? escaped : value.toString()
     };
     castNode.prototype.toString = function () {
         if(COStreamJS.options.platform === "WEB"){
@@ -2328,8 +2462,8 @@ var COStreamJS = (function () {
     parenNode.prototype.toString = function () {
         return '(' + this.exp + ')'
     };
-    unaryNode$1.prototype.toString = function () {
-        return '' + this.first + this.second
+    unaryNode.prototype.toString = function () {
+        return '' + this.first.toString() + this.second.toString()
     };
     operatorNode.prototype.toString = function () {
         var str = this.operName + '(';
@@ -2338,7 +2472,7 @@ var COStreamJS = (function () {
     };
     operBodyNode.prototype.toString = function () {
         var str = '{\n';
-        str += this.stmt_list ? list2String(this.stmt_list, ';\n') + ';\n' : '';
+        str += this.stmt_list ? list2String(this.stmt_list, ';\n','',';\n') : '';
         str += this.init ? 'init' + this.init : '';
         str += this.work ? 'work' + this.work : '';
         str += this.win ? 'window{' + list2String(this.win, ';\n') + ';\n' + '}' : '';
@@ -2353,6 +2487,7 @@ var COStreamJS = (function () {
         str += this.cond ? this.cond.toString() + ';' : ';';
         str += this.next ? this.next.toString() : '';
         str += ')' + this.statement.toString();
+        str += this.statement instanceof blockNode ? '' : ';'; // 若该 for 只有一条语句, 则补充一个分号
         return str
     };
     whileNode.prototype.toString = function (){
@@ -2367,6 +2502,22 @@ var COStreamJS = (function () {
             str += this.op4 === 'else' ? ('else' + this.else_statement) : '';
             return str
         } else if (this.op1 == 'switch') ;
+    };
+    splitNode.prototype.toString = function (){
+        return this.name + ' ' + this.type + '(' + list2String(this.arg_list,',') + ');';
+    };
+    joinNode.prototype.toString = function (){
+        return this.name + ' ' + this.type + '(' + list2String(this.arg_list,',') + ');';
+    };
+    splitjoinNode.prototype.toString = function (){
+        var str =  this.compName + '(' + list2String(this.inputs,',') + ')' + '{\n'; 
+        str += this.split + '\n';
+        str += list2String(this.body_stmts,'\n');
+        str += this.join + '\n}';
+        return str
+    };
+    addNode.prototype.toString = function (){
+        return this.name + ' ' + this.content.toString()
     };
 
     const differentPlatformPrint = {
@@ -2389,7 +2540,7 @@ var COStreamJS = (function () {
         } else if (BUILTIN_MATH.includes(this.name) && platform === 'WEB'){
             return 'Math.'+this.name + '(' + list2String(this.arg_list, ',') + ')'
         }
-        else{
+        else {
             return this.name + '(' + list2String(this.arg_list, ',') + ')'
         }
     };
@@ -2419,10 +2570,10 @@ var COStreamJS = (function () {
         }
         // 如果是矩阵切片节点(两个数字), 例如 data[i,j] 转义为 data(i,j)
         else if(this.slice_pair_list.length == 2){
-            return this.exp + '(' + list2String(this.slice_pair_list, ',') + ')'
+            return this.exp.toString() + '(' + list2String(this.slice_pair_list, ',') + ')'
         }
         // 其他情况
-        return this.exp + '[' + list2String(this.slice_pair_list, ',') + ']'
+        return this.exp.toString() + '[' + list2String(this.slice_pair_list, ',') + ']'
     };
     lib_binopNode.prototype.toString = function (){
         if(this.lib_name === 'Matrix'){
@@ -2430,7 +2581,7 @@ var COStreamJS = (function () {
                 'zeros': 'Zero'
             };
             return 'Matrix::' + maps[this.function_name]
-        }else{
+        }else {
             error$1('暂不支持矩阵之外的库');
         }
     };
@@ -2453,72 +2604,6 @@ var COStreamJS = (function () {
         }
         return main_composites[0]
     };
-
-    class FlatNode {
-        constructor(/** @type {operatorNode} */ node) {
-            this.name = node.operName;       // opeator名字
-            this.PreName = node.operName;    // cwb记录Operator被重命名前的名字
-            this.visitTimes = 0;             // 表示该结点是否已经被访问过,与dumpdot有关
-
-            /** @type {operatorNode} 指向operator(经常量传播后的) */
-            this.contents = node;
-            // 指向原始operator
-            this.oldContents = node;
-
-            this.nOut = 0; // 输 出 边个数
-            this.nIn = 0;  // 输 入 边个数
-
-            //两级划分算法中,actor所在的place号、thread号、thread中的序列号
-            this.place_id = 0;
-            this.thread_id = 0;
-            this.post_thread_id = 0;
-            this.serial_id = 0;
-
-            //节点work函数的静态工作量
-            this.work_estimate = 0;
-            // opeator在ssg的flatnodes中的顺序编号
-            this.num = 0;
-
-            /** @type {FlatNode[]} 输出边各operator */
-            this.outFlatNodes = [];  
-            /** @type {FlatNode[]} 输入边各operator */
-            this.inFlatNodes = [];
-
-            /** @type {number[]} */
-            this.outPushWeights = []; // 输 出 边各权重
-            this.inPopWeights = [];   // 输 入 边各权重
-            this.inPeekWeights = [];  // 输 入 边各权重
-
-            /** @type {string[]} */
-            this.outPushString = [];
-            this.inPopString = [];
-            this.inPeekString = [];
-
-            /** init调度次数 */
-            this.initCount = 0;
-            /** 稳态调度次数 */
-            this.steadyCount = 0;
-            /** 阶段号 */
-            this.stageNum = 0;
-        }
-
-        AddOutEdges(/*FlatNode */ dest) {
-            this.outFlatNodes.push(dest);
-            this.nOut++;
-        }
-        AddInEdges(/*FlatNode */ src) {
-            this.inFlatNodes.push(src);
-            this.nIn++;
-        }
-        // 访问该结点
-        VisitNode() {
-            this.visitTimes++;
-        }
-        ResetVisitTimes() {
-            this.visitTimes = 0;
-        }
-
-    }
 
     class StaticStreamGraph {
         constructor() {
@@ -2562,216 +2647,202 @@ var COStreamJS = (function () {
 
     /**
      * 创建一个新的 FlatNode, 例如对 out = operator(in){ init work window } , 
-     * 标记 out 的 up 指向 flat, 同时标记 in 的 down 指向 flat,
-     * 如果 in 是由 parent 产生的, 则 parent 指向 flat
      */
-    StaticStreamGraph.prototype.GenerateFlatNodes = function (/* operatorNode* */ u) {
+    StaticStreamGraph.prototype.GenerateFlatNodes = function (/* operatorNode* */ u, param_list) {
 
-        const flat = new FlatNode(u);
+        const flat = new FlatNode(u, param_list);
+        flat._symbol_table = top;
 
         /* 寻找输出流  建立节点的输入输出流关系
-         * 例如 out = call(in) 对 edgeName:out 来说, call 是它的"上端"节点, 所以插入 mapEdge2UpFlatNode */
-        if (u.outputs) u.outputs.forEach(edgeName => this.mapEdge2UpFlatNode.set(edgeName, flat));
+         * 例如 out = call(in) 对 edgeName:out 来说, call 是它的"来源"节点 fromFlatNode */
+        if (u.outputs) u.outputs.forEach((edgeName,index) => {
+            top.streamTable[edgeName].fromIndex = index;
+            top.streamTable[edgeName].fromFlatNode = flat;
+        });
+
+        /* 例如 out = call(in), 对 in 来说, call 是它的"去向"节点 toFlatNode */
+        if (u.inputs) u.inputs.forEach((edgeName,index) => {
+            const stream = top.streamTable[edgeName];
+            stream.toIndex = index;
+            stream.toFlatNode = flat;
+            if(stream.fromFlatNode){
+                /** 下面两行代码的作用是建立 FlatNodes 之间的输入输出关系, 例如 
+                 *     (S0, S1) = oper1()
+                 *     (S2) = oper2(S1)
+                 * 则设置 
+                 * oper1.outFlatNodes[1] = oper2
+                 * oper2.inFlatNodes[0] = oper1
+                 */
+                stream.fromFlatNode.outFlatNodes[stream.fromIndex] = flat;
+                flat.inFlatNodes[index] = stream.fromFlatNode;
+            }else {
+                error$1(u._loc, `流 ${edgeName} 没有上层计算节点, 请检查`);
+            }
+            
+        });
 
         this.flatNodes.push(flat);
 
-        /* 例如 out = call(in), 对 in 来说, call 是它的"下端"节点, 所以插入 mapEdge2DownFlatNode */
-        if (u.inputs) {
-            u.inputs.forEach(inEdgeName => {
-                this.mapEdge2DownFlatNode.set(inEdgeName, flat);
-
-                /* 同时还要找找看 in 是由哪个 operator 输出的, 如果找得到则建立连接*/
-                if (this.mapEdge2UpFlatNode.has(inEdgeName)) {
-                    var parent = this.mapEdge2UpFlatNode.get(inEdgeName);
-                    parent.AddOutEdges(flat);
-                    flat.AddInEdges(parent);
-                }
-            });
-        }
-    };
-
-
-    /**
-     * 设置 flatNode 的边的 weight
-     * @eaxmple
-     * window{
-     *   In  sliding(1,2); //则分别设置inPeekWeights 为1, inPopWeights 为2
-     *   Out tumbling(2);  //设置 outPushWeights 为2
-     * }
-     */
-    StaticStreamGraph.prototype.SetFlatNodesWeights = function () {
-        for (let flat of this.flatNodes) {
-            let oper = flat.contents;
-            let win_stmts = oper.operBody.win;
-            for(let it of win_stmts){
-                let edgeName = it.winName;
-                if(it.type === "sliding"){
-                    flat.inPeekString.push(edgeName);
-                    flat.inPopString.push(edgeName);
-                    flat.inPeekWeights.push(it.arg_list[0].value);
-                    flat.inPopWeights.push(it.arg_list[1].value);
-                }else if(it.type === "tumbling"){
-                    flat.outPushString.push(edgeName);
-                    flat.outPushWeights.push(it.arg_list[0].value);
-                }
+        // 下面 设置 flatNode 的边的 weight
+        let win_stmts = u.operBody.win;
+        for(let it of win_stmts){
+            if(it.type === "sliding"){
+                flat.inPeekWeights.push(it.arg_list[0].value);
+                flat.inPopWeights.push(it.arg_list[1].value);
+            }else if(it.type === "tumbling"){
+                flat.outPushWeights.push(it.arg_list[0].value);
             }
         }
     };
 
+    /*
+     *  功能：将抽象语法树转为平面图
+     *  输入参数：gMaincomposite
+     *  GraphToOperators：递归的调用，完成splitjoin和pipeline节点的展开，以及完成opearatorNode到flatnode节点的映射
+     *  SetTopNode：设置顶层节点
+     *  ResetFlatNodeNames：给所有的图节点重命名
+     *  SetFlatNodesWeights：设置静态数据流图的peek，pop，push值
+     *  输出：静态数据流图ssg
+     */
+    function AST2FlatStaticStreamGraph(mainComposite,unfold,S){
+        var ssg = new StaticStreamGraph();
+        debug("--------- 执行GraphToOperators, 逐步构建FlatNode ---------------\n");
+
+        setTop(S);
+
+        GraphToOperators(null, mainComposite, ssg, unfold, S);
+        //若执行过 unfold 操作, 则可查看展开后的数据流程序: debug(COStreamJS.ast.map(_=>_+'').join('\n').beautify()) 
+
+        ssg.topNode = ssg.flatNodes[0];
+        ssg.ResetFlatNodeNames(); /* 将每个composite重命名 */
+        // ssg.SetFlatNodesWeights(); 这一步移动到 GenerateFlatNodes 中做
+
+        runningStack.length = 0; // 清空执行上下文栈
+        debug("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n");
+
+        return ssg
+    }
+
+    /*
+    * 功能：递归的调用，
+    * 完成splitjoin和pipeline节点的展开，以及完成opearatorNode到flatnode节点的映射
+    * 输入参数：composite
+    * 输出：设置静态数据流图的对应flatNode节点，完成数据流边到flatNode节点的映射
+    */
+
+    /**
+     * 1.遇到 out = call(in){ int / work / window } 形式的 operatorNode, 则在 ssg 中创建该 flatNode 并连接Edge
+     * 2.遇到 pipeline 或 splitjoin , 则将其展开为一个真正的 composite 并挂载至 COStream.ast
+     * 
+     * @param {operNode} call
+     * @param {compositeNode} composite
+     * @param {StaticStreamGraph} ssg
+     * @param {SymbolTable} S
+     * @param {number[]} params
+     */
+    function GraphToOperators(call, composite, ssg, unfold, S, params = []){
+        /** 执行上下文栈 */
+        runningStack.push(top);
+        generateCompositeRunningContext(call, composite, params); //传入参数,并生成 composite 调用的执行上下文环境
+
+        for (let it of composite.body.stmt_list){
+            
+            let exp = it instanceof binopNode ? it.right : it; //获取到要处理的 operator(){}或 pipeline()或其他,无论是直接调用还是通过 binopNode 的 right 来调用
+
+            if(exp instanceof operatorNode){
+                ssg.GenerateFlatNodes(exp, params);
+
+            }else if(exp instanceof compositeCallNode){
+                const actual_composite = S.compTable[exp.compName].composite;
+                const params = (exp.params||[]).map(e => e.value);
+                
+                GraphToOperators(exp,actual_composite, ssg, unfold,S,params);
+                
+            }else if(exp instanceof splitjoinNode){
+                const call = unfold.UnfoldSplitJoin(exp);
+                const actual_composite = S.compTable[call.compName].composite; // 查看该生成的结构: debug(actual_composite.toString().beautify())
+                GraphToOperators(call, actual_composite, ssg, unfold,S);
+
+            }else if(exp instanceof pipelineNode){
+                const call = unfold.UnfoldPipeline(exp);
+                const actual_composite = S.compTable[call.compName].composite;
+                GraphToOperators(call, actual_composite, ssg, unfold, S);
+            }
+        }
+
+        setTop(runningStack.pop());
+    }
+
     class UnfoldComposite {
         constructor() {
+            /** @type {number} 用于对展开的 pipeline spitjoin 的 name 添加序号 */
             this.num = 0;
+            /** @type {Array<{ compName: string, content:string }>} 用于保存展开结果的记录, 避免重复展开 */
+            this.cached = [];
         }
         /* 给与每一个不同的splitjoin或者pipeline节点不同的名字 */
         MakeCompositeName(/*string*/ name) {
             return name + "_" + this.num++;
         }
     }
-    var unfold = new UnfoldComposite();
 
     /**
-     * @description 对于composite节点内的operatorNode进行流替换
-     * 只替换第一个和最后一个oper 的原因是: 对第一个修改 IN, 对最后一个修改 Out, 对简单串行的 comp 是没问题的
-     * @param {compositeNode} comp
-     * @param {void|string[]} inputs
-     * @param {void|string[]} outputs
-     * @param { bool } flag - flag 为1则同时替换内部的 work 和 win 的 stream 变量名, 为0则说明之前已调用过 modifyStreamName
-     * @example
-     * 例如对于 
-     * composite SecondSource(input Source,output S0){
-     *    Out = AssignmentX(In){ }
-     * }
-     * 将其替换为
-     * composite SecondSource(input Source,output S0){
-     *    S0 = AssignmentX(Source){ }
-     * }
+     * 对于如下形式的 pipeline
+     * out = pipeline(in) { 
+     *   add A(1); 
+     *   add B(2); 
+     *   add C(3);
+     * } 
+     * 我们要生成的 composite 的样式为{
+     *   composite pipeline_0( input stream<int x>S0, output stream<int x>S3){
+     *      stream<int y>S1;
+     *      S1 = A(S0)(1);
+     *      stream<double z>S2; // 注: 不同的 composite 节点的输入输出流类型确实可能不一样
+     *      S2 = B(S1)(2);
+     *      S3 = C(S2)(3);
+     *   }
+     * 将该新生成的 composite 加入 COStreamJS.ast 以及符号表的 S.compTable 中
+     * 然后我们要返回的 compositeCallNode 的样式为
+     *   out = pipeline_0(in);
      */
-    UnfoldComposite.prototype.streamReplace = function (comp,inputs, outputs, flag) {
-        let stmt_list = comp.body.stmt_list;
-        inputs.length && operatorStreamReplace(stmt_list[0], inputs, 'inputs');
-        outputs.length && operatorStreamReplace(stmt_list[stmt_list.length - 1], outputs, 'outputs');
-        return comp
-
-        function operatorStreamReplace(stmt, streamNames, tag) {
-            let oper = stmt instanceof binopNode ? stmt.right : stmt;
-            if (oper instanceof operatorNode) {
-                if (flag) {
-                    UnfoldComposite.prototype.modifyStreamName(oper, streamNames, tag=="inputs");
-                }
-                oper[tag] = streamNames;
-            } else if (oper instanceof splitjoinNode || oper instanceof pipelineNode) {
-                oper[tag] = streamNames;
-            }
-        }
-    };
-
-    /**
-     * 用于splitjoin或者pipeline中展开流的替换，这些compositeCall可以指向相同的init，work
-     * FIXME: 这个函数假设被 add 的 composite 中的第一个 binop operator 为有效 operator, 实际上这种假设并不严谨,容易被测试出BUG
-     */
-    UnfoldComposite.prototype.compositeCallStreamReplace = function (/*compositeNode **/ comp, inputs, outputs) {
-        let copy;
-        let inout = new ComInOutNode(null, inputs, outputs);
-        let head = new compHeadNode(null, comp.compName, inout);
-
-        for (let it of comp.body.stmt_list) {
-            if (it instanceof binopNode) {
-                let exp = it.right;
-                if (exp instanceof operatorNode) {
-                    let oper = getCopyOperInStreamReplace(exp, inputs, outputs);
-                    let comp_body = new compBodyNode(null, null, [oper]);
-                    copy = new compositeNode(null, head, comp_body);
-                } else if (exp instanceof pipelineNode || exp instanceof splitjoinNode) {
-                    copy = comp;
-                }
-            } else {
-                throw new Error("未定义的分支. 前面假设 pipeline 中 add call()的 call 只有 binop 节点是否太片面了")
-            }
-        }
-        this.streamReplace(copy, inputs, outputs, 0);
-        return copy
-
-
-        function getCopyOperInStreamReplace(exp, inputs, outputs) {
-            /* 除了window都可以指向一块内存 对于window动态分配一块内存，替换window中的名字，再函数的结尾将流进行替换*/
-            let work = deepCloneWithoutCircle(exp.operBody.work);
-            /*动态分配生成新的windowNode*/
-            let win = [];
-            for (let win_stmt of exp.operBody.win) {
-                let stmt = new winStmtNode(null, win_stmt.winName, {
-                    type: win_stmt.type,
-                    arg_list: win_stmt.arg_list
-                });
-                win.push(stmt);
-            }
-            let body = new operBodyNode(null, exp.operBody.stmt_list, exp.operBody.init, work, win);
-            let oper = new operatorNode(null, exp.operName, exp.inputs, body);
-            oper.outputs = exp.outputs;
-            oper._symbol_table = exp._symbol_table;
-            UnfoldComposite.prototype.modifyStreamName(oper, inputs, true);
-            UnfoldComposite.prototype.modifyStreamName(oper, outputs, false);
-            return oper
-        }
-    };
-
-    /**
-     * 对oper进行修改: 用输入的 stream 流名来替换 work 和 win 中对应的流名
-     * @param {boolean} style -标识输入流还是输出流,true: 输入流, false: 输出流
-     * @description FIXME 与杨飞的 modifyStreamName 不一致: 因为这里的 work 简化为了字符串, 所以直接进行了字符串替换. win 的处理基本一致
-     */
-    UnfoldComposite.prototype.modifyStreamName = function (/*operatorNode **/ oper, stream, style) {
-        var newName = stream[0];
-        var oldName = style ? oper.inputs[0] : oper.outputs[0];
-        let reg = new RegExp(oldName, 'g');
-        oper.operBody.work = (oper.operBody.work + '').replace(reg, newName);
-        oper.operBody.win.forEach(winStmt => {
-            if (winStmt.winName == oldName) {
-                winStmt.winName = newName;
-            }
-        });
-    };
-
-
-    UnfoldComposite.prototype.UnfoldPipeline = function (/* pipelineNode */ node) {
-        compositeCallFlow(node.body_stmts);
+    UnfoldComposite.prototype.UnfoldPipeline = function (/** @type {pipelineNode} */ node) {
+        let call_list = compositeCallFlow(node.body_stmts);    
         let compName = this.MakeCompositeName("pipeline");
-        let inout = new ComInOutNode(null, node.inputs, node.outputs);
-        let head = new compHeadNode(null, compName, inout);
+        const inStrType = top.streamTable[ node.inputs[0] ].strType, outStrType = top.streamTable[ node.outputs[0] ].strType;
+        const input_list = [new inOutdeclNode(null,inStrType, 'S0')];
+        const output_list = [new inOutdeclNode(null,outStrType, 'S'+call_list.length)];
+        const inout = new ComInOutNode(null, input_list, output_list);
+        const head = new compHeadNode(null, compName, inout);
         let stmt_list = generateBodyStmts();
-        let body = new compBodyNode(null, null, stmt_list);
-        let pipeline = new compositeNode(null, head, body);
-        compositeCall_list.length = 0; //清空该数组
-        return pipeline
+        const body = new compBodyNode(null, null, stmt_list);
+        const pipeline = new compositeNode(null, head, body);
+        
+        COStreamJS.ast.push(pipeline);
+        COStreamJS.S.compTable[compName] = { composite: pipeline };
+        
+        // 构造 compositeCallNode
+        const compositeCall = new compositeCallNode(null,compName, node.inputs);
+        compositeCall.outputs = node.outputs; 
+        return compositeCall
 
-        /**
-         * 对于如下形式的 pipeline
-         * out = pipeline(in) { 
-         *   add A(); 
-         *   add B(); 
-         *   add C();
-         * } 
-         * 我们要生成的 stmt_list 的格式为{
-         *   //stream<type x>S0_0,S0_1; 理想状态这里应该生成一个 strdcl 语句, 但实际上并没生成
-         *   S0_0 = A(in);
-         *   S0_1 = B(S0_0);
-         *   out= C(S0_1);
-         * }
-         */
+        
         function generateBodyStmts() {
             let result = [];
-            for (let i = 0; i < compositeCall_list.length; i++) {
-                let inputs = i == 0 ? node.inputs : [compName + '_' + (i - 1)];
-                let outputs = i != compositeCall_list.length - 1 ? [compName + '_' + i] : node.outputs;
+            for (let i = 0; i < call_list.length; i++) {
+                let compCall = call_list[i];
+                const inputNames = ['S'+i], outputNames = ['S'+(i+1)];
+                const comp = COStreamJS.S.compTable[compCall.compName].composite;
 
-                let compCall = compositeCall_list[i];
-                let call = new compositeCallNode(null, compCall.compName, inputs);
-                call.outputs = outputs;
-                //TODO: 符号表修改后要修改对应的这个地方
-                let comp = COStreamJS.S.compTable[compCall.compName].composite;
-                comp = deepCloneWithoutCircle(comp); //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
-                call.actual_composite = UnfoldComposite.prototype.compositeCallStreamReplace(comp, inputs, outputs);
-
-                let binop = new binopNode(null, outputs, '=', call);
+                // 先检查要不要生成 stream<int y>S1; 这个语句. 只要不是最后一个 add 则都要生成
+                if(i < call_list.length - 1){
+                    const outStrType = comp.inout.output_list[0].strType;
+                    result.push(new declareNode(null, outStrType, outputNames));  // stream<int x>S1;
+                }
+                // 接着生成 S1 = A(S0)(param1); 这个语句
+                const params = compCall.params.map(exp => exp.value);
+                let call = new compositeCallNode(null, compCall.compName,inputNames, params);
+                call.outputs = outputNames;
+                const binop = new binopNode(null, 'S'+(i+1), '=', call);
                 result.push(binop);
             }
             return result
@@ -2783,16 +2854,19 @@ var COStreamJS = (function () {
      *  遍历splitjoin/pipeline结构中的statement，将compositecallNode加入到compositeCall_list中
      */
     function compositeCallFlow(/*list<Node *> */ stmts) {
+        let compositeCall_list = []; // 记录了 add composite(); 的列表
         if (!stmts || stmts.length == 0) throw new Error("compositeCallFlow Error")
         stmts.forEach(stmt => {
             stmt instanceof addNode ? handlerAdd(stmt) : '';
             stmt instanceof forNode ? handlerFor(stmt) : '';
         });
-        return
+        return compositeCall_list
 
         function handlerAdd(add) {
             if (add.content instanceof compositeCallNode) {
-                compositeCall_list.push(add.content);
+                let copy = deepCloneWithoutCircle(add.content);
+                copy.params = copy.params.map(exp => exp.value);
+                compositeCall_list.push(copy);
 
             } else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {
                 let copy = deepCloneWithoutCircle(add.content);
@@ -2802,97 +2876,148 @@ var COStreamJS = (function () {
         /**
          * 对一个静态 for 循环做循环展开, 目前没有符号表, 所以只考虑如下简单例子
          * for(j= 1;j<10;i+=2) //对该例子会将其内部语句展开5次
-         * @warning 得益于 js 的字符串转函数能力, 我们能以一种 hacker 的方式来获取循环次数. 而 C++ 中的做法并非如此
          */
-        function handlerFor(for_stmt) {
+        function handlerFor(/** @type {forNode}*/ for_stmt) {
             /*获得for循环中的init，cond和next值 目前只处理for循环中数据是整型的情况 */
-            let forStr = for_stmt.toString();
-            forStr.match(/([^\{]*)\{/);
-            forStr = RegExp.$1;
-            let evalStr = `
-            var count = 0;
-            ${forStr}{
-                count++
-            }
-            return count` ;
-            let count = (new Function(evalStr))();  //得到了 for 循环的实际执行次数
-            //现在需要展开循环的次数 count 和展开循环的循环体都已准备好, 则递归调用.
-            for (let i = 0; i < count; i++) {
-                compositeCallFlow(for_stmt.statement.stmt_list);
+            let itorName = for_stmt.init.left; // 获取 for 循环迭代器的 iterator 的名字/初始值
+            top.setVariableValue(itorName, for_stmt.init.right.value);
+            while(for_stmt.cond.value){
+                const innerCall_list = compositeCallFlow(for_stmt.statement.stmt_list);
+                compositeCall_list = compositeCall_list.concat(innerCall_list);
+                for_stmt.next.value; // 一般是执行 i++
             }
         }
     }
 
     /**
+     * 对于如下形式的 splitjoin
+     * out = splitjoin(in) { 
+     *   split duplicate(args); // 也可以是 roundrobin;
+     *   add A(1); 
+     *   add B(2); 
+     *   add pipeline();
+     *   join roundrobin();
+     * } 
+     * 我们要生成的 composite 的样式为{
+     *   composite duplicate_0( input stream<int x>In, output stream<int x>Out){
+     *      stream<int y>S0,S1,S2,J0,J1,J2;
+     *      (S0,S1,S2) = duplicate(In){ ... }; // operator 内容参见 MakeDuplicateOperator
+     *      J0 = A(S0)(1);
+     *      J1 = B(S1)(2);
+     *      J2 = pipeline(S2);
+     *      Out = join(J0,J1,J2){ ... }; // operator 内容参见 MakeJoinOperator
+     *   }
+     * 将该新生成的 composite 加入 COStreamJS.ast 以及符号表的 S.compTable 中
+     * 然后我们要返回的 compositeCallNode 的样式为
+     *   out = duplicate_0(in);
+     *
      * @param {splitjoinNode} node - 待展开的 splitjoinNode
-     * @returns {compositeNode} 展开完成的 actual_composite
+     * @returns {compositeCallNode} 展开完成的 
      */
     UnfoldComposite.prototype.UnfoldSplitJoin = function (node) {
+        setTop(new SymbolTable(top, null)); // 对生成的新 composite 构建新的符号表
         let compName = this.MakeCompositeName("splitjoin");
-        compositeCallFlow(node.body_stmts);
-        let inout = new ComInOutNode(null, node.inputs, node.outputs);
-        let head = new compHeadNode(null, compName, inout);
+        let call_list = compositeCallFlow(node.body_stmts);
 
-        var stmt_list = this.generateDuplicateOrRoundrobinBodyStmts(compName, node, node.split.type);
+        const strType = top.prev.streamTable[node.inputs[0]].strType; // 这里也简单默认输入输出数据流类型一致, 若有不一致的需求, 应修改此处代码
+        const head_input = new inOutdeclNode(null, strType, "In");
+        const head_output = new inOutdeclNode(null, strType, "Out");
+        let inout = new ComInOutNode(null, [head_input], [head_output]);
+        let head = new compHeadNode(null, compName, inout); // 构建头部完成
+
+        var stmt_list = this.generateDuplicateOrRoundrobinBodyStmts(node, node.split.type, call_list);
 
         let body = new compBodyNode(null, null, stmt_list);
-        let actual_composite = new compositeNode(null, head, body);
-        compositeCall_list.length = 0;
-        return actual_composite
+        let splitjoin = new compositeNode(null, head, body); // 已生成该新的 compositeNode
+
+        // 将新生成的 compositeNode 插回到语法树和符号表中
+        COStreamJS.ast.push(splitjoin);
+        COStreamJS.S.compTable[compName] = { composite: splitjoin };
+        
+        // 构造 compositeCallNode
+        const compositeCall = new compositeCallNode(null,compName, node.inputs);
+        compositeCall.outputs = node.outputs; 
+
+        setTop(top.prev); // 还原至上层符号表
+        return compositeCall
     };
 
     /**
-     * 对于如下形式的 split duplicateOrRoundrobin
-     * split duplicateOrRoundrobin();
-     *   add A();
-     *   add B();
-     *   add pipeline();
-     * join  roundrobin();
-     * 我们要生成的 stmt_list 的格式为{
-     *   (dup_0,dup_1,dup_2) = duplicateOrRoundrobinOper(In)
-     *   S0_0 = A(dup_0)
-     *   S0_1 = B(dup_1)
-     *   S0_2 = pipeline(dup_2)
-     *   Out = join(S0_0, S0_1, S0_2)
-     * }
+     * 目标生成的结构:
+     *      stream<int y>S0,S1,S2,J0,J1,J2;
+     *      (S0,S1,S2) = duplicate(In){ ... }; // operator 内容参见 MakeDuplicateOperator
+     *      J0 = A(S0)(1);
+     *      J1 = B(S1)(2);
+     *      J2 = pipeline(S2);
+     *      Out = join(J0,J1,J2){ ... }; // operator 内容参见 MakeJoinOperator
      * @param {splitjoinNode} node
+     * @param {Array<compositeCallNode|splitjoinNode|pipelineNode>} call_list
      * @returns {statement[]}
      */
-    UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (compName, node, type = "duplicate") {
-        let result = [];
+    UnfoldComposite.prototype.generateDuplicateOrRoundrobinBodyStmts = function (node, type = "duplicate", call_list) {
+        let result = [], currentNum = this.num; 
+        /** 这里要把当前的序号保存下来 达到"成对"生成oper名字的目的
+         *                                    duplicate_0
+         *                                          roundrobin_1
+         *                                          join_1
+         *                                    join_0
+         */
 
         //0.先提前设置好流变量名
-        let splitStreams = Array.from({ length: compositeCall_list.length }).map((_, idx) => compName + "_split_" + idx);
-        let joinStreams = Array.from({ length: compositeCall_list.length }).map((_, idx) => compName + "_join_" + idx);
+        let splitStreams = Array.from({ length: call_list.length }).map((_, idx) =>  "S" + idx);
+        let joinStreams = Array.from({ length: call_list.length }).map((_, idx) =>  "J" + idx);
 
-        //1.构建 duplicateOrRoundrobin  节点
+        //1. 构建流变量声明节点 stream<int y>S0,S1,S2,J0,J1,J2;
+        const strType = top.prev.streamTable[ node.inputs[0] ].strType; // 注: 这里默认过程中的数据流类型都相同, 若有不同可修改此处代码
+        [...splitStreams, ...joinStreams,"In","Out"].forEach(strName => top.streamTable[strName] = { strType }); // 为新声明的几个数据流名在符号表中注册类型
+
+        let declareStmt = new declareNode(null, strType, splitStreams.concat(joinStreams));
+        result.push(declareStmt);
+
+        //2.构建 duplicateOrRoundrobin  节点
         let duplicateOrRoundrobinOper = type === "duplicate"
-            ? this.MakeDuplicateOperator(node.inputs, node.split.arg_list, splitStreams)
-            : this.MakeRoundrobinOperator(node.inputs, node.split.arg_list, splitStreams);
+            ? this.MakeDuplicateOperator(["In"], node.split.arg_list, splitStreams, currentNum)
+            : this.MakeRoundrobinOperator(["In"], node.split.arg_list, splitStreams, currentNum);
         result.push(duplicateOrRoundrobinOper);
 
-        //2.构建 body 中的对输入流的处理
-        for (let i = 0; i < compositeCall_list.length; i++) {
-            let it = compositeCall_list[i];
+        //3.构建 body 中的对输入流的处理
+        for (let i = 0; i < call_list.length; i++) {
+            let it = call_list[i];
 
             if (it instanceof compositeCallNode) {
-                let comp = COStreamJS.S.compTable[it.compName].composite;
-                comp = deepCloneWithoutCircle(comp); //对 compositeNode 执行一次 copy 来避免静态流变量名替换时的重复写入
-                let call = new compositeCallNode(null, it.compName, [splitStreams[i]], null);
-                call.outputs = joinStreams[i];
-                call.actual_composite = this.compositeCallStreamReplace(comp, [splitStreams[i]], [joinStreams[i]]);
-                result.push(call);
+                let call = new compositeCallNode(null, it.compName, [splitStreams[i]], it.params);
+                call.outputs = [joinStreams[i]];
+                let binop = new binopNode(null,splitStreams[i], '=', call);
+                result.push(binop);
 
             } else if (it instanceof splitjoinNode || it instanceof pipelineNode) {
-                /* 若为splitjoin或者pipeline结构，赋予其输入和输出流 */
-                /* NOTE: 这里的it 可能都为 splitjoinNode, 但是它们在 handlerAdd 中被 clone 过,所以不会有 重赋值 的问题 */
-                it.inputs = [splitStreams[i]];
-                it.outputs = [joinStreams[i]];
-                result.push(it);
+                /** 若为splitjoin或者pipeline结构，赋予其输入和输出流 
+                 *  例如之前是 add pipeline { 
+                 *              add A(); 
+                 *              add B(); 
+                 *           } 
+                 *  将其转化为 Ji = pipeline_num(Si); // 这里额外执行一次 unfoldPipeline, 得到一个 compositeCallNode
+                 */
+                
+                // 先去缓存中查找该结构是否已展开过
+                let hit = this.cached.find(record => record.content === it.toString());
+                if(hit){
+                   var call = new compositeCallNode(null,hit.compName, [splitStreams[i]]);
+                   call.outputs = [joinStreams[i]];
+                }else {
+                   const needToCacheString = it.toString();
+                   it.inputs = [splitStreams[i]];
+                   it.outputs = [joinStreams[i]];
+                   var call = it instanceof splitjoinNode ? this.UnfoldSplitJoin(it) : this.UnfoldPipeline(it);
+                   this.cached.push({ compName: call.compName, content: needToCacheString });
+                }
+                
+                let binop = new binopNode(null, joinStreams[i], '=', call);
+                result.push(binop);
             }
         }
-        //3.构建 join 节点
-        result.push(this.MakeJoinOperator(joinStreams, node.split.arg_list, node.outputs));
+        //4.构建 join 节点
+        result.push(this.MakeJoinOperator(joinStreams, node.split.arg_list, ["Out"],currentNum));
         return result
     };
 
@@ -2900,21 +3025,21 @@ var COStreamJS = (function () {
     /**
      * 构建出一个真实的 roundrobin 的 operatorNode, 该 operator 没有 stmt_list 和 init, 只有 work 和 window
      * 例如
-     * roundrobin(In) {
+     * (S0,S1) = roundrobin(In) {
      *   work{
      *       int i=0,j=0;
-     *		 for(i=0;i<1;++i)		round2_0[i]=dup0_1[j++];
-     *		 for(i=0;i<1;++i)		round2_1[i]=dup0_1[j++];
+     *		 for(i=0;i<1;++i)		S0[i]=In[j++];
+     *		 for(i=0;i<1;++i)		S1[i]=In[j++];
      *   }
      *   window{
-     *       dup0_1 sliding(2,2);
-     *       round2_0 tumbling(1);
-     *       round2_1 tumbling(1);
+     *       In sliding(2,2);
+     *       S0 tumbling(1);
+     *       S1 tumbling(1);
      *   }
      * }
      * @returns {operatorNode}
      */
-    UnfoldComposite.prototype.MakeRoundrobinOperator = function (inputs, args, outputs) {
+    UnfoldComposite.prototype.MakeRoundrobinOperator = function (inputs, args, outputs, num) {
         /* duplicate  的参数被文法手册规定为全为1
          * Roundrobin 的参数可不仅仅为1哦, 可以自定义哒
          * 如果不指定参数, 则默认都为1 */
@@ -2923,22 +3048,26 @@ var COStreamJS = (function () {
         let work = MakeRoundrobinWork(inputs, args, outputs);
         let window = MakeRoundrobinWindow(inputs, args, outputs);
         let body = new operBodyNode(null, null, null, work, window); //没有 stmt_list 和 init,只有 work,window
-        let res = new operatorNode(null, "roundrobin", inputs, body);
-        res.outputs = outputs;
-        return res
+        let oper = new operatorNode(null, `roundrobin_${num}`, inputs, body);
+        oper.outputs = outputs;
+        let binop = new binopNode(null, new parenNode(null, outputs),'=',oper);
+        return binop
 
         /**
          * 构建 Roundrobin 的 work 部分
+         *       int i=0,j=0;
+         *		 for(i=0;i<1;++i)		S0[i]=In[j++];
+         *		 for(i=0;i<1;++i)		S1[i]=In[j++];
          */
         function MakeRoundrobinWork(inputs, args, outputs) {
             const decl_i = new declarator(null,new idNode(null,'i'),'0');
             const decl_j = new declarator(null,new idNode(null,'j'),'0');
             const dNode =  new declareNode(null, 'int',[decl_i,decl_j]);
-            const stmts = [dNode]; // let stmts = ["int i=0,j=0;"]
+            const stmts = [dNode]; // stmts = ["int i=0,j=0;"]
             outputs.forEach((name, idx) => {
                 // 下面代码等价于 stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[j++];`)
-                const init = new binopNode(null,'i','=','0');
-                const cond = new binopNode(null, 'i','<',args[idx]);
+                const init = new binopNode(null,'i','=', new constantNode(null,'0'));
+                const cond = new binopNode(null, 'i','<',new constantNode(null,args[idx]));
                 const next = new unaryNode(null, '++', 'i');
                 const binop_left = new matrix_section(null, name, [new matrix_slice_pair(null,'i')]);
                 const binop_righ = new matrix_section(null, inputs[0], [new matrix_slice_pair(null,'j++')]);
@@ -2948,9 +3077,15 @@ var COStreamJS = (function () {
             let work = new blockNode(null, '{', stmts, '}');
             return work
         }
+        /**
+         * 构建 Roundrobin 的 window 部分
+         *       In sliding(2,2);
+         *       S0 tumbling(1);
+         *       S1 tumbling(1);
+         */
         function MakeRoundrobinWindow(inputs, args, outputs) {
             //1. 构建 In sliding(2,2);
-            let sum = args.reduce((a, b) => a + b);
+            let sum = args.map(arg=>parseInt(arg)).reduce((a, b) => a + b);
             let arg_list = [sum, sum].map(num => new constantNode(null, num)); //Roundrobin 的参数可不仅仅为1哦, 可以自定义哒
             let winStmts = [new winStmtNode(null, inputs[0], { type: 'sliding', arg_list })];
 
@@ -2967,7 +3102,7 @@ var COStreamJS = (function () {
     /**
      * 构建出一个真实的 duplicate 的 operatorNode, 该 operator 没有 stmt_list 和 init, 只有 work 和 window
      * 例如
-     * duplicate(In) {
+     * (Out1,Out2,Out3) = duplicate(In) {
      *   work{
      *       int i=0;
      *		 for(i=0;i<1;++i)		Out1[i]=In[i];
@@ -2983,14 +3118,15 @@ var COStreamJS = (function () {
      * }
      * @returns {operatorNode}
      */
-    UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs, args, outputs) {
+    UnfoldComposite.prototype.MakeDuplicateOperator = function (inputs, args, outputs, num) {
         args = args || Array.from({ length: outputs.length }).fill(1); //使用默认全都是1 , 实际上split duplicate()在小括号中不允许输入参数
         let work = MakeDuplicateWork(inputs, args, outputs);
         let window = MakeDuplicateWindow(inputs, args, outputs);
         let body = new operBodyNode(null, null, null, work, window); //没有 stmt_list 和 init,只有 work,window
-        let res = new operatorNode(null, "duplicate", inputs, body);
+        let res = new operatorNode(null, `duplicate_${num}`, inputs, body);
         res.outputs = outputs;
-        return res
+        let binop = new binopNode(null, new parenNode(null,outputs), '=', res);
+        return binop
 
         /**
          * 构建 duplicate 的 work 部分
@@ -3001,8 +3137,8 @@ var COStreamJS = (function () {
             const stmts = [dNode]; // let stmts = ["int i=0;"]
             outputs.forEach((name, idx) => {
                 // 下面代码等价于 stmts.push(`for(i=0;i<${args[idx]};++i)  ${name}[i] = ${inputs[0]}[i];`)
-                const init = new binopNode(null,'i','=','0');
-                const cond = new binopNode(null, 'i','<',args[idx]);
+                const init = new binopNode(null,'i','=',new constantNode(null,'0'));
+                const cond = new binopNode(null, 'i','<',new constantNode(null,args[idx]));
                 const next = new unaryNode(null, '++', 'i');
                 const binop_left = new matrix_section(null, name, [new matrix_slice_pair(null,'i')]);
                 const binop_righ = new matrix_section(null, inputs[0], [new matrix_slice_pair(null,'i')]);
@@ -3029,32 +3165,33 @@ var COStreamJS = (function () {
     /**
      * 构建出一个真实的 join 的 operatorNode, 该 operator 没有 stmt_list 和 init, 只有 work 和 window
      * 例如
-     * join(In1,In2) {
+     * Out = join(In1,In2) {
      *   work{
      *       int i=0;
      *		 int j=0;
-     *		 for(i=0;i<1;++i)		Out[j++]=Dstream0_0[i];
-     *		 for(i=0;i<1;++i)		Out[j++]=Dstream0_1[i];
-     *		 for(i=0;i<1;++i)		Out[j++]=Dstream0_2[i];
+     *		 for(i=0;i<1;++i)		Out[j++]=In0[i];
+     *		 for(i=0;i<1;++i)		Out[j++]=In1[i];
+     *		 for(i=0;i<1;++i)		Out[j++]=In2[i];
      *   }
      *   window{
-     *       Dstream0_0 sliding(1,1);
-     *       Dstream0_1 sliding(1,1);
-     *       Dstream0_2 sliding(1,1);
+     *       In0 sliding(1,1);
+     *       In1 sliding(1,1);
+     *       In2 sliding(1,1);
      *       Out tumbling(3);
      *   }
      * }
-     * @returns {operatorNode} 
+     * @returns {binopNode} 
      */
-    UnfoldComposite.prototype.MakeJoinOperator = function (inputs, args, outputs) {
+    UnfoldComposite.prototype.MakeJoinOperator = function (inputs, args, outputs, num) {
         args = args || Array.from({ length: inputs.length }).fill(1); //join roundrobin()在小括号中不输入参数的话默认全都是1
 
         let work = MakeJoinWork(inputs, args, outputs);
         let window = MakeJoinWindow(inputs, args, outputs);
         let body = new operBodyNode(null, null, null, work, window); //没有 stmt_list 和 init,只有 work,window
-        let res = new operatorNode(null, "join", inputs, body);
+        let res = new operatorNode(null, `join_${num}`, inputs, body);
         res.outputs = outputs;
-        return res
+        let binop = new binopNode(null, outputs[0],'=',res);
+        return binop
 
         /**
          * 构建 join 的 work 部分
@@ -3067,8 +3204,8 @@ var COStreamJS = (function () {
             const stmts = [dNode]; // let stmts = ["int i=0,j=0;"]
             inputs.forEach((name, idx) => {
                 // 下面代码等价于 stmts.push(`for(i=0;i<${args[idx]};++i)  ${outputs[0]}[j++] = ${name}[i];`)
-                const init = new binopNode(null,'i','=','0');
-                const cond = new binopNode(null, 'i','<',args[idx]);
+                const init = new binopNode(null,'i','=',new constantNode(null,'0'));
+                const cond = new binopNode(null, 'i','<',new constantNode(null,args[idx]));
                 const next = new unaryNode(null, '++', 'i');
                 const binop_left = new matrix_section(null, outputs[0], [new matrix_slice_pair(null,'j++')]);
                 const binop_righ = new matrix_section(null, name, [new matrix_slice_pair(null,'i')]);
@@ -3085,7 +3222,7 @@ var COStreamJS = (function () {
                 return new winStmtNode(null, name, { type: 'sliding', arg_list })
             });
             //加入末尾的输出, 形如 Out tumbling(3) 其中的数字是 args 的总和
-            let sum = args.reduce((a, b) => a + b);
+            let sum = args.map(arg=>parseInt(arg)).reduce((a, b) => a + b);
             winStmts.push(new winStmtNode(
                 null,
                 outputs[0],
@@ -3094,80 +3231,6 @@ var COStreamJS = (function () {
             return winStmts
         }
     };
-
-    function streamFlow(/* compositeNode */ main) {
-        var body_stmt = main.body.stmt_list;
-
-        for (var stmt of body_stmt) {
-            let it = stmt instanceof binopNode ? stmt.right : stmt; //获取到要处理的 operator(){}
-          
-            if (it instanceof compositeCallNode) {
-                let comp = COStreamJS.S.compTable[it.compName].composite;
-                comp = deepCloneWithoutCircle(comp);
-                it.actual_composite = unfold.streamReplace(comp,it.inputs,it.outputs, 1);
-            }
-
-        }
-    }
-
-    /*
-     *  功能：将抽象语法树转为平面图
-     *  输入参数：gMaincomposite
-     *  streamFlow：对所有Main composite的composite调用进行实际流边量名的替换
-     *  GraphToOperators：递归的调用，完成splitjoin和pipeline节点的展开，以及完成opearatorNode到flatnode节点的映射
-     *  SetTopNode：设置顶层节点
-     *  ResetFlatNodeNames：给所有的图节点重命名
-     *  SetFlatNodesWeights：设置静态数据流图的peek，pop，push值
-     *  输出：静态数据流图ssg
-     */
-    function AST2FlatStaticStreamGraph(mainComposite,unfold){
-        var ssg = new StaticStreamGraph();
-        streamFlow(mainComposite);
-        debug$1("--------- 执行GraphToOperators, 逐步构建FlatNode ---------------\n");
-        GraphToOperators(mainComposite, ssg, unfold);
-        ssg.topNode = ssg.flatNodes[0];
-        /* 将每个composite重命名 */
-        ssg.ResetFlatNodeNames();
-        ssg.SetFlatNodesWeights();
-        debug$1("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n");
-        // typeof window !== 'undefined' && debug("COStreamJS.ssg:", ssg);
-        return ssg
-    }
-
-    /*
-    * 功能：递归的调用，
-    * 完成splitjoin和pipeline节点的展开，以及完成opearatorNode到flatnode节点的映射
-    * 输入参数：composite
-    * 输出：设置静态数据流图的对应flatNode节点，完成数据流边到flatNode节点的映射
-    */
-
-    /**
-     * 1.遇到 out = call(in){ int / work / window } 形式的 operatorNode, 则在 ssg 中创建该 flatNode 并连接Edge
-     * 2.遇到 pipeline 或 splitjoin , 则将其展开为一个真正的 composite 并挂载至 exp.replace_composite
-     * 
-     * @param {StaticStreamGraph} ssg
-     */
-    function GraphToOperators(/*compositeNode*/composite, ssg, unfold){
-        for (let it of composite.body.stmt_list){
-            
-            let exp = it instanceof binopNode ? it.right : it; //获取到要处理的 operator(){}或 pipeline()或其他,无论是直接调用还是通过 binopNode 的 right 来调用
-
-            if(exp instanceof operatorNode){
-                ssg.GenerateFlatNodes(exp);
-
-            }else if(exp instanceof compositeCallNode){
-                GraphToOperators(exp.actual_composite, ssg, unfold);
-
-            }else if(exp instanceof splitjoinNode){
-                exp.replace_composite = unfold.UnfoldSplitJoin(exp);
-                GraphToOperators(exp.replace_composite, ssg, unfold);
-
-            }else if(exp instanceof pipelineNode){
-                exp.replace_composite = unfold.UnfoldPipeline(exp);
-                GraphToOperators(exp.replace_composite, ssg, unfold);
-            }
-        }
-    }
 
     /**
      * 对 ssg 中的 flatNode 进行工作量估计
@@ -3179,7 +3242,12 @@ var COStreamJS = (function () {
         {
             /* 检查每一个operatorNode的body（包括init，work和window)*/
             var body = flat.contents.operBody;
-            var w_init = 0;//body.init ? body.init.WorkEstimate(): 0 ;
+            var w_init = 0;
+            /**
+             * 注: 鉴于现在 COStream 的工作量估计极其不准确的事实, COStreamJS 为了简单起见使用了更简单的估计策略:
+             *                          取 "标识符, 运算符" 的总数量 * 10 + 窗口大小 * 20
+             * 未来有更优的工作量估计策略后可替换此处代码.
+             */
             var w_steady = (body.work + '').match(/\w+|[-+*/=<>?:]/g).length *10; //body.work ? body.work.WorkEstimate() : 0;
             w_steady += (flat.outFlatNodes.length + flat.inFlatNodes.length) * 20; //多核下调整缓冲区head和tail
             ssg.mapInitWork2FlatNode.set(flat, w_init);
@@ -3194,7 +3262,7 @@ var COStreamJS = (function () {
     function ShedulingSSG(ssg){
         InitScheduling(ssg);
         SteadyScheduling(ssg);
-        debug$1("---稳态调度序列---\n");
+        debug("---稳态调度序列---\n");
         console.log(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})));
     }
     function InitScheduling(ssg){
@@ -3224,10 +3292,10 @@ var COStreamJS = (function () {
                             if(n.steadyCount) n.steadyCount *= scale;
                         });
                         down.steadyCount = lcm(nPush, nPop) / nPop;
-                    }else{
+                    }else {
                         throw new Error("一般的 up 节点的 push 值不会为0")
                     }
-                }else{
+                }else {
                     //若 down 节点已进行稳态调度，检查SDF图是否存在稳态调度系列，一般不存在的话表明程序有误
                     if(nPush * up.steadyCount !== nPop * down.steadyCount){
                         throw new Error("调度算法出错, 请检查")
@@ -3422,7 +3490,7 @@ var COStreamJS = (function () {
         }
         setCpuCoreNum(num) {
             this.mnparts = num;
-            this.X = Array.from({ length: num }).map(_ => []);
+            this.X = Array.from({ length: num }).map(_ => []); // 初始化一个二维数组(先创建一个长度为 num 的一维数组, 再将每个位置映射为一个新数组)
             this.w = Array.from({ length: num }).fill(0);
         }
     }
@@ -3727,7 +3795,7 @@ part               actor             workload           percent\n`;
                             ReWriteBuf += declarator.identifier.toString();
                         }
                         ReWriteBuf += ';\n';
-                    }else{
+                    }else {
                         ReWriteBuf += node.toString() + ';\n';
                     }
                 }
@@ -3758,7 +3826,7 @@ part               actor             workload           percent\n`;
                             }
                         }
                         //如果是单个矩阵
-                        else{
+                        else {
                             if(declarator.initializer instanceof matrix_constant){
                                 const shape = declarator.initializer.shape;
                                 const name = declarator.identifier.name;
@@ -3767,8 +3835,8 @@ part               actor             workload           percent\n`;
                                 ${name} = MatrixXd(${shape[0]},${shape[1]});
                                 ${name} << ${sequence};
                             `;
-                            }else{
-                                debug$1("FIXME: 代码生成-矩阵插件-矩阵常量初始化类型错误");
+                            }else {
+                                debug("FIXME: 代码生成-矩阵插件-矩阵常量初始化类型错误");
                             }
                         }
                     }
@@ -4717,8 +4785,8 @@ extern int MAX_ITER;
             buf = `\n/** 构建 operator Instance */\n`;
 
             this.ssg.flatNodes.forEach(flat => {
-                //准备构造如下格式的声明语句: const Name_obj = new Name(out1,out2,in1,in2);
-                buf += `const ${flat.name}_obj = new ${flat.PreName}(`;
+                //准备构造如下格式的声明语句: const Name = new PreName(out1,out2,in1,in2);
+                buf += `const ${flat.name} = new ${flat.PreName}(`;
                 let streamNames = [];
                 flat.outFlatNodes.forEach(out => {
                     let edgename = flat.name + '_' + out.name;
@@ -4728,7 +4796,10 @@ extern int MAX_ITER;
                     let edgename = src.name + '_' + flat.name;
                     streamNames.push(edgename); 
                 });
-                buf += streamNames.join(',') + ');';
+                buf += streamNames.join(',') + ',';
+                buf += flat.steadyCount + ',' + flat.initCount;
+                flat.params.length > 0 ? buf += ',' + flat.params.join(',') : '';
+                buf += ');';
                 buf += '\n';
             });
 
@@ -4747,7 +4818,7 @@ extern int MAX_ITER;
                 let ifStr = `if(${stage} == _stageNum){`;
                 //获取在这个 stage 上的 actor 集合
                 let flatVec = this.ssg.flatNodes.filter(flat => flat.stageNum == stage);
-                ifStr += flatVec.map(flat => flat.name + '_obj.runInitScheduleWork();\n').join('') + '}\n';
+                ifStr += flatVec.map(flat => flat.name + '.runInitScheduleWork();\n').join('') + '}\n';
                 forBody += ifStr;
             }
             buf += initFor.replace('#SLOT', forBody);
@@ -4764,7 +4835,7 @@ extern int MAX_ITER;
                 let ifStr = `if(stage[${stage}]){`;
                 //获取既在在这个 stage 上的 actor 集合
                 let flatVec = this.ssg.flatNodes.filter(flat => flat.stageNum == stage);
-                ifStr += flatVec.map(flat => flat.name + '_obj.runSteadyScheduleWork();\n').join('') + '}\n';
+                ifStr += flatVec.map(flat => flat.name + '.runSteadyScheduleWork();\n').join('') + '}\n';
                 forBody += ifStr;
             }
             forBody += 
@@ -4785,18 +4856,13 @@ extern int MAX_ITER;
         COStreamJS.files['main.cpp'] = Object.values(COStreamJS.files).join('\n').beautify();
     };
 
-    /** COStream 内建节点, 无需去重 */
-    const ProtectedActor$1 = ['join', 'duplicate', 'roundrobin'];
     /**
      * 生成各个计算节点, 例如 class Source {}; class Sink {};
      */
     WEBCodeGeneration.prototype.CGactors = function () {
         var hasGenerated = new Set(); //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
         this.ssg.flatNodes.forEach(flat => {
-            /** 暂时不对COStream 内建节点做去重操作 */
-            if(ProtectedActor$1.includes(flat.PreName)){
-                flat.PreName = flat.name;
-            } 
+            
             if (hasGenerated.has(flat.PreName)) return
             hasGenerated.add(flat.PreName);
 
@@ -4804,20 +4870,21 @@ extern int MAX_ITER;
             //开始构建 class
             buf += `class ${flat.PreName}{\n`;
             /*写入类成员函数*/
-            let inEdgeNames = flat.inFlatNodes.map(src => src.name + '_' + flat.name);
-            let outEdgeNames = flat.outFlatNodes.map(out => flat.name + '_' + out.name);
-            buf += this.CGactorsConstructor(flat, inEdgeNames, outEdgeNames); 
+            let oper = flat.contents;
+            let inEdgeNames = oper.inputs;
+            let outEdgeNames = oper.outputs;
+            buf += this.CGactorsConstructor(oper,inEdgeNames, outEdgeNames); 
             buf += this.CGactorsRunInitScheduleWork(inEdgeNames, outEdgeNames);
             buf += this.CGactorsRunSteadyScheduleWork(inEdgeNames, outEdgeNames);
             
             //写入init部分前的statement定义，调用tostring()函数，解析成规范的类变量定义格式
 
-            buf += this.CGactorsPopToken(flat, inEdgeNames);
-            buf += this.CGactorsPushToken(flat, outEdgeNames);
+            buf += this.CGactorsPopToken(oper);
+            buf += this.CGactorsPushToken(oper);
             //init部分前的statement赋值
-            buf += this.CGactorsinitVarAndState(flat.contents.operBody.stmt_list);
-            buf += this.CGactorsInit(flat, flat.contents.operBody.init);
-             buf += this.CGactorsWork(flat.contents.operBody.work, flat, inEdgeNames, outEdgeNames);
+            buf += this.CGactorsinitVarAndState(oper.operBody.stmt_list, oper);
+            buf += this.CGactorsInit(oper, oper.operBody.init);
+            buf += this.CGactorsWork(oper.operBody.work, flat);
             /* 类体结束*/
             buf += "}\n";
             COStreamJS.files[`${flat.PreName}.h`] = buf.beautify();
@@ -4827,26 +4894,32 @@ extern int MAX_ITER;
     /**
      * 生成actors constructor
      * @example
-     * constructor(Source_0_B_1) {
-     *  this.steadyScheduleCount = 1;
-     *  this.initScheduleCount = 0;
+     * constructor(Source_0_B_1, steadyC,initC, param1 ) {
+     *  this.steadyScheduleCount = steadyC;
+     *  this.initScheduleCount = initC;
      *  this.Source_0_B_1 = new Producer(Source_0_B_1)
+     *  this.paramName1 = param1;
      *  this.i = 0
      * }
     **/
-    WEBCodeGeneration.prototype.CGactorsConstructor = function(/** @type {FlatNode} */flat, inEdgeNames, outEdgeNames) {
+    WEBCodeGeneration.prototype.CGactorsConstructor = function(/** @type {operatorNode} */oper,inEdgeNames, outEdgeNames) {
+        let paramNames = oper._symbol_table.prev.paramNames;
         var OutAndInEdges = (outEdgeNames || []).concat(inEdgeNames); // 把 out 放前面, in 放后面
         var buf = 'constructor(/* Buffer<StreamData>& */';
-        buf += OutAndInEdges.join(',') + '){';
+        buf += OutAndInEdges.join(',');
+        buf += ',steadyC,initC';
+        paramNames.length ? buf += ',' + paramNames.join(',') : '';
+        buf += '){';
         buf += `
-        this.steadyScheduleCount = ${flat.steadyCount};
-        this.initScheduleCount = ${flat.initCount};
+        this.steadyScheduleCount = steadyC;
+        this.initScheduleCount = initC;
         ${inEdgeNames.map(src => `this.${src} = new Consumer(${src});`).join('\n')}
         ${outEdgeNames.map(out => `this.${out} = new Producer(${out});`).join('\n')}
+        ${paramNames.map(param => `this.${param} = ${param};`).join('\n')}
     `;
-        if(flat.contents._symbol_table){
-            for(let name of Object.keys(flat.contents._symbol_table.memberTable)){
-                let variable = flat.contents._symbol_table.memberTable[name];
+        if(oper._symbol_table){
+            for(let name of Object.keys(oper._symbol_table.memberTable)){
+                let variable = oper._symbol_table.memberTable[name];
                 // 若该成员变量被声明为数组类型
                 if(variable.array){
                     let { length } = variable.array.arg_list;
@@ -4860,7 +4933,7 @@ extern int MAX_ITER;
                     }
                 }
                 // 非数组类型
-                else{
+                else {
                     var initializer = variable.value.val;
                 }
                 buf += `this.${name} = ${initializer};\n`;
@@ -4901,12 +4974,21 @@ extern int MAX_ITER;
      *		this.Rstream0_0.updatehead(1);
      *		this.Rstream0_1.updatehead(1);
      * }
-     * @param {FlatNode} flat
+     * @param {operatorNode} oper
      */
-    WEBCodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
-        const pop = flat.inPopWeights[0];
-        const stmts = inEdgeNames.map(src => `this.${src}.updatehead(${pop});\n`).join('');
-        return `\n popToken(){ ${stmts} }\n`
+    WEBCodeGeneration.prototype.CGactorsPopToken = function (oper) {
+        const stmts = [];
+        (oper.operBody.win||[]).forEach(winStmt =>{
+            if(winStmt.type == 'sliding'){
+                let pop = winStmt.arg_list[0].toString();
+                oper._symbol_table.prev.paramNames.forEach(name =>{
+                    const reg = new RegExp(`\\b(?<!\\.)${name}\\b`, 'g');
+                    pop = pop.replace(reg, 'this.'+name);
+                });
+                stmts.push(`this.${winStmt.winName}.updatehead(${pop});`);
+            }
+        });
+        return `\n popToken(){ ${stmts.join('\n')} }\n`
     };
 
     /**
@@ -4916,29 +4998,58 @@ extern int MAX_ITER;
      * }
      * @param {FlatNode} flat
      */
-    WEBCodeGeneration.prototype.CGactorsPushToken = function (flat, outEdgeNames) {
-        const push = flat.outPushWeights[0];
-        const stmts = outEdgeNames.map(out => `this.${out}.updatetail(${push});\n`).join('');
-        return `\n pushToken(){ ${stmts} }\n`
+    WEBCodeGeneration.prototype.CGactorsPushToken = function (oper) {
+        const stmts = [];
+        (oper.operBody.win||[]).forEach(winStmt =>{
+            if(winStmt.type == 'tumbling'){
+                let push = winStmt.arg_list[0].toString();
+                oper._symbol_table.prev.paramNames.forEach(name =>{
+                    const reg = new RegExp(`\\b(?<!\\.)${name}\\b`, 'g');
+                    push = push.replace(reg, 'this.'+name);
+                });
+                stmts.push(`this.${winStmt.winName}.updatetail(${push});`);
+            }
+        });
+        return `\n pushToken(){ ${stmts.join('\n')} }\n`
     };
 
     /** 
      * 将 stmt_list 中的 let i=0部分转换为 this.i=0; 
      * @param {declareNode[]} stmt_list
      */
-    WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list){
+    WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list, oper){
+        // 基于符号表来把 变量名 转化为 string
+        const originToString = String.prototype.toString;
+        String.prototype.toString = function (){
+            let searchResult = oper._symbol_table.searchName(this);
+            if(oper._symbol_table.prev.paramNames.includes(this)){
+                return 'this.'+this
+            }else if(searchResult){
+                // 替换符号表中的成员变量和流变量的访问 
+                if(searchResult.type === 'stream' || searchResult.type === 'member'){
+                    return 'this.'+this
+                }else if(searchResult.type === 'variable'){
+                    // 替换 oper 对上层符号表的数据的访问
+                    if(searchResult.origin !== oper._symbol_table){
+                        return oper._symbol_table.getVariableValue(this)
+                    }
+                }
+            }
+            return this
+        };
         var result = 'initVarAndState() {';
         stmt_list.forEach( declare =>{
             declare.init_declarator_list.forEach(item =>{
                 if(item.initializer){
-                    result += 'this.' + item.identifier + '=' + item.initializer +';\n';
+                    result += item.identifier + '=' + item.initializer +';\n';
                 }
             });
         });
+        String.prototype.toString = originToString;
         return result+'}';
     };
-    WEBCodeGeneration.prototype.CGactorsInit = function(flat, init){
-        const memberTable = (flat.contents._symbol_table||{}).memberTable || {} ;
+    WEBCodeGeneration.prototype.CGactorsInit = function(oper, init){
+        const memberTable = (oper._symbol_table||{}).memberTable || {} ;
         let buf = (init||'{ }').toString();
         Object.keys(memberTable).forEach(memberName =>{
             const reg  = new RegExp(`\\b(?<!\\.)${memberName}\\b`,'g');
@@ -4950,33 +5061,45 @@ extern int MAX_ITER;
 
     /** 
      * @param {blockNode} work 
-     * @param {FlatNode} flat
+     * @param {operatorNode} oper
      */
-    WEBCodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
+    WEBCodeGeneration.prototype.CGactorsWork = function (work, flat){
+        // 基于符号表来把 work 转化为 string
+        const originToString = String.prototype.toString;
+        String.prototype.toString = function (){
+            let searchResult = work._symbol_table.searchName(this);
+            if(flat._symbol_table.paramNames.includes(this)){
+                return 'this.'+this
+            }else if(searchResult){
+                // 替换符号表中的成员变量和流变量的访问 
+                if(searchResult.type === 'stream' || searchResult.type === 'member'){
+                    return 'this.'+this
+                }else if(searchResult.type === 'variable'){
+                    // 如果该变量是属于根符号表中的全局变量
+                    if(searchResult.origin === work._symbol_table.root){
+                        return this
+                    }
+                    // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
+                    else if(searchResult.origin !== work._symbol_table){
+                        if(!work._symbol_table.LookupIdentifySymbol(this).value){
+                            debugger;
+                        }
+                        return work._symbol_table.getVariableValue(this)
+                    }
+                }
+            }
+            return this
+        };
+
         // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
         let innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, ''); 
-        // 替换符号表中的成员变量的访问 
-        const memberTable = (flat.contents._symbol_table||{}).memberTable || {} ;
-        Object.keys(memberTable).forEach(name => replaceWithoutDot(name, 'this.'+name));
-        // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 this.B_1_Sink_2
-        flat.contents.inputs.forEach((src, idx) => replaceStream(src, 'this.'+inEdgeNames[idx]));
-        flat.contents.outputs.forEach((out, idx) => replaceStream(out, 'this.'+outEdgeNames[idx]));
+        String.prototype.toString = originToString;
+
         return `work(){
         ${innerWork}
         this.pushToken();
         this.popToken();
     }\n`
-
-        function replaceWithoutDot(A,B){
-            const reg = new RegExp(`\\b(?<!\\.)${A}\\b`, 'g');
-            innerWork = innerWork.replace(reg, B);
-        }
-        function replaceStream(A, B) {
-            let reg = new RegExp(`${A}(?=\\s+(tumbling|sliding))`, 'g');
-            innerWork = innerWork.replace(reg, B);
-            reg = new RegExp(`${A}(?=\\[)`, 'g');
-            innerWork = innerWork.replace(reg, B);
-        }
     };
 
     function codeGeneration(nCpucore, ssg, mp) {
@@ -5052,10 +5175,10 @@ extern int MAX_ITER;
                 const outDir = (argv.o && removeLastChar(argv.o)) || `./dist/${source_filename}`;
                 COStreamJS.outDir = outDir;
 
-                COStreamJS.main(source_content, argv.j || 4); //执行编译
+                COStreamJS.main(source_content, { platform:'X86', coreNum: argv.j || 4}); //执行编译
                 if(fs.existsSync(outDir)){
                     require('child_process').execSync(`rm -rf ${outDir}/*`);
-                }else{
+                }else {
                     fs.mkdirSync(outDir);
     			}
     			// 拷贝基础库文件, 避开 Eigen 库文件(使用 rsync 来实现这一功能, 而非 cp 指令)
@@ -5080,7 +5203,7 @@ extern int MAX_ITER;
     Object.assign(COStreamJS.__proto__, {
         parser,
         AST2FlatStaticStreamGraph,
-        unfold,
+        unfold : new UnfoldComposite(),
         SemCheck,
         DumpStreamGraph,
         GreedyPartition,
@@ -5091,7 +5214,7 @@ extern int MAX_ITER;
         SymbolTable,
     });
 
-    COStreamJS.main = function(str, cpuCoreNum = 4){
+    COStreamJS.main = function(str, options = { coreNum:4 }){
         debugger
         COStreamJS.global.errors = [];
         // 1. 先检查括号是否匹配
@@ -5099,20 +5222,20 @@ extern int MAX_ITER;
         // 2. 词语法分析构建语法树
         this.ast = COStreamJS.parser.parse(str);
         // 3. 遍历语法树进行语义分析和构建符号表
-        this.symbolTableMap = generateSymbolTables(this.ast);
+        this.symbolTableList = generateSymbolTables(this.ast);
         if(COStreamJS.global.errors.length) return;
-        this.S = this.symbolTableMap[0][0];
+        this.S = this.symbolTableList[0];
         this.gMainComposite = this.SemCheck.findMainComposite(this.ast);
         
         // 4. 语法树转数据流图
-        this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold);
+        this.ssg = this.AST2FlatStaticStreamGraph(this.gMainComposite, this.unfold, this.S);
         // 5. 工作量估计
         WorkEstimate(this.ssg);
         // 6. 调度
         ShedulingSSG(this.ssg);
         // 7. 划分
         this.mp = new this.GreedyPartition(this.ssg);
-        this.mp.setCpuCoreNum(cpuCoreNum);
+        this.mp.setCpuCoreNum(options.coreNum);
         this.mp.SssgPartition(this.ssg);
         this.mp.computeCommunication();
         // 8. 输出统计信息
@@ -5122,6 +5245,7 @@ extern int MAX_ITER;
         this.MaxStageNum = this.StageAssignment(this.ssg,this.mp);
         // 10.目标代码生成
         this.files = {};
+        this.options.platform = options.platform || this.options.platform;
         this.codeGeneration(this.mp.finalParts,this.ssg,this.mp);
     };
 

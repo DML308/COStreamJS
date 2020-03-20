@@ -11,27 +11,31 @@
 extern int MAX_ITER;
 void thread_0_fun()
 {
-  masterSync(4);
+  masterSync(3);
   fun fun_2_obj(fun_2_sink_4,test_1_fun_2);
-  fun fun_3_obj(fun_3_sink_4,test_1_fun_3);
+  sink sink_4_obj(fun_2_sink_4,fun_3_sink_4);
   char stage[4] = {
     1,0,0,0
   };
   
   for(int _stageNum = 0; _stageNum < 4; _stageNum++){
+    if(3 == _stageNum){
+      sink_4_obj.runInitScheduleWork();
+    }
     if(2 == _stageNum){
       fun_2_obj.runInitScheduleWork();
-      fun_3_obj.runInitScheduleWork();
     }
     
-    masterSync(4);
+    masterSync(3);
     
   }
   
   for(int _stageNum = 4; _stageNum < 2*4+MAX_ITER-1; _stageNum++){
+    if(stage[3]){
+      sink_4_obj.runSteadyScheduleWork();
+    }
     if(stage[2]){
       fun_2_obj.runSteadyScheduleWork();
-      fun_3_obj.runSteadyScheduleWork();
     }
     for(int index=3; index>=1; --index){
       stage[index] = stage[index-1];
@@ -40,7 +44,7 @@ void thread_0_fun()
       stage[0] = 0;
     }
     
-    masterSync(4);
+    masterSync(3);
     
   }
 }
