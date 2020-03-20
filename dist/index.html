@@ -180,8 +180,7 @@
                     var str = editor.getValue()
                     old_code = str;
                     try {
-                        COStreamJS.options.platform = 'WEB'
-                        window.COStreamJS.main(str)
+                        window.COStreamJS.main(str, { platform: 'WEB' })
                         this.flats = COStreamJS.ssg.flatNodes
                         this.flats.forEach(flat => {
                             Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat))

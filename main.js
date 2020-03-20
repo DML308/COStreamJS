@@ -32,7 +32,7 @@ Object.assign(COStreamJS.__proto__, {
     SymbolTable,
 })
 
-COStreamJS.main = function(str, cpuCoreNum = 4){
+COStreamJS.main = function(str, options = { coreNum:4 }){
     debugger
     COStreamJS.global.errors = []
     // 1. 先检查括号是否匹配
@@ -53,7 +53,7 @@ COStreamJS.main = function(str, cpuCoreNum = 4){
     ShedulingSSG(this.ssg)
     // 7. 划分
     this.mp = new this.GreedyPartition(this.ssg)
-    this.mp.setCpuCoreNum(cpuCoreNum)
+    this.mp.setCpuCoreNum(options.coreNum)
     this.mp.SssgPartition(this.ssg)
     this.mp.computeCommunication()
     // 8. 输出统计信息
@@ -63,6 +63,7 @@ COStreamJS.main = function(str, cpuCoreNum = 4){
     this.MaxStageNum = this.StageAssignment(this.ssg,this.mp)
     // 10.目标代码生成
     this.files = {}
+    this.options.platform = options.platform || this.options.platform
     this.codeGeneration(this.mp.finalParts,this.ssg,this.mp)
 }
 

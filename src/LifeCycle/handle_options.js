@@ -39,7 +39,7 @@ const Usage = `
             const outDir = (argv.o && removeLastChar(argv.o)) || `./dist/${source_filename}`;
             COStreamJS.outDir = outDir;
 
-            COStreamJS.main(source_content, argv.j || 4); //执行编译
+            COStreamJS.main(source_content, { platform:'X86', coreNum: argv.j || 4}); //执行编译
             if(fs.existsSync(outDir)){
                 require('child_process').execSync(`rm -rf ${outDir}/*`)
             }else{

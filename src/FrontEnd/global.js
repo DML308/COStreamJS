@@ -4,7 +4,7 @@ export var COStreamJS = {
     S : null,
     gMainComposite : null,
     files: {},
-    options: { platform: 'X86' },
+    options: { platform: 'default' },
     plugins: { matrix: false, image: false },
     version
 } 

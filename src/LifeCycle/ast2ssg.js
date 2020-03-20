@@ -20,6 +20,7 @@ export function AST2FlatStaticStreamGraph(mainComposite,unfold,S){
     setTop(S);
 
     GraphToOperators(null, mainComposite, ssg, unfold, S);
+    //若执行过 unfold 操作, 则可查看展开后的数据流程序: debug(COStreamJS.ast.map(_=>_+'').join('\n').beautify()) 
 
     ssg.topNode = ssg.flatNodes[0]
     ssg.ResetFlatNodeNames(); /* 将每个composite重命名 */
