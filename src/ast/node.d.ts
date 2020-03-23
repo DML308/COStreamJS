@@ -336,3 +336,28 @@ export class matrix_section extends expNode{
     slice_pair_list: matrix_slice_pair[]
     constructor(loc, exp, slice_pair_list)
 }
+
+/** 神经网络相关 node */
+export class sequentialNode extends operNode {
+    compName: string
+    arg_list: exp[]
+    body_stmts: statement[]
+
+    constructor(loc: YYLTYPE, options: object)
+}
+
+export class layerNode extends Node {
+    layerName: string
+    arg_list: exp[]
+    prevLayer: layerNode
+    nextLayer: layerNode
+    inputSize : number[]
+    level: number
+
+    constructor(loc: YYLTYPE,layerName: string, arg_list: Node[])
+}
+
+export class denseLayerNode extends layerNode {
+    rows: number
+    cols: number
+}

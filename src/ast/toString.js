@@ -45,7 +45,11 @@ declarator.prototype.toString = function () {
             var str = this.identifier.name
             str += this.op ? this.op : ''
             if(this.identifier.arg_list.length && !this.initializer){
-                str += ' = []' // 为数组赋初值
+                if(this.identifier.arg_list.length == 2){
+                    str += `= Array.from({ length: ${this.identifier.arg_list[0]}}).map(_=>[])` // 为二维数组赋初值
+                }else{
+                    str += ' = []' // 为一维数组赋初值
+                }
             }else if (this.initializer instanceof Array) {
                 str += list2String(this.initializer, ',', '[', ']')
             } else {
@@ -233,7 +237,7 @@ compositeCallNode.prototype.toString = function () {
     return str + ')'
 }
 matrix_slice_pair.prototype.toString = function (){
-    if(!this.op)    return this.start
+    if(!this.op)    return this.start.toString()
     return (this.start || '')+':'+(this.end||'')
 }
 matrix_section.prototype.toString = function (){

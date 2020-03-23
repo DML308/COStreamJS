@@ -18,7 +18,8 @@ export function DumpStreamGraph(ssg, mp) {
 function toBuildOutPutString(/*FlatNode*/ node,ssg, isVisited, mp) {
     isVisited.set(node, true)
     dotString += MyVisitNode(node,ssg,mp);
-    node.outFlatNodes.filter(out => !isVisited.get(out)).forEach(out => {
+    node.outFlatNodes.forEach(out => {
+        if(isVisited.get(out)) return; // 如果已经生成过了, 就返回
         toBuildOutPutString(out, ssg,isVisited, mp)
     })
 }

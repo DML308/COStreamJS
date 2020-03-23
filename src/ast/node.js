@@ -417,3 +417,60 @@ export class lib_binopNode extends Node{
         this.function_name = function_name;
     }
 }
+
+/** 神经网络相关 node */
+export class sequentialNode extends operNode {
+    constructor(loc, options = {}) {
+      super(loc)
+      this.compName = options.compName;
+      this.inputs = options.inputs;
+      this.arg_list = options.arg_list;
+      this.body_stmts = options.body_stmts;
+    }
+};
+export class layerNode extends Node {
+    constructor(loc, layerName, arg_list) {
+      super(loc);
+      this.layerName = layerName
+      this.arg_list = arg_list;
+      this.prevLayer = null;
+      this.nextLayer = null;
+      this.inputSize = [];
+      /** 神经网络层级 */
+      this.level = 0;
+    }
+    /** @returns {number[]} */
+    getInputSize(/** @type {sequentialNode} */ sequential){
+        if(this.prevLayer){
+            if(this.prevLayer instanceof denseLayerNode){
+                return [1, this.prevLayer.cols, 1] // 设置本层的输入数据规模, 用一个三维向量描述: [depth, rows, cols]
+            }else{
+                error("未识别的 layer 类型:", this.prevLayer)
+            }
+        }else{
+            if(sequential.arg_list[0] instanceof matrix_constant){
+                return sequential.arg_list[0].rawData
+            }
+            return [1, sequential.arg_list[0].value, 1] // [depth, rows, cols]
+        }
+    }
+};
+export class denseLayerNode extends layerNode {
+    constructor(loc, layerName, arg_list = [0]) {
+        super(loc, layerName, arg_list);
+        /** 权值矩阵输入 */
+        this.rows = 0
+        /** 权值矩阵输出 */
+        this.cols = arg_list[0].value // FIXME: 这里简单起见直接拿到数字. 应该放到 ast2ssg 中的
+    }
+    init(/** @type {sequentialNode} */ sequential){
+        this.inputSize = this.getInputSize(sequential)
+        this.rows = this.inputSize.reduce((a,b)=>a*b) // 求得所有维度的乘积, 例如[1,100,1] 返回 1*100*1 = 100
+    }
+}
+
+export class averagePooling2DLayerNode extends layerNode {
+    constructor(loc, layerName, arg_list){
+        super(loc, layerName, arg_list)
+    }
+}

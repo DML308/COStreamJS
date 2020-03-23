@@ -95,7 +95,7 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
             case denseLayerNode: {
                 // 全局声明 double _weight_[prevDim][dim];
                 const declStr = `double ${weightName}[${layer.rows}][${layer.cols}];`
-                const declare = COStreamJS.parser.parse(declStr) // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
+                const declare = COStreamJS.parser.parse(declStr)[0] // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
 
                 COStreamJS.ast.unshift(declare);
                 COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'))
@@ -395,7 +395,7 @@ function MakeDDenseComposite(/** @type {denseLayerNode} */layer) {
                     {
                         temp += In0[j].x * _weight_${level}[i][j];
                     }
-                    Out[j].x = temp;
+                    Out[i].x = temp;
                 }
                 double lr = 0.100000;
                 for (i = 0; i < ${rows}; i++)

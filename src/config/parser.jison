@@ -50,6 +50,9 @@ split                                                       return 'SPLIT'
 join                                                        return 'JOIN'
 duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
+sequential                                                  return 'SEQUENTIAL'
+DENSE|Dense                                                 return 'DENSE'
+CONV2D                                                      return 'CONV2D'
 
 import                                                      return 'IMPORT'
 Matrix|matrix                                               return 'MATRIX'
@@ -228,6 +231,7 @@ composite_body_param_opt:
 operator_add:
           ADD operator_pipeline                             {  $$ = new addNode(@$,$2) }
         | ADD operator_splitjoin                            {  $$ = new addNode(@$,$2) }
+        | ADD operator_layer                                {  $$ = new addNode(@$,$2) }
         | ADD operator_default_call                         {  $$ = new addNode(@$,$2) }
         ;  
 
@@ -283,7 +287,11 @@ join_statement:
 operator_default_call:
           IDENTIFIER  '(' ')' ';'                           { $$ = new compositeCallNode(@$,$1)    }
         | IDENTIFIER  '(' argument_expression_list ')' ';'  { $$ = new compositeCallNode(@$,$1,[],$3) }
-        ;                 
+        ;  
+operator_layer:      
+          DENSE  '(' argument_expression_list ')' ';'       { $$ = new denseLayerNode(@$,"DENSE", $3);}
+        | CONV2D '(' argument_expression_list ')' ';'       { debug("暂未支持 conv2D"); /* $$ = new conv2DLayerNode(@$,"conv2D", $3); */}
+        ; 
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */
 /*************************************************************************/    
@@ -427,6 +435,15 @@ postfix_expression:
                                                                     body_stmts: $6
                                                                 })
                                                             }
+    |   SEQUENTIAL '(' argument_expression_list ')' '(' argument_expression_list ')' '{' statement_list '}' 
+                                                            {
+                                                                $$ = new sequentialNode(@$,{
+                                                                    compName: 'squential',
+                                                                    inputs: $3,
+                                                                    arg_list: $6,
+                                                                    body_stmts: $9
+                                                                })
+                                                            }                                                        
     ;
 
 argument_expression_list:
@@ -480,7 +497,7 @@ assignment_expression:
       conditional_expression
     | unary_expression assignment_operator assignment_expression    
       {
-          if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode].some(x=> $3 instanceof x)){
+          if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode,sequentialNode].some(x=> $3 instanceof x)){
               if($1 instanceof parenNode){
                   $3.outputs = $1.exp.slice()
               }else if(typeof $1 == "string"){

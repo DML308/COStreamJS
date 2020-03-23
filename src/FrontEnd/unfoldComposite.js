@@ -86,7 +86,7 @@ UnfoldComposite.prototype.UnfoldPipeline = function (/** @type {pipelineNode} */
 /**
  *  遍历splitjoin/pipeline结构中的statement，将compositecallNode加入到compositeCall_list中
  */
-function compositeCallFlow(/*list<Node *> */ stmts) {
+export function compositeCallFlow(/*list<Node *> */ stmts) {
     let compositeCall_list = []; // 记录了 add composite(); 的列表
     if (!stmts || stmts.length == 0) throw new Error("compositeCallFlow Error")
     stmts.forEach(stmt => {
@@ -101,7 +101,12 @@ function compositeCallFlow(/*list<Node *> */ stmts) {
             copy.params = copy.params.map(exp => exp.value)
             compositeCall_list.push(copy)
 
-        } else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {
+        }else if(add.content instanceof layerNode){
+            let copy = deepCloneWithoutCircle(add.content)
+            copy.arg_list = copy.arg_list.map(exp => exp.value)
+            compositeCall_list.push(copy)
+
+        }else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {
             let copy = deepCloneWithoutCircle(add.content)
             compositeCall_list.push(copy)
         }

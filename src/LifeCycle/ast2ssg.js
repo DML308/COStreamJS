@@ -2,8 +2,8 @@ import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
 import { top, setTop, generateCompositeRunningContext } from "../FrontEnd/generateSymbolTables" 
 import { runningStack, SymbolTable, Variable } from "../FrontEnd/symbol"
 import { debug } from "../utils"
-import { binopNode, operatorNode, compositeCallNode, splitjoinNode, pipelineNode, operNode } from "../ast/node";
-import { COStreamJS } from "../FrontEnd/global";
+import { binopNode, operatorNode, compositeCallNode, splitjoinNode, pipelineNode, operNode, sequentialNode } from "../ast/node";
+
 /*
  *  功能：将抽象语法树转为平面图
  *  输入参数：gMaincomposite
@@ -74,6 +74,11 @@ function GraphToOperators(call, composite, ssg, unfold, S, params = []){
 
         }else if(exp instanceof pipelineNode){
             const call = unfold.UnfoldPipeline(exp)
+            const actual_composite = S.compTable[call.compName].composite
+            GraphToOperators(call, actual_composite, ssg, unfold, S)
+
+        }else if(exp instanceof sequentialNode){
+            const call = unfold.UnfoldSequential(exp)
             const actual_composite = S.compTable[call.compName].composite
             GraphToOperators(call, actual_composite, ssg, unfold, S)
         }
