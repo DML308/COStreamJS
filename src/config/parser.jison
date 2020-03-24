@@ -289,7 +289,7 @@ operator_default_call:
         | IDENTIFIER  '(' argument_expression_list ')' ';'  { $$ = new compositeCallNode(@$,$1,[],$3) }
         ;  
 operator_layer:      
-          DENSE  '(' argument_expression_list ')' ';'       { $$ = new denseLayerNode(@$,"DENSE", $3);}
+          DENSE  '(' argument_expression_list ')' ';'       { $$ = new denseLayerNode(@$,"dense", $3);}
         | CONV2D '(' argument_expression_list ')' ';'       { debug("暂未支持 conv2D"); /* $$ = new conv2DLayerNode(@$,"conv2D", $3); */}
         ; 
 /*************************************************************************/

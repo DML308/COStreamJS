@@ -18,13 +18,13 @@ import { sequentialNode, denseLayerNode, layerNode, averagePooling2DLayerNode } 
  * 我们要连接数据流节点的策略是: 以 loss 为中心, 前后对称地补上 dense 和 dDense , 最后在首部加一个 copy
  * 我们要生成的 composite 的样式为
  *   composite sequential_0(input stream<double x>In, stream<double x>Y, output stream<double x> Out){
- *          stream<double x>copy_1,copy_2;
+ *          stream<double x> copy_1, copy_2, F1_F2, F1_B2, F2_loss, _Loss, B2_B1, Out;
  *          (copy_1,copy2) = copy(In);                     // 内容参见 MakeCopyOperator
- *          (dense_1_1,dense_1_2) = dense(copy1)
- *          D3 = dense(D2)
- *          L = loss(D3, Y)
- *          D6 = dDense(D1, L)
- *          Out = dDense(In1, D6)
+            F1_F2,F1_B2=dense_1(copy_1)();
+            F2_loss=dense_2(F1_F2)();
+            _Loss=loss(F2_loss,Y)();
+            B2_B1=dDense_2(_Loss,F1_B2)();
+            Out=dDense_1(B2_B1,copy_2)();
  *   }
  * 将该新生成的 composite 加入 COStreamJS.ast 以及符号表的 S.compTable 中
  * 然后我们要返回的 compositeCallNode 的样式为
@@ -122,17 +122,17 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
     for (let layer of layers) {
         let call_inputs = [], call_outputs = []
         if (layer !== layers[layers.length - 1]) { // 如果不是最后一个 layer
-            const namePrefix = '_F' + layer.layerName + layer.level + '_' // 前缀, 例如 _FDENSE1_
-            // 正向传递给下一层的stream名称, 例如 _FDENSE1_FDENSE2
-            const tempName1 = namePrefix + 'F' + layer.nextLayer.layerName + layer.nextLayer.level
+            const namePrefix = 'F' + layer.level + '_' // 前缀, 例如 F1_
+            // 正向传递给下一层的stream名称, 例如 F1_F2
+            const tempName1 = namePrefix + 'F' + layer.nextLayer.level
             // 将数据流声明加入
             streamDecl.init_declarator_list.push(tempName1)
             call_inputs = [temp_stream[0]]
             if (layer.nextLayer instanceof averagePooling2DLayerNode) {
                 call_outputs = [tempName1]
             } else {
-                // 传递给反向传播中本层的stream名称, 例如 _FDENSE1_BDENSE2
-                const tempName2 = namePrefix + 'B' + layer.nextLayer.layerName + layer.nextLayer.level
+                // 传递给反向传播中本层的stream名称, 例如 F1_B2
+                const tempName2 = namePrefix + 'B' + layer.nextLayer.level
                 streamDecl.init_declarator_list.push(tempName2)
                 call_outputs = [tempName1, tempName2]
                 temp_stream_list.push([tempName2])
@@ -147,7 +147,7 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
                 * 测试过程
                 只有正向传播的时候, output为输出：call_outputs = new list<Node *>({outputs->front()});
             */
-            const tempName = '_F' + layer.layerName + layer.level + '_loss'
+            const tempName = 'F' + layer.level + '_loss'
             call_inputs = [temp_stream[0]]
             call_outputs = [tempName]
             temp_stream.pop()
@@ -180,8 +180,8 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
             call_inputs = temp_stream_list.pop()
         }
         if (layer !== layers[0]) {
-            const namePrefix = 'B_' + layer.layerName + layer.level + '_' // B_DENSE2_
-            const tempName = namePrefix + layer.prevLayer.layerName + layer.prevLayer.level // B_DENSE2_DENSE1
+            const namePrefix = 'B' + layer.level + '_'
+            const tempName = namePrefix + 'B' + layer.prevLayer.level // 例如 B2_B1
             call_outputs = [tempName]
         } else {
             call_outputs = ['Out']

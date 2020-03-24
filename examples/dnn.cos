@@ -23,7 +23,7 @@ composite Main() {
         work {
             int i;
             for(i=0;i<784;i++){
-                print(Out[i].x)
+                print(Out[i].x);
             } 
         }
         window{
