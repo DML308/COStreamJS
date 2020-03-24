@@ -2,7 +2,7 @@
 var COStreamJS = (function () {
     'use strict';
 
-    function debug$1(...args) {
+    function debug(...args) {
         console.log("%c " + args[0], "color: #0598bd", ...args.slice(1));
     }
     function green(...args) {
@@ -175,7 +175,7 @@ var COStreamJS = (function () {
     var utils = /*#__PURE__*/Object.freeze({
         __proto__: null,
         checkBraceMatching: checkBraceMatching,
-        debug: debug$1,
+        debug: debug,
         line: line,
         error: error$1,
         green: green,
@@ -641,7 +641,7 @@ var COStreamJS = (function () {
           this.arg_list = options.arg_list;
           this.body_stmts = options.body_stmts;
         }
-    }class layerNode$1 extends Node {
+    }class layerNode extends Node {
         constructor(loc, layerName, arg_list) {
           super(loc);
           this.layerName = layerName;
@@ -657,17 +657,19 @@ var COStreamJS = (function () {
             if(this.prevLayer){
                 if(this.prevLayer instanceof denseLayerNode){
                     return [1, this.prevLayer.cols, 1] // 设置本层的输入数据规模, 用一个三维向量描述: [depth, rows, cols]
+                }else if(this.prevLayer instanceof conv2DLayerNode){
+                    return this.prevLayer.outputFeatureMapSize
                 }else {
                     error$1("未识别的 layer 类型:", this.prevLayer);
                 }
             }else {
-                if(sequential.arg_list[0] instanceof matrix_constant){
-                    return sequential.arg_list[0].rawData
+                if(sequential.arg_list[0] instanceof parenNode){
+                    return sequential.arg_list[0].exp.map(_=>_.value)
                 }
                 return [1, sequential.arg_list[0].value, 1] // [depth, rows, cols]
             }
         }
-    }class denseLayerNode extends layerNode$1 {
+    }class denseLayerNode extends layerNode {
         constructor(loc, layerName, arg_list = [0]) {
             super(loc, layerName, arg_list);
             /** 权值矩阵输入 */
@@ -680,8 +682,44 @@ var COStreamJS = (function () {
             this.rows = this.inputSize.reduce((a,b)=>a*b); // 求得所有维度的乘积, 例如[1,100,1] 返回 1*100*1 = 100
         }
     }
+    class conv2DLayerNode extends layerNode {
+        //                                   filters, kernel_size, strides, padding
+        constructor(loc, layerName, arg_list = [3, [2, 2], [1, 1], [0, 0]]) {
+            super(loc, layerName, arg_list);
+            try{
+                this.filters = arg_list[0].value; // filters
+                // 以下三行的 '||' 操作符的意义: 当该参数是 parenNode 时, 取它的 exp. (而当 arg_list 取上方的默认值时,则不需取 exp)
+                this.kernel_size = (arg_list[1].exp || arg_list[1]) .map(num => num.value); // kernel_size
+                this.strides = (arg_list[2].exp || arg_list[2]) .map(num => num.value); // strides
+                this.paddings = (arg_list[3].exp || arg_list[3]) .map(num => num.value); // paddings
 
-    class averagePooling2DLayerNode extends layerNode$1 {
+            }catch(err){
+                error$1(loc, "conv2DLayerNode 参数解析错误, 请检查");
+            }
+            // 以下三个成员在 init 中进行初始化
+            this.inputSize = [];
+            this.outputFeatureMapSize = [];
+            this.inputErrorSize = [];
+        }
+        /** 根据上一层初始化本层输出特征图的尺寸和输入空间的维度 */
+        init(/** @type {sequentialNode} */ sequential){
+            this.outputFeatureMapSize = [];
+            // 本层反向传播过程中 传入误差的尺寸`
+            this.inputErrorSize = [];
+            // 按照arg_list爲傳入整個sequential結構的參數列表(rows, cols, depth)
+            this.inputSize = this.getInputSize(sequential);
+            this.outputFeatureMapSize = [
+                (this.inputSize[0] + 2 * this.paddings[0] - this.kernel_size[0]) / this.strides[0] + 1, // rows
+                (this.inputSize[1] + 2 * this.paddings[1] - this.kernel_size[1]) / this.strides[1] + 1, // cols
+                this.filters  // depth
+            ];
+            for(let i = 0; i < 2; i++) {
+                // 2 * (kernel_size - 1) + (outputFeaureMapSize - 1)* stride + 1
+                this.inputErrorSize.push(2 * (this.kernel_size[i] - 1) + (this.outputFeatureMapSize[i] - 1) * this.strides[i] + 1);
+            }
+        }
+    }
+    class averagePooling2DLayerNode extends layerNode {
         constructor(loc, layerName, arg_list){
             super(loc, layerName, arg_list);
         }
@@ -734,8 +772,9 @@ var COStreamJS = (function () {
         matrix_section: matrix_section,
         lib_binopNode: lib_binopNode,
         sequentialNode: sequentialNode,
-        layerNode: layerNode$1,
+        layerNode: layerNode,
         denseLayerNode: denseLayerNode,
+        conv2DLayerNode: conv2DLayerNode,
         averagePooling2DLayerNode: averagePooling2DLayerNode
     });
 
@@ -996,10 +1035,10 @@ var COStreamJS = (function () {
      this.$ = new compositeCallNode(this._$,$$[$0-4],[],$$[$0-2]); 
     break;
     case 63:
-     this.$ = new denseLayerNode(this._$,"DENSE", $$[$0-2]);
+     this.$ = new denseLayerNode(this._$,"dense", $$[$0-2]);
     break;
     case 64:
-     debug("暂未支持 conv2D"); /* this.$ = new conv2DLayerNode(this._$,"conv2D", $$[$0-2]); */
+     this.$ = new conv2DLayerNode(this._$,"conv2D", $$[$0-2]); 
     break;
     case 73:
      this.$ = new labeled_statement(this._$,$$[$0-3],$$[$0-2],$$[$0-1],$$[$0]);
@@ -1721,7 +1760,7 @@ var COStreamJS = (function () {
     case 52:return 'INVALID'
     }
     },
-    rules: [/^(?:\s+)/,/^(?:\/\*([^\*]|(\*)*[^\*/])*(\*)*\*\/)/,/^(?:\/\/.*)/,/^(?:(0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b)/,/^(?:('[^']*'|"[^\"]*"))/,/^(?:string\b)/,/^(?:int\b)/,/^(?:double\b)/,/^(?:float\b)/,/^(?:long\b)/,/^(?:const\b)/,/^(?:define\b)/,/^(?:while\b)/,/^(?:for\b)/,/^(?:break\b)/,/^(?:continue\b)/,/^(?:switch\b)/,/^(?:case\b)/,/^(?:default\b)/,/^(?:if\b)/,/^(?:else\b)/,/^(?:do\b)/,/^(?:return\b)/,/^(?:composite\b)/,/^(?:input\b)/,/^(?:output\b)/,/^(?:stream\b)/,/^(?:FileReader\b)/,/^(?:FileWriter\b)/,/^(?:add\b)/,/^(?:param\b)/,/^(?:init\b)/,/^(?:work\b)/,/^(?:window\b)/,/^(?:tumbling\b)/,/^(?:sliding\b)/,/^(?:splitjoin\b)/,/^(?:pipeline\b)/,/^(?:split\b)/,/^(?:join\b)/,/^(?:duplicate\b)/,/^(?:roundrobin\b)/,/^(?:sequential\b)/,/^(?:DENSE|Dense\b)/,/^(?:CONV2D\b)/,/^(?:import\b)/,/^(?:Matrix|matrix\b)/,/^(?:[a-zA-Z_][a-zA-Z0-9_]*)/,/^(?:\*=|\/=|\+=|-=|<<=|>>=|&=|\^=|\|=)/,/^(?:##|\+\+|--|>>|>>|<=|>=|==|!=|&&|\|\|)/,/^(?:[-*+/%&|~!()\[\]{}'"#,\.?:;<>=])/,/^(?:$)/,/^(?:.)/],
+    rules: [/^(?:\s+)/,/^(?:\/\*([^\*]|(\*)*[^\*/])*(\*)*\*\/)/,/^(?:\/\/.*)/,/^(?:(0[xb])?[0-9]+(\.[0-9]+)?([Ee][+-]?[0-9]+?)?\b)/,/^(?:('[^']*'|"[^\"]*"))/,/^(?:string\b)/,/^(?:int\b)/,/^(?:double\b)/,/^(?:float\b)/,/^(?:long\b)/,/^(?:const\b)/,/^(?:define\b)/,/^(?:while\b)/,/^(?:for\b)/,/^(?:break\b)/,/^(?:continue\b)/,/^(?:switch\b)/,/^(?:case\b)/,/^(?:default\b)/,/^(?:if\b)/,/^(?:else\b)/,/^(?:do\b)/,/^(?:return\b)/,/^(?:composite\b)/,/^(?:input\b)/,/^(?:output\b)/,/^(?:stream\b)/,/^(?:FileReader\b)/,/^(?:FileWriter\b)/,/^(?:add\b)/,/^(?:param\b)/,/^(?:init\b)/,/^(?:work\b)/,/^(?:window\b)/,/^(?:tumbling\b)/,/^(?:sliding\b)/,/^(?:splitjoin\b)/,/^(?:pipeline\b)/,/^(?:split\b)/,/^(?:join\b)/,/^(?:duplicate\b)/,/^(?:roundrobin\b)/,/^(?:sequential\b)/,/^(?:DENSE|Dense\b)/,/^(?:Conv2d\b)/,/^(?:import\b)/,/^(?:Matrix|matrix\b)/,/^(?:[a-zA-Z_][a-zA-Z0-9_]*)/,/^(?:\*=|\/=|\+=|-=|<<=|>>=|&=|\^=|\|=)/,/^(?:##|\+\+|--|>>|>>|<=|>=|==|!=|&&|\|\|)/,/^(?:[-*+/%&|~!()\[\]{}'"#,\.?:;<>=])/,/^(?:$)/,/^(?:.)/],
     conditions: {"INITIAL":{"rules":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52],"inclusive":true}}
     });
     return lexer;
@@ -2599,6 +2638,9 @@ var COStreamJS = (function () {
         return str
     };
     addNode.prototype.toString = function (){
+        if(this.content instanceof compositeCallNode){
+            return this.name + ' ' + this.content.compName + '(' + list2String(this.content.params,',') + ')' 
+        }
         return this.name + ' ' + this.content.toString()
     };
 
@@ -2788,7 +2830,7 @@ var COStreamJS = (function () {
      */
     function AST2FlatStaticStreamGraph(mainComposite,unfold,S){
         var ssg = new StaticStreamGraph();
-        debug$1("--------- 执行GraphToOperators, 逐步构建FlatNode ---------------\n");
+        debug("--------- 执行GraphToOperators, 逐步构建FlatNode ---------------\n");
 
         setTop(S);
 
@@ -2800,21 +2842,18 @@ var COStreamJS = (function () {
         // ssg.SetFlatNodesWeights(); 这一步移动到 GenerateFlatNodes 中做
 
         runningStack.length = 0; // 清空执行上下文栈
-        debug$1("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n");
+        debug("--------- 执行AST2FlatStaticStreamGraph后, 查看静态数据流图 ssg 的结构中的全部 FlatNode ---------\n");
 
         return ssg
     }
 
-    /*
-    * 功能：递归的调用，
-    * 完成splitjoin和pipeline节点的展开，以及完成opearatorNode到flatnode节点的映射
-    * 输入参数：composite
-    * 输出：设置静态数据流图的对应flatNode节点，完成数据流边到flatNode节点的映射
-    */
 
     /**
-     * 1.遇到 out = call(in){ int / work / window } 形式的 operatorNode, 则在 ssg 中创建该 flatNode 并连接Edge
-     * 2.遇到 pipeline 或 splitjoin , 则将其展开为一个真正的 composite 并挂载至 COStream.ast
+     * 功能：递归的调用，生成 ssg 中的所有 flatNode
+     * 算法思路: 2遍遍历
+     * 1. 在第一遍遍历中 遇到 pipeline 或 splitjoin 等复合结构, 则将其展开为一个真正的 composite 并挂载至 COStream.ast
+     * 2. 在第二遍遍历中 遇到 out = call(in){ int / work / window } 形式的 operatorNode, 则在 ssg 中创建该 flatNode 并连接Edge
+     *                 遇到 out = compCall(in); 形式的 compositeCall 调用, 则查符号表找到该 composite, 再深入其中来连接数据流
      * 
      * @param {operNode} call
      * @param {compositeNode} composite
@@ -2827,9 +2866,38 @@ var COStreamJS = (function () {
         runningStack.push(top);
         generateCompositeRunningContext(call, composite, params); //传入参数,并生成 composite 调用的执行上下文环境
 
+
+        /** 先执行第一遍遍历, 检查是否有符合解构, 若有则展开复合结构, 将其替换为传统 compositeCall 调用, 方便打断点 toString 调试
+         * 例如将  Out = splitjoin(In){ ... }; 替换为 Out = splitjoin_0(In);  在 ast 中会出现额外的定义 composite splitjoin_0(...) { ... }
+         * 例如将  Out = sequential(In){ ... }; 替换为 Out = sequential(In);  在 ast 中会出现额外的定义 composite sequential(...) { ... }
+         */
+        for(let i in composite.body.stmt_list){
+
+            let it = composite.body.stmt_list[i], call;
+            let exp = it instanceof binopNode ? it.right : it; //获取到要处理的 operNode, 无论是直接调用还是通过 binopNode 的 right 来调用
+
+            switch(exp.constructor){
+                case splitjoinNode: call = unfold.UnfoldSplitJoin(exp); break;
+                case pipelineNode: call = unfold.UnfoldPipeline(exp); break;
+                case sequentialNode: call = unfold.UnfoldSequential(exp); break;
+                default: continue;
+            }
+
+            if(call.outputs && call.outputs.length > 0){
+                const left = call.outputs.length > 1? new parenNode(it._loc, call.outputs) : call.outputs[0];
+                const binop = new binopNode(it._loc, left,'=', call);
+                composite.body.stmt_list[i] = binop;
+            }else {
+                composite.body.stmt_list[i] = call;
+            }   
+            
+        }
+        // 展开完毕, 可在 chrome 控制台中输入右侧代码来查看展开的结果 console.log(COStreamJS.ast.map(_=>_+'').join('\n').beautify())
+
+        /** 再执行第二遍遍历, 这次遍历中, 仅有 operator 或 compositCall */
         for (let it of composite.body.stmt_list){
             
-            let exp = it instanceof binopNode ? it.right : it; //获取到要处理的 operator(){}或 pipeline()或其他,无论是直接调用还是通过 binopNode 的 right 来调用
+            let exp = it instanceof binopNode ? it.right : it;
 
             if(exp instanceof operatorNode){
                 ssg.GenerateFlatNodes(exp, params);
@@ -2840,20 +2908,6 @@ var COStreamJS = (function () {
                 
                 GraphToOperators(exp,actual_composite, ssg, unfold,S,params);
                 
-            }else if(exp instanceof splitjoinNode){
-                const call = unfold.UnfoldSplitJoin(exp);
-                const actual_composite = S.compTable[call.compName].composite; // 查看该生成的结构: debug(actual_composite.toString().beautify())
-                GraphToOperators(call, actual_composite, ssg, unfold,S);
-
-            }else if(exp instanceof pipelineNode){
-                const call = unfold.UnfoldPipeline(exp);
-                const actual_composite = S.compTable[call.compName].composite;
-                GraphToOperators(call, actual_composite, ssg, unfold, S);
-
-            }else if(exp instanceof sequentialNode){
-                const call = unfold.UnfoldSequential(exp);
-                const actual_composite = S.compTable[call.compName].composite;
-                GraphToOperators(call, actual_composite, ssg, unfold, S);
             }
         }
 
@@ -3333,13 +3387,13 @@ var COStreamJS = (function () {
      * 我们要连接数据流节点的策略是: 以 loss 为中心, 前后对称地补上 dense 和 dDense , 最后在首部加一个 copy
      * 我们要生成的 composite 的样式为
      *   composite sequential_0(input stream<double x>In, stream<double x>Y, output stream<double x> Out){
-     *          stream<double x>copy_1,copy_2;
+     *          stream<double x> copy_1, copy_2, F1_F2, F1_B2, F2_loss, _Loss, B2_B1, Out;
      *          (copy_1,copy2) = copy(In);                     // 内容参见 MakeCopyOperator
-     *          (dense_1_1,dense_1_2) = dense(copy1)
-     *          D3 = dense(D2)
-     *          L = loss(D3, Y)
-     *          D6 = dDense(D1, L)
-     *          Out = dDense(In1, D6)
+                F1_F2,F1_B2=dense_1(copy_1)();
+                F2_loss=dense_2(F1_F2)();
+                _Loss=loss(F2_loss,Y)();
+                B2_B1=dDense_2(_Loss,F1_B2)();
+                Out=dDense_1(B2_B1,copy_2)();
      *   }
      * 将该新生成的 composite 加入 COStreamJS.ast 以及符号表的 S.compTable 中
      * 然后我们要返回的 compositeCallNode 的样式为
@@ -3408,7 +3462,7 @@ var COStreamJS = (function () {
             const weightName = '_weight_' + layer.level;
             switch (layer.constructor) {
                 case denseLayerNode: {
-                    // 全局声明 double _weight_[prevDim][dim];
+                    // 全局声明 权值矩阵 double _weight_[prevDim][dim];
                     const declStr = `double ${weightName}[${layer.rows}][${layer.cols}];`;
                     const declare = COStreamJS.parser.parse(declStr)[0]; // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
 
@@ -3416,9 +3470,19 @@ var COStreamJS = (function () {
                     COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'));
                     break
                 }
+                case conv2DLayerNode: {
+                    // 全局声明 权值矩阵 double _weight_[filters][depth][rows][cols];
+                    const depth = layer.inputSize[layer.inputSize.length-1];
+                    const [rows, cols] = layer.kernel_size;
+                    const declStr = `double ${weightName}[${layer.filters}][${depth}][${rows}][${cols}];`;
+                    const declare = COStreamJS.parser.parse(declStr)[0]; // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
+
+                    COStreamJS.ast.unshift(declare);
+                    COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'));
+                    break;
+                }
             }
         }
-
         // 3.
         // 声明stream stream<double x>...
         const strType = new strdclNode(null, 'double', 'x');
@@ -3431,22 +3495,21 @@ var COStreamJS = (function () {
         // 输入sequential的训练集在反向传播中仍然需要
         const temp_stream_list = [['copy_2']];
         let temp_stream = ['copy_1'];
-        debugger;
         // 展开前向传播composite
         for (let layer of layers) {
             let call_inputs = [], call_outputs = [];
             if (layer !== layers[layers.length - 1]) { // 如果不是最后一个 layer
-                const namePrefix = '_F' + layer.layerName + layer.level + '_'; // 前缀, 例如 _FDENSE1_
-                // 正向传递给下一层的stream名称, 例如 _FDENSE1_FDENSE2
-                const tempName1 = namePrefix + 'F' + layer.nextLayer.layerName + layer.nextLayer.level;
+                const namePrefix = 'F' + layer.level + '_'; // 前缀, 例如 F1_
+                // 正向传递给下一层的stream名称, 例如 F1_F2
+                const tempName1 = namePrefix + 'F' + layer.nextLayer.level;
                 // 将数据流声明加入
                 streamDecl.init_declarator_list.push(tempName1);
                 call_inputs = [temp_stream[0]];
                 if (layer.nextLayer instanceof averagePooling2DLayerNode) {
                     call_outputs = [tempName1];
                 } else {
-                    // 传递给反向传播中本层的stream名称, 例如 _FDENSE1_BDENSE2
-                    const tempName2 = namePrefix + 'B' + layer.nextLayer.layerName + layer.nextLayer.level;
+                    // 传递给反向传播中本层的stream名称, 例如 F1_B2
+                    const tempName2 = namePrefix + 'B' + layer.nextLayer.level;
                     streamDecl.init_declarator_list.push(tempName2);
                     call_outputs = [tempName1, tempName2];
                     temp_stream_list.push([tempName2]);
@@ -3461,7 +3524,7 @@ var COStreamJS = (function () {
                     * 测试过程
                     只有正向传播的时候, output为输出：call_outputs = new list<Node *>({outputs->front()});
                 */
-                const tempName = '_F' + layer.layerName + layer.level + '_loss';
+                const tempName = 'F' + layer.level + '_loss';
                 call_inputs = [temp_stream[0]];
                 call_outputs = [tempName];
                 temp_stream.pop();
@@ -3474,6 +3537,7 @@ var COStreamJS = (function () {
             call.outputs = call_outputs;
             result.push(new binopNode(null, call_outputs, '=', call));
         }
+        debugger;
         // dl/dy的输入为y, y`
         // 展开反向传播composite, 最后一层的composite的输入为实际预测和期望预测的输入流 也即temp_stream和 与y_stream
         const call_inputs = [temp_stream[0], 'Y'], call_outputs = ['_Loss'];
@@ -3494,8 +3558,8 @@ var COStreamJS = (function () {
                 call_inputs = temp_stream_list.pop();
             }
             if (layer !== layers[0]) {
-                const namePrefix = 'B_' + layer.layerName + layer.level + '_'; // B_DENSE2_
-                const tempName = namePrefix + layer.prevLayer.layerName + layer.prevLayer.level; // B_DENSE2_DENSE1
+                const namePrefix = 'B' + layer.level + '_';
+                const tempName = namePrefix + 'B' + layer.prevLayer.level; // 例如 B2_B1
                 call_outputs = [tempName];
             } else {
                 call_outputs = ['Out'];
@@ -3554,9 +3618,16 @@ var COStreamJS = (function () {
      * @returns {compositeNode}
      */
     function MakeForwardComposite(/** @type {layerNode} */layer, isLast) {
+        let comp;
         if (layer instanceof denseLayerNode) {
-            return MakeDenseComposite(layer, isLast)
+            comp = MakeDenseComposite(layer, isLast);
+        }else if(layer instanceof conv2DLayerNode) {
+            comp = MakeConv2DComposite(layer, isLast);
         }
+        // 加入符号表
+        COStreamJS.S.compTable[comp.compName] = { composite: comp };
+        COStreamJS.ast.push(comp);
+        return comp
     }
 
     /* 构建如下的 dense 层的 composite, 其中需要处理 level 和输出输出窗口大小. 构建完成后加入符号表
@@ -3652,13 +3723,105 @@ var COStreamJS = (function () {
             };
           }`;
         }
-        const comp = COStreamJS.parser.parse(compStr)[0];
-        // 加入符号表
-        COStreamJS.S.compTable[comp.compName] = { composite: comp };
-        COStreamJS.ast.push(comp);
-        return comp
+        return COStreamJS.parser.parse(compStr)[0]
     }
 
+    /** @returns {compositeNode} */
+    function MakeConv2DComposite(/** @type {conv2DLayerNode} */ layer, isLast){
+        const conv2D_comp = MakeConv2DKernel(layer);
+        COStreamJS.S.compTable[conv2D_comp.compName] = { composite: conv2D_comp };
+        COStreamJS.ast.push(conv2D_comp);
+
+        if(isLast){
+            return COStreamJS.parser.parse(`
+        composite conv2DLayer_${layer.level}(input stream<double x>In, output stream<double x>Out){
+            int i;
+            Out = splitjoin(In){
+                split duplicate();
+                for(i = 0; i < ${layer.filters} ;i++){
+                    add ${conv2D_comp.compName}(i);
+                }
+                join roundrobin();
+            };
+        }
+        `)[0]
+        }
+        return COStreamJS.parser.parse(`
+        composite conv2DLayer_${layer.level}(input stream<double x>In, output stream<double x>Out0, stream<double x>Out1){
+            stream<double x> MID;
+            int i;
+            MID = splitjoin(In){
+                split duplicate();
+                for(i = 0; i < ${layer.filters} ;i++){
+                    add ${conv2D_comp.compName}(i);
+                }
+                join roundrobin();
+            };
+            (Out0, Out1) = copy(MID){
+                work{
+                    Out0[0].x = MID[0].x;
+                    Out1[0].x = MID[0].x;
+                }
+                window{
+                    MID sliding(1,1);
+                    Out0 tumbling(1);
+                    Out1 tumbling(1);
+                }
+             };
+
+        }
+        `)[0]
+        
+    }
+    function MakeConv2DKernel(/** @type {conv2DLayerNode} */ layer){
+        const { level, strides } = layer;
+        const [inputSize0,inputSize1,depth] = layer.inputSize; // inputSize0 用不到但不要删除
+        const inputWindowSize = layer.inputSize.reduce((a,b)=>a*b);
+        const [rows,cols] = layer.kernel_size;
+        const [m,n] = layer.outputFeatureMapSize;
+        return COStreamJS.parser.parse(`
+        composite conv2DKernel_${level}(input stream<double x>In, output stream<double x>Out){
+            param 
+                int kerelIndex;
+            Out = conv2D_${level}(In){
+                init {
+                    int j,n,m;
+                    for(j=0;j<${depth};j++){
+                        for(n=0;n<${rows};n++){
+                            for(m=0;m<${cols};m++){
+                                _weight_${level}[kernelIndex][j][n][m]=0;
+                            }		
+                        }		
+                    }		
+                }
+                work {
+                    int i, j, n, m, d, pushIndex = 0;
+                    double temp;
+                    for (m = 0; m < ${m}; m++){
+                        for (n = 0; n < ${n}; n++){
+                            temp = 0;
+                            for (d = 0; d < ${depth}; d++){
+                                for (i = 0; i < ${rows}; i++){
+                                    for (j = 0; j < ${cols}; j++){
+                                        // 取一个 三维 [inputSize0][inputSize1][depth] 向量 的 in[m*strides0+i][n*strides1+j][d] 的线性下标
+                                        int index = d + (n * ${strides[1]} + j) * ${depth} + (m * ${strides[0]} + i) * ${inputSize1} * ${depth} ;
+                                        temp += In[index].x * _weight_${level}[kernelIndex][d][i][j];
+                                    }
+                                }
+                            }
+                            Out[pushIndex].x = temp;
+                            pushIndex++;
+                        }
+                    }
+                }
+                window {
+                    In sliding(${inputWindowSize}, ${inputWindowSize});
+                    Out tumbling(${m*n});
+                }
+            };
+        }
+    `)[0]
+    }
     function MakeLossComposite(/** @type {layerNode} */layer) {
         let win = 0;
         if (layer instanceof denseLayerNode) {
@@ -3691,8 +3854,14 @@ var COStreamJS = (function () {
 
     function MakeBackComposite(layer) {
         if (layer instanceof denseLayerNode) {
-            return MakeDDenseComposite(layer)
+            var comp = MakeDDenseComposite(layer);
+        }else if(layer instanceof conv2DLayerNode){
+            var comp = MakeDConv2DComposite();
         }
+        // 加入符号表
+        COStreamJS.S.compTable[comp.compName] = { composite: comp };
+        COStreamJS.ast.push(comp);
+        return comp
     }
     function MakeDDenseComposite(/** @type {denseLayerNode} */layer) {
         const { level, rows, cols } = layer;
@@ -3727,11 +3896,10 @@ var COStreamJS = (function () {
             }
         };
       }`;
-        const comp = COStreamJS.parser.parse(compStr)[0];
-        // 加入符号表
-        COStreamJS.S.compTable[comp.compName] = { composite: comp };
-        COStreamJS.ast.push(comp);
-        return comp
+        return COStreamJS.parser.parse(compStr)[0]
+    }
+    function MakeDConv2DComposite(/** @type {conv2DLayerNode} */ layer){
+
     }
 
     /**
@@ -3764,7 +3932,7 @@ var COStreamJS = (function () {
     function ShedulingSSG(ssg){
         InitScheduling(ssg);
         SteadyScheduling(ssg);
-        debug$1("---稳态调度序列---\n");
+        debug("---稳态调度序列---\n");
         console.log(ssg.flatNodes.map(n=>({ name: n.name, steadyCount: n.steadyCount})));
     }
     function InitScheduling(ssg){
@@ -4339,7 +4507,7 @@ part               actor             workload           percent\n`;
                                 ${name} << ${sequence};
                             `;
                             }else {
-                                debug$1("FIXME: 代码生成-矩阵插件-矩阵常量初始化类型错误");
+                                debug("FIXME: 代码生成-矩阵插件-矩阵常量初始化类型错误");
                             }
                         }
                     }
@@ -5743,7 +5911,7 @@ extern int MAX_ITER;
         this.mp.computeCommunication();
         // 8. 输出统计信息
         let SI = this.GetSpeedUpInfo(this.ssg,this.mp);
-        debug$1(this.PrintSpeedUpInfo(SI));
+        debug(this.PrintSpeedUpInfo(SI));
         // 9. 阶段赋值
         this.MaxStageNum = this.StageAssignment(this.ssg,this.mp);
         // 10.目标代码生成
