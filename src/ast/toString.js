@@ -202,6 +202,9 @@ splitjoinNode.prototype.toString = function (){
     return str
 }
 addNode.prototype.toString = function (){
+    if(this.content instanceof compositeCallNode){
+        return this.name + ' ' + this.content.compName + '(' + list2String(this.content.params,',') + ')' 
+    }
     return this.name + ' ' + this.content.toString()
 }
 

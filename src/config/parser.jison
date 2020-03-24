@@ -52,7 +52,7 @@ duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 sequential                                                  return 'SEQUENTIAL'
 DENSE|Dense                                                 return 'DENSE'
-CONV2D                                                      return 'CONV2D'
+Conv2d                                                      return 'CONV2D'
 
 import                                                      return 'IMPORT'
 Matrix|matrix                                               return 'MATRIX'
@@ -290,7 +290,7 @@ operator_default_call:
         ;  
 operator_layer:      
           DENSE  '(' argument_expression_list ')' ';'       { $$ = new denseLayerNode(@$,"dense", $3);}
-        | CONV2D '(' argument_expression_list ')' ';'       { debug("暂未支持 conv2D"); /* $$ = new conv2DLayerNode(@$,"conv2D", $3); */}
+        | CONV2D '(' argument_expression_list ')' ';'       { $$ = new conv2DLayerNode(@$,"conv2D", $3); }
         ; 
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */

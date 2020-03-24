@@ -444,12 +444,14 @@ export class layerNode extends Node {
         if(this.prevLayer){
             if(this.prevLayer instanceof denseLayerNode){
                 return [1, this.prevLayer.cols, 1] // 设置本层的输入数据规模, 用一个三维向量描述: [depth, rows, cols]
+            }else if(this.prevLayer instanceof conv2DLayerNode){
+                return this.prevLayer.outputFeatureMapSize
             }else{
                 error("未识别的 layer 类型:", this.prevLayer)
             }
         }else{
-            if(sequential.arg_list[0] instanceof matrix_constant){
-                return sequential.arg_list[0].rawData
+            if(sequential.arg_list[0] instanceof parenNode){
+                return sequential.arg_list[0].exp.map(_=>_.value)
             }
             return [1, sequential.arg_list[0].value, 1] // [depth, rows, cols]
         }
@@ -468,7 +470,43 @@ export class denseLayerNode extends layerNode {
         this.rows = this.inputSize.reduce((a,b)=>a*b) // 求得所有维度的乘积, 例如[1,100,1] 返回 1*100*1 = 100
     }
 }
+export class conv2DLayerNode extends layerNode {
+    //                                   filters, kernel_size, strides, padding
+    constructor(loc, layerName, arg_list = [3, [2, 2], [1, 1], [0, 0]]) {
+        super(loc, layerName, arg_list);
+        try{
+            this.filters = arg_list[0].value // filters
+            // 以下三行的 '||' 操作符的意义: 当该参数是 parenNode 时, 取它的 exp. (而当 arg_list 取上方的默认值时,则不需取 exp)
+            this.kernel_size = (arg_list[1].exp || arg_list[1]) .map(num => num.value) // kernel_size
+            this.strides = (arg_list[2].exp || arg_list[2]) .map(num => num.value) // strides
+            this.paddings = (arg_list[3].exp || arg_list[3]) .map(num => num.value) // paddings
 
+        }catch(err){
+            error(loc, "conv2DLayerNode 参数解析错误, 请检查")
+        }
+        // 以下三个成员在 init 中进行初始化
+        this.inputSize = []
+        this.outputFeatureMapSize = []
+        this.inputErrorSize = []
+    }
+    /** 根据上一层初始化本层输出特征图的尺寸和输入空间的维度 */
+    init(/** @type {sequentialNode} */ sequential){
+        this.outputFeatureMapSize = [];
+        // 本层反向传播过程中 传入误差的尺寸`
+        this.inputErrorSize = [];
+        // 按照arg_list爲傳入整個sequential結構的參數列表(rows, cols, depth)
+        this.inputSize = this.getInputSize(sequential);
+        this.outputFeatureMapSize = [
+            (this.inputSize[0] + 2 * this.paddings[0] - this.kernel_size[0]) / this.strides[0] + 1, // rows
+            (this.inputSize[1] + 2 * this.paddings[1] - this.kernel_size[1]) / this.strides[1] + 1, // cols
+            this.filters  // depth
+        ]
+        for(let i = 0; i < 2; i++) {
+            // 2 * (kernel_size - 1) + (outputFeaureMapSize - 1)* stride + 1
+            this.inputErrorSize.push(2 * (this.kernel_size[i] - 1) + (this.outputFeatureMapSize[i] - 1) * this.strides[i] + 1);
+        }
+    }
+}
 export class averagePooling2DLayerNode extends layerNode {
     constructor(loc, layerName, arg_list){
         super(loc, layerName, arg_list)

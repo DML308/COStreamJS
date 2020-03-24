@@ -1,7 +1,7 @@
 import { UnfoldComposite, compositeCallFlow } from "./unfoldComposite"
 
 import { COStreamJS } from "./global"
-import { addNode, parenNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode, unaryNode } from "../ast/node";
+import { addNode, parenNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode, unaryNode, conv2DLayerNode } from "../ast/node";
 import { top, setTop } from "./generateSymbolTables"
 import { SymbolTable, Variable, ArrayConstant } from "./symbol";
 import { sequentialNode, denseLayerNode, layerNode, averagePooling2DLayerNode } from "../ast/node";
@@ -86,14 +86,14 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
     layers[layers.length - 1].level = ++currentLevel
 
     // 1. 确定每一层的输入输出规模 执行完后, this.rows 有值了
-    layers.forEach(layer => layer.init(sequential))
+    layers.forEach(layer => layer.init(sequential));
 
     // 2. 在语法树的头部插入权值矩阵 二维数组的声明 例如_weight_0[784][100], _weight_1[100][10]
     for (let layer of layers) {
         const weightName = '_weight_' + layer.level
         switch (layer.constructor) {
             case denseLayerNode: {
-                // 全局声明 double _weight_[prevDim][dim];
+                // 全局声明 权值矩阵 double _weight_[prevDim][dim];
                 const declStr = `double ${weightName}[${layer.rows}][${layer.cols}];`
                 const declare = COStreamJS.parser.parse(declStr)[0] // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
 
@@ -101,10 +101,20 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
                 COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'))
                 break
             }
+            case conv2DLayerNode: {
+                // 全局声明 权值矩阵 double _weight_[filters][depth][rows][cols];
+                const depth = layer.inputSize[layer.inputSize.length-1]
+                const [rows, cols] = layer.kernel_size
+                const declStr = `double ${weightName}[${layer.filters}][${depth}][${rows}][${cols}];`
+                const declare = COStreamJS.parser.parse(declStr)[0] // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
+
+                COStreamJS.ast.unshift(declare);
+                COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'))
+                break;
+            }
             default: break;
         }
     }
-
     // 3.
     // 声明stream stream<double x>...
     const strType = new strdclNode(null, 'double', 'x')
@@ -117,7 +127,6 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
     // 输入sequential的训练集在反向传播中仍然需要
     const temp_stream_list = [['copy_2']]
     let temp_stream = ['copy_1']
-    debugger;
     // 展开前向传播composite
     for (let layer of layers) {
         let call_inputs = [], call_outputs = []
@@ -160,6 +169,7 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
         call.outputs = call_outputs
         result.push(new binopNode(null, call_outputs, '=', call))
     }
+    debugger;
     // dl/dy的输入为y, y`
     // 展开反向传播composite, 最后一层的composite的输入为实际预测和期望预测的输入流 也即temp_stream和 与y_stream
     const call_inputs = [temp_stream[0], 'Y'], call_outputs = ['_Loss']
@@ -240,9 +250,16 @@ UnfoldComposite.prototype.MakeCopyOperator = function () {
  * @returns {compositeNode}
  */
 function MakeForwardComposite(/** @type {layerNode} */layer, isLast) {
+    let comp;
     if (layer instanceof denseLayerNode) {
-        return MakeDenseComposite(layer, isLast)
+        comp = MakeDenseComposite(layer, isLast)
+    }else if(layer instanceof conv2DLayerNode) {
+        comp = MakeConv2DComposite(layer, isLast)
     }
+    // 加入符号表
+    COStreamJS.S.compTable[comp.compName] = { composite: comp }
+    COStreamJS.ast.push(comp)
+    return comp
 }
 
 /* 构建如下的 dense 层的 composite, 其中需要处理 level 和输出输出窗口大小. 构建完成后加入符号表
@@ -338,13 +355,105 @@ function MakeDenseComposite(/** @type {denseLayerNode} */layer, isLast = false) 
             };
           }`
     }
-    const comp = COStreamJS.parser.parse(compStr)[0]
-    // 加入符号表
-    COStreamJS.S.compTable[comp.compName] = { composite: comp }
-    COStreamJS.ast.push(comp)
-    return comp
+    return COStreamJS.parser.parse(compStr)[0]
 }
 
+/** @returns {compositeNode} */
+function MakeConv2DComposite(/** @type {conv2DLayerNode} */ layer, isLast){
+    const conv2D_comp = MakeConv2DKernel(layer)
+    COStreamJS.S.compTable[conv2D_comp.compName] = { composite: conv2D_comp }
+    COStreamJS.ast.push(conv2D_comp)
+
+    if(isLast){
+        return COStreamJS.parser.parse(`
+        composite conv2DLayer_${layer.level}(input stream<double x>In, output stream<double x>Out){
+            int i;
+            Out = splitjoin(In){
+                split duplicate();
+                for(i = 0; i < ${layer.filters} ;i++){
+                    add ${conv2D_comp.compName}(i);
+                }
+                join roundrobin();
+            };
+        }
+        `)[0]
+    }
+    return COStreamJS.parser.parse(`
+        composite conv2DLayer_${layer.level}(input stream<double x>In, output stream<double x>Out0, stream<double x>Out1){
+            stream<double x> MID;
+            int i;
+            MID = splitjoin(In){
+                split duplicate();
+                for(i = 0; i < ${layer.filters} ;i++){
+                    add ${conv2D_comp.compName}(i);
+                }
+                join roundrobin();
+            };
+            (Out0, Out1) = copy(MID){
+                work{
+                    Out0[0].x = MID[0].x;
+                    Out1[0].x = MID[0].x;
+                }
+                window{
+                    MID sliding(1,1);
+                    Out0 tumbling(1);
+                    Out1 tumbling(1);
+                }
+             };
+
+        }
+        `)[0]
+    
+}
+function MakeConv2DKernel(/** @type {conv2DLayerNode} */ layer){
+    const { level, strides } = layer
+    const [inputSize0,inputSize1,depth] = layer.inputSize // inputSize0 用不到但不要删除
+    const inputWindowSize = layer.inputSize.reduce((a,b)=>a*b)
+    const [rows,cols] = layer.kernel_size
+    const [m,n] = layer.outputFeatureMapSize
+    return COStreamJS.parser.parse(`
+        composite conv2DKernel_${level}(input stream<double x>In, output stream<double x>Out){
+            param 
+                int kerelIndex;
+            Out = conv2D_${level}(In){
+                init {
+                    int j,n,m;
+                    for(j=0;j<${depth};j++){
+                        for(n=0;n<${rows};n++){
+                            for(m=0;m<${cols};m++){
+                                _weight_${level}[kernelIndex][j][n][m]=0;
+                            }		
+                        }		
+                    }		
+                }
+                work {
+                    int i, j, n, m, d, pushIndex = 0;
+                    double temp;
+                    for (m = 0; m < ${m}; m++){
+                        for (n = 0; n < ${n}; n++){
+                            temp = 0;
+                            for (d = 0; d < ${depth}; d++){
+                                for (i = 0; i < ${rows}; i++){
+                                    for (j = 0; j < ${cols}; j++){
+                                        // 取一个 三维 [inputSize0][inputSize1][depth] 向量 的 in[m*strides0+i][n*strides1+j][d] 的线性下标
+                                        int index = d + (n * ${strides[1]} + j) * ${depth} + (m * ${strides[0]} + i) * ${inputSize1} * ${depth} ;
+                                        temp += In[index].x * _weight_${level}[kernelIndex][d][i][j];
+                                    }
+                                }
+                            }
+                            Out[pushIndex].x = temp;
+                            pushIndex++;
+                        }
+                    }
+                }
+                window {
+                    In sliding(${inputWindowSize}, ${inputWindowSize});
+                    Out tumbling(${m*n});
+                }
+            };
+        }
+    `)[0]
+}
 function MakeLossComposite(/** @type {layerNode} */layer) {
     let win = 0
     if (layer instanceof denseLayerNode) {
@@ -377,8 +486,14 @@ function MakeLossComposite(/** @type {layerNode} */layer) {
 
 function MakeBackComposite(layer) {
     if (layer instanceof denseLayerNode) {
-        return MakeDDenseComposite(layer)
+        var comp = MakeDDenseComposite(layer)
+    }else if(layer instanceof conv2DLayerNode){
+        var comp = MakeDConv2DComposite(layer)
     }
+    // 加入符号表
+    COStreamJS.S.compTable[comp.compName] = { composite: comp }
+    COStreamJS.ast.push(comp)
+    return comp
 }
 function MakeDDenseComposite(/** @type {denseLayerNode} */layer) {
     const { level, rows, cols } = layer
@@ -413,9 +528,8 @@ function MakeDDenseComposite(/** @type {denseLayerNode} */layer) {
             }
         };
       }`
-    const comp = COStreamJS.parser.parse(compStr)[0]
-    // 加入符号表
-    COStreamJS.S.compTable[comp.compName] = { composite: comp }
-    COStreamJS.ast.push(comp)
-    return comp
+    return COStreamJS.parser.parse(compStr)[0]
+}
+function MakeDConv2DComposite(/** @type {conv2DLayerNode} */ layer){
+
 }

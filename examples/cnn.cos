@@ -1,0 +1,32 @@
+composite Main() {
+    stream<double x> In, Out, Y;
+    (In, Y) = Start() {
+        int i = 0;
+        work {
+            for(i = 0; i < 12; i++) {
+                In[i].x = 1;
+            }
+            for(i = 0; i < 10; i++) {
+                Y[i].x = 0;
+            } 
+        }
+        window {
+            In tumbling(12);
+            Y tumbling(10);
+        }
+    };
+    Out = sequential (In, Y) ((3, 4, 1)) {
+        // filters, kernel_size, strides, padding
+        add Conv2d(3, (2, 2), (1, 1), (0, 0));
+        add Conv2d(5, (2, 2), (1, 1), (0, 0));
+        add Dense(10);
+    };
+    sink(Out) {
+        work {
+            print(Out[0].x);
+        }
+        window{
+            Out sliding(12, 12);
+        }
+    };
+}

@@ -269,7 +269,6 @@ export class splitjoinNode extends operNode {
     split: splitNode
     body_stmts: statement[]
     join: joinNode
-    replace_composite: compositeNode
 
     constructor(loc: YYLTYPE, options: object)
 }
@@ -360,4 +359,19 @@ export class layerNode extends Node {
 export class denseLayerNode extends layerNode {
     rows: number
     cols: number
+}
+export class conv2DLayerNode extends layerNode {
+    /** 输出空间的维度 （即卷积中滤波器的输出数量） */
+    filters: number; 
+    /** 对于conv2D, 为2 */
+    dimension: number; 
+    /* 2D 卷积窗口的宽度和高度 */
+    kernel_size: number[]; 
+    /* 卷积沿宽度和高度方向的步长 */
+    strides: number[]; 
+    /* 扩展, 一般为[0,0] */
+    paddings: number[]; 
+    /* 正向傳播過程输出的特征图的尺寸(2維) */
+    outputFeatureMapSize: number[]; 
+    inputErrorSize: number[];
 }
