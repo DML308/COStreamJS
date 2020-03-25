@@ -499,7 +499,7 @@ assignment_expression:
       {
           if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode,sequentialNode].some(x=> $3 instanceof x)){
               if($1 instanceof parenNode){
-                  $3.outputs = $1.exp.slice()
+                  $3.outputs = $1.exp instanceof Array ? $1.exp.slice() : [$1.exp] // 可能是单个 string
               }else if(typeof $1 == "string"){
                   $3.outputs = [$1]
               }else{
