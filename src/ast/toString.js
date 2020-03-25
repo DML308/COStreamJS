@@ -75,7 +75,7 @@ compositeNode.prototype.toString = function () {
     return str
 }
 ComInOutNode.prototype.toString = function () {
-    return 'input ' + list2String(this.input_list) + ', output ' + list2String(this.output_list)
+    return 'input ' + list2String(this.input_list,',') + ', output ' + list2String(this.output_list,',')
 }
 inOutdeclNode.prototype.toString = function () {
     return this.strType.toString() + this.id
