@@ -777,7 +777,7 @@ var COStreamJS = (function () {
         averagePooling2DLayerNode: averagePooling2DLayerNode
     });
 
-    var version = "0.9.1";
+    var version = "0.9.0";
 
     //对外的包装对象
     var COStreamJS = {
@@ -2175,8 +2175,10 @@ var COStreamJS = (function () {
             }
             case splitjoinNode: generateSplitjoin(stmt); break;
             case pipelineNode: generatePipeline(stmt); break;
-            case sequentialNode: generateSequential(stmt); break;
-            case addNode: generateStmt(stmt.content); break
+            case addNode: {
+                generateStmt(stmt.content);
+                break
+            }
             case compositeCallNode: {
                 /** 检查传入的参数是否存在 以及 获得参数值 FIXME */
                 if(! symbolTableList[0].compTable[stmt.compName]){
@@ -2184,7 +2186,6 @@ var COStreamJS = (function () {
                 }
                 break
             }
-            case Array: stmt.forEach(stmt => generateStmt(stmt)); break;
             default: {
                 if (ignoreTypes.some(ignoreType => stmt instanceof ignoreType)) ; else {
                     console.warn("[generateStmt] FIXME: 暂未识别的 stmt 类型");
@@ -2278,27 +2279,6 @@ var COStreamJS = (function () {
         ;(pipe.body_stmts||[]).forEach(generateStmt);
     }
 
-    // 解析 sequential
-    function generateSequential(/** @type {sequentialNode} */ sequential){
-        const checkStreamId = name => {
-            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
-                throw new Error(`当前 operator: ${splitjoin.compName} 相关的流 ${name} 在作用域中未声明`)
-            }
-        }
-
-        ;(sequential.inputs||[]).forEach(checkStreamId)
-        ;(sequential.outputs||[]).forEach(checkStreamId)
-        ;(sequential.body_stmts||[]).forEach(add =>{
-            if(add instanceof addNode && add.content instanceof layerNode){
-                return // 正确的情况
-            }else {
-                error$1(add._loc, "sequential 结构内部仅能添加以下几种 layerNode之一: Dense Conv2D MaxPooling2D AveragePooling2D");
-            }
-        });
-        if(sequential.body_stmts && sequential.body_stmts.length < 2){
-            error$1(sequential._loc, "sequential 结构中必须至少有 2 个 layer");
-        }
-    }
 
     /**
      * 
@@ -4114,7 +4094,7 @@ var COStreamJS = (function () {
                 }
                 window{
                     ${inputs.map(name => name + ' sliding(1,1);').join('\n')}
-                    ${outputStreamName} tumbling(${inputs.length});
+                    ${outputStreamName} tumbling(1);
                 }
             };
         }
@@ -6106,7 +6086,7 @@ extern int MAX_ITER;
 
     COStreamJS.main = function(str, options = { coreNum:4 }){
         debugger
-        COStreamJS.global.errors = errors;
+        COStreamJS.global.errors = [];
         // 1. 先检查括号是否匹配
         if(!checkBraceMatching(str)) return
         // 2. 词语法分析构建语法树
