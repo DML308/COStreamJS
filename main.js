@@ -35,7 +35,7 @@ Object.assign(COStreamJS.__proto__, {
 
 COStreamJS.main = function(str, options = { coreNum:4 }){
     debugger
-    COStreamJS.global.errors = []
+    COStreamJS.global.errors = utils.errors
     // 1. 先检查括号是否匹配
     if(!utils.checkBraceMatching(str)) return
     // 2. 词语法分析构建语法树

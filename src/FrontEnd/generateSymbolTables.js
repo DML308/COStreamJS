@@ -1,5 +1,5 @@
 import { runningStack, SymbolTable, Constant, ArrayConstant, Variable, symbolTableList} from "./symbol";
-import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode} from "../ast/node";
+import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode, sequentialNode, layerNode} from "../ast/node";
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
 import { BUILTIN_FUNCTIONS } from "./built-in-function";
@@ -177,10 +177,8 @@ function generateStmt(/** @type {Node} */stmt) {
         }
         case splitjoinNode: generateSplitjoin(stmt); break;
         case pipelineNode: generatePipeline(stmt); break;
-        case addNode: {
-            generateStmt(stmt.content)
-            break
-        }
+        case sequentialNode: generateSequential(stmt); break;
+        case addNode: generateStmt(stmt.content); break
         case compositeCallNode: {
             /** 检查传入的参数是否存在 以及 获得参数值 FIXME */
             if(! symbolTableList[0].compTable[stmt.compName]){
@@ -188,6 +186,7 @@ function generateStmt(/** @type {Node} */stmt) {
             }
             break
         }
+        case Array: stmt.forEach(stmt => generateStmt(stmt)); break;
         default: {
             if (ignoreTypes.some(ignoreType => stmt instanceof ignoreType)) {
                 /** 这些类型不需要在生成符号表这一步进行处理,可暂时跳过 */
@@ -283,6 +282,27 @@ function generatePipeline(/** @type {pipelineNode} */pipe){
     ;(pipe.body_stmts||[]).forEach(generateStmt)
 }
 
+// 解析 sequential
+function generateSequential(/** @type {sequentialNode} */ sequential){
+    const checkStreamId = name => {
+        if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+            throw new Error(`当前 operator: ${splitjoin.compName} 相关的流 ${name} 在作用域中未声明`)
+        }
+    }
+
+    ;(sequential.inputs||[]).forEach(checkStreamId)
+    ;(sequential.outputs||[]).forEach(checkStreamId)
+    ;(sequential.body_stmts||[]).forEach(add =>{
+        if(add instanceof addNode && add.content instanceof layerNode){
+            return // 正确的情况
+        }else{
+            error(add._loc, "sequential 结构内部仅能添加以下几种 layerNode之一: Dense Conv2D MaxPooling2D AveragePooling2D")
+        }
+    })
+    if(sequential.body_stmts && sequential.body_stmts.length < 2){
+        error(sequential._loc, "sequential 结构中必须至少有 2 个 layer")
+    }
+}
 
 /**
  * 
