@@ -728,7 +728,7 @@ function makeSpecialJoinOperator(outputStreamName, /** @type {string[]} */inputs
                 }
                 window{
                     ${inputs.map(name => name + ' sliding(1,1);').join('\n')}
-                    ${outputStreamName} tumbling(1);
+                    ${outputStreamName} tumbling(${inputs.length});
                 }
             };
         }
