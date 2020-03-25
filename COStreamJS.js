@@ -777,7 +777,7 @@ var COStreamJS = (function () {
         averagePooling2DLayerNode: averagePooling2DLayerNode
     });
 
-    var version = "0.8.4";
+    var version = "0.9.1";
 
     //对外的包装对象
     var COStreamJS = {
@@ -1200,7 +1200,7 @@ var COStreamJS = (function () {
 
               if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode,sequentialNode].some(x=> $$[$0] instanceof x)){
                   if($$[$0-2] instanceof parenNode){
-                      $$[$0].outputs = $$[$0-2].exp.slice();
+                      $$[$0].outputs = $$[$0-2].exp instanceof Array ? $$[$0-2].exp.slice() : [$$[$0-2].exp]; // 可能是单个 string
                   }else if(typeof $$[$0-2] == "string"){
                       $$[$0].outputs = [$$[$0-2]];
                   }else {
@@ -2175,10 +2175,8 @@ var COStreamJS = (function () {
             }
             case splitjoinNode: generateSplitjoin(stmt); break;
             case pipelineNode: generatePipeline(stmt); break;
-            case addNode: {
-                generateStmt(stmt.content);
-                break
-            }
+            case sequentialNode: generateSequential(stmt); break;
+            case addNode: generateStmt(stmt.content); break
             case compositeCallNode: {
                 /** 检查传入的参数是否存在 以及 获得参数值 FIXME */
                 if(! symbolTableList[0].compTable[stmt.compName]){
@@ -2186,6 +2184,7 @@ var COStreamJS = (function () {
                 }
                 break
             }
+            case Array: stmt.forEach(stmt => generateStmt(stmt)); break;
             default: {
                 if (ignoreTypes.some(ignoreType => stmt instanceof ignoreType)) ; else {
                     console.warn("[generateStmt] FIXME: 暂未识别的 stmt 类型");
@@ -2279,6 +2278,27 @@ var COStreamJS = (function () {
         ;(pipe.body_stmts||[]).forEach(generateStmt);
     }
 
+    // 解析 sequential
+    function generateSequential(/** @type {sequentialNode} */ sequential){
+        const checkStreamId = name => {
+            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+                throw new Error(`当前 operator: ${splitjoin.compName} 相关的流 ${name} 在作用域中未声明`)
+            }
+        }
+
+        ;(sequential.inputs||[]).forEach(checkStreamId)
+        ;(sequential.outputs||[]).forEach(checkStreamId)
+        ;(sequential.body_stmts||[]).forEach(add =>{
+            if(add instanceof addNode && add.content instanceof layerNode){
+                return // 正确的情况
+            }else {
+                error$1(add._loc, "sequential 结构内部仅能添加以下几种 layerNode之一: Dense Conv2D MaxPooling2D AveragePooling2D");
+            }
+        });
+        if(sequential.body_stmts && sequential.body_stmts.length < 2){
+            error$1(sequential._loc, "sequential 结构中必须至少有 2 个 layer");
+        }
+    }
 
     /**
      * 
@@ -2512,7 +2532,7 @@ var COStreamJS = (function () {
         return str
     };
     ComInOutNode.prototype.toString = function () {
-        return 'input ' + list2String(this.input_list) + ', output ' + list2String(this.output_list)
+        return 'input ' + list2String(this.input_list,',') + ', output ' + list2String(this.output_list,',')
     };
     inOutdeclNode.prototype.toString = function () {
         return this.strType.toString() + this.id
@@ -3563,7 +3583,7 @@ var COStreamJS = (function () {
             } else {
                 call_outputs = ['Out'];
             }
-            streamDecl.init_declarator_list.push(call_outputs[0]);
+            if(call_outputs[0] !== 'Out') streamDecl.init_declarator_list.push(call_outputs[0]);
             temp_stream = [call_outputs[0]];
             const back_comp = MakeBackComposite(layer);
             const back_call = new compositeCallNode(null, back_comp.compName, call_inputs);
@@ -3855,7 +3875,7 @@ var COStreamJS = (function () {
         if (layer instanceof denseLayerNode) {
             var comp = MakeDDenseComposite(layer);
         }else if(layer instanceof conv2DLayerNode){
-            var comp = MakeDConv2DComposite();
+            var comp = MakeDConv2DComposite(layer);
         }
         // 加入符号表
         COStreamJS.S.compTable[comp.compName] = { composite: comp };
@@ -3897,8 +3917,208 @@ var COStreamJS = (function () {
       }`;
         return COStreamJS.parser.parse(compStr)[0]
     }
+    // 生成名为"dConv2DLayer_" + level 的卷积层反向传播计算节点
     function MakeDConv2DComposite(/** @type {conv2DLayerNode} */ layer){
+        const { level } = layer;
+        const comp =  COStreamJS.parser.parse(`
+        composite dConv2DLayer_${level}(input stream<double x>In0,stream<double x>In1, output stream<double x>Out) {
+            ;
+        }
+    `)[0];
+        comp.body.stmt_list = MakeDConv2DLayerBodyStmt(layer, comp);
+        return comp
+    }
 
+    /** @returns {binopNode} */
+    function operToBinop(/** @type {operatorNode} */oper){
+        return new binopNode(null, new parenNode(null, oper.outputs), '=', oper)
+    }
+    function MakeDConv2DLayerBodyStmt(/** @type {conv2DLayerNode} */ layer, /** @type {compositeNode} */comp){
+        const compStmtList = []; // 要返回的 body_stmt
+        let streamName = "DConv2dStream_" + layer.level;
+        
+        // join operator的输入流
+        let inputs_join = [];
+        // list<compositeCallNode *> *comCallList = new list<compositeCallNode *>();
+
+        const strType = comp.inout.input_list[0].strType;
+        const streamDecl = new declareNode(null, strType, []);
+
+        // 数据流声明 stream<double x> dilateAndExtend_2;
+        const dilateAndExtendStream = "dilateAndExtend_" + layer.level;
+        streamDecl.init_declarator_list.push(dilateAndExtendStream);
+        compStmtList.push(streamDecl);
+
+        // 构建 Dilate_Extend 
+        compStmtList.push(makeConv2DDilateAndExtendOperator(layer, ["In0"], [dilateAndExtendStream]));
+
+        let dupCount = layer.inputSize[layer.inputSize.length - 1];
+        // splitOperator1 将误差duplicate成filters份, splitOperator2 将传入正向传播的输入再次传入到反向传播中,并duplicate成多份
+        const splitOperator1 = makeSpecialSplitOperator(dilateAndExtendStream, dupCount, layer.level);
+        const splitOperator2 = makeSpecialSplitOperator('In1', dupCount, layer.level);
+        compStmtList.push(operToBinop(splitOperator1));
+        compStmtList.push(operToBinop(splitOperator2));
+
+        // 加入数据流声明中
+        debugger;
+        [...splitOperator1.outputs, ...splitOperator2.outputs].forEach(name => streamDecl.init_declarator_list.push(name));
+        
+        const dKernelComp = makeDConv2DKernel(layer);
+        //开始连接 oper
+        for(let i=0; i< dupCount; i++){
+            const tempName = streamName + "_" + i;
+            streamDecl.init_declarator_list.push(tempName);
+
+            //compositeCall的输出流是join节点的输入流
+            inputs_join.push(tempName);
+
+            // kernel的输出流
+            const call_outputs = [tempName];
+            //compositeCall的输入流
+            const call_inputs = [splitOperator1.outputs[i], splitOperator2.outputs[i]];
+            // compositeCallNode *call = new compositeCallNode(call_outputs, tempName, argList, call_inputs, dKernelComp);
+            const call = new compositeCallNode(null,dKernelComp.compName, call_inputs, [new constantNode(null,i)]);
+            call.outputs = call_outputs;
+            compStmtList.push(call);
+        }
+
+        const joinOperator = makeSpecialJoinOperator('Out', inputs_join, layer.level);
+        compStmtList.push(operToBinop(joinOperator));
+
+        return compStmtList;
+    }
+
+    function makeConv2DDilateAndExtendOperator(/** @type {conv2DLayerNode} */ layer, inputs_id, outputs_id){
+        const level = layer.level;
+        const [stride0, stride1] = layer.strides;
+        const [kernel0, kernel1] = layer.kernel_size;
+        const [inputErrorSize0,inputErrorSize1] = layer.inputErrorSize;
+        const filters = layer.filters;
+        const [outputFeatureMapSize0,outputFeatureMapSize1] = layer.outputFeatureMapSize;
+        const slidingWindowSize = outputFeatureMapSize0 * outputFeatureMapSize1 * filters;
+
+        return COStreamJS.parser.parse(`
+        composite conv2D_Dilate_Extend_${level}(){
+            ${outputs_id} = conv2D_Dilate_Extend_${level}(${inputs_id}){
+                init{}
+                work{
+                    int i, j, filters;
+                    for (i = 0; i < ${outputFeatureMapSize0}; i++){
+                        for (j = 0; j < ${outputFeatureMapSize1}; j++){
+                            for (filters = 0; filters < ${filters}; filters++){
+                                // [i][j][filters] => [kernel0 + i * stride0][kernel1 + j * stride1][filters];
+                                int dilate_index = (${stride0} * i + ${kernel0}) * ${inputErrorSize1*filters} + (${stride1} * j + ${kernel1}) * ${filters} + filters;
+                                int in_index = i * ${outputFeatureMapSize1*filters} + j * ${filters} + filters;
+                                dilateAndExtend_${level}[dilate_index].x = ${inputs_id}[in_index].x;
+                            }
+                        }
+                    }
+                }
+                window{
+                    ${inputs_id} sliding(${slidingWindowSize},${slidingWindowSize});
+                    ${outputs_id} tumbling(${inputErrorSize0 * inputErrorSize1 * filters});
+                }
+            };
+        }
+    `)[0].body.stmt_list[0]
+    }
+    function makeDConv2DKernel(/** @type {conv2DLayerNode} */ layer){
+        const { level, filters } = layer;
+        const [inputSize0,inputSize1, depth] = layer.inputSize;
+        const [kernel0, kernel1] = layer.kernel_size;
+        const [inputErrorSize0,inputErrorSize1] = layer.inputErrorSize;
+        const [stride0, stride1] = layer.strides;
+        const slidingWindowSize = inputErrorSize0 * inputErrorSize1 * filters;
+        const in1_WindowSize = inputSize0 * inputSize1 * depth;
+
+        const comp = COStreamJS.parser.parse(`
+        composite dConv2D_${level}(input stream<double x>in0, stream<double x>in1, output stream<double x>out){
+            param
+                int depthIndex;
+            out = dConv2D_${level}(in0,in1){
+                init{}
+                work{
+                    int i, j, n, m, filterIndex;
+                    double temp;
+                    for (m = 0; m < ${inputSize0}; m++){
+                        for (n = 0; n < ${inputSize1}; n++){
+                            temp = 0;
+                            for (filterIndex = 0; filterIndex < ${filters}; filterIndex++){
+                                for (i = 0; i < ${kernel0}; i++){
+                                    for (j = 0; j < ${kernel1}; j++){
+                                        temp += in0[(m + i) * ${inputErrorSize1} * ${filters} + (n + j) * ${filters} + filterIndex].x * _weight_${level}[filterIndex][depthIndex][${kernel0} - i][${kernel1} - j];
+                                    }
+                                }
+                            }
+                            out[m * 3 + n].x = temp;
+                        }
+                    }
+                    for (filterIndex = 0; filterIndex < ${filters}; filterIndex++){
+                        for (i = 0; i < ${kernel0}; i++){
+                            for (j = 0; j < ${kernel1}; j++){
+                                temp = 0;
+                                for (m = 0; m < ${inputSize0}; m++){
+                                    for (n = 0; n < ${inputSize1}; n++){
+                                        int in0_index = ( ${kernel0} - 1 + m * ${stride0} ) * ${inputErrorSize1*filters} + (${kernel1} -1 + n * ${stride1}) * ${filters} + filterIndex;
+                                        int in1_index = ( i + m * ${stride0} ) * ${inputSize1*depth} + ( j + n*${stride1} )*${depth} + depthIndex;
+                                        temp += in0[in0_index].x * in1[in1_index].x;
+                                    }
+                                }
+                                _weight_${level}[filterIndex][depthIndex][i][j] -= temp;
+                            }
+                        }
+                    }
+                }
+                window{
+                    in0 sliding(${slidingWindowSize},${slidingWindowSize});
+                    in1 sliding(${in1_WindowSize},${in1_WindowSize});
+                    out tumbling(${inputSize0 * inputSize1});
+                }
+            };
+        }
+    `)[0];
+        COStreamJS.S.compTable[comp.compName] = { composite: comp };
+        COStreamJS.ast.push(comp);
+        return comp;
+    }
+
+    function makeSpecialSplitOperator(inputStreamName, splitCount, level, style = undefined){
+        const outputs = Array.from({length: splitCount}).map((_,idx)=> inputStreamName+'_'+idx);
+        if(style){
+            error("暂未实现 special_split_roundrobin");
+        }
+        return COStreamJS.parser.parse(`
+        composite special_duplicate(input stream<double x>${inputStreamName}){
+            (${outputs.join(',')}) = special_duplicate_${level}(${inputStreamName}){
+                init{}
+                work{
+                    ${outputs.map(name => name + '[0]=' + inputStreamName + '[0];').join('\n')}
+                }
+                window{
+                    ${inputStreamName} sliding(1,1);
+                    ${outputs.map(name => name + ' tumbling(1);').join('\n')}
+                }
+            };
+        }
+    `)[0].body.stmt_list[0].right
+    }
+
+    function makeSpecialJoinOperator(outputStreamName, /** @type {string[]} */inputs, level){
+        return COStreamJS.parser.parse(`
+        composite special_join(output stream<double x>${outputStreamName}){
+            ${outputStreamName} = special_join_${level}(${inputs.join(',')}){
+                init{}
+                work{
+                    int i=0;
+                    ${inputs.map(name => outputStreamName +'[i++] = ' + name + '[0];').join('\n')}
+                }
+                window{
+                    ${inputs.map(name => name + ' sliding(1,1);').join('\n')}
+                    ${outputStreamName} tumbling(${inputs.length});
+                }
+            };
+        }
+    `)[0].body.stmt_list[0].right
     }
 
     /**
@@ -3967,7 +4187,7 @@ var COStreamJS = (function () {
                 }else {
                     //若 down 节点已进行稳态调度，检查SDF图是否存在稳态调度系列，一般不存在的话表明程序有误
                     if(nPush * up.steadyCount !== nPop * down.steadyCount){
-                        throw new Error("调度算法出错, 请检查")
+                        error$1("调度算法出错, 请检查");
                     }
                 }
                 flats.push(down);
@@ -5886,7 +6106,7 @@ extern int MAX_ITER;
 
     COStreamJS.main = function(str, options = { coreNum:4 }){
         debugger
-        COStreamJS.global.errors = [];
+        COStreamJS.global.errors = errors;
         // 1. 先检查括号是否匹配
         if(!checkBraceMatching(str)) return
         // 2. 词语法分析构建语法树
