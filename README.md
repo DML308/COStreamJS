@@ -1,5 +1,5 @@
 # COStreamJS
-![](https://travis-ci.org/DML308/COStreamJS.svg?branch=master)
+[![Build Status](https://travis-ci.com/DML308/COStreamJS.svg?branch=master)](https://travis-ci.com/DML308/COStreamJS)
 ![](https://img.shields.io/npm/v/costreamjs)
 
 COStream 工具在动态弱类型语言 js 上的部署, 目的是代码模块化 ; 易读 ; 易测试
@@ -47,14 +47,7 @@ make
 即可拿到生成的语法树
 
 # 环境依赖
-`node.js` 10 以上
-
-# 进度
-- 代码生成完成
-- 代码生成运行 ok 的用例:
-  - [x] wang.cos
-  - [x] multiOutputs.cos
-  - [ ] splitjoinTest.cos
+`node.js` 12 以上
 
 # DEMO   试玩地址  [https://demo.costream.org](https://demo.costream.org)
 ![](https://i.loli.net/2019/06/14/5d035b1d14ce759801.gif)
