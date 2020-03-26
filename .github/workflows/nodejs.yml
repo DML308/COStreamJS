@@ -1,4 +1,4 @@
-name: 单元测试 & 部署gh-pages
+name: Actions
 on:
   push:
     branches:
@@ -6,19 +6,7 @@ on:
   pull_request:
       branches: [ master ]
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@master
-    - name: Build
-      run:
-        npm i
-        npm run build
-        npm run test
-      
-  deploy-to-gh-pages:
-    needs: [build-and-test]
+  部署:
     runs-on: ubuntu-latest
     steps:
     - name: Deploy
@@ -27,4 +15,4 @@ jobs:
         ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         BRANCH: gh-pages
         FOLDER: dist
-        BUILD_SCRIPT: npx stylus ./dist/main.styl & echo "demo.costream.org" >> dist/CNAME
+        BUILD_SCRIPT: npm i & npm run build & npx stylus ./dist/main.styl & echo "demo.costream.org" >> ./dist/CNAME
