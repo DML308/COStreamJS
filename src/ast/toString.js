@@ -45,8 +45,8 @@ declarator.prototype.toString = function () {
             var str = this.identifier.name
             str += this.op ? this.op : ''
             if(this.identifier.arg_list.length && !this.initializer){
-                str += `= getNDArray(${this.identifier.arg_list})`
-                
+                str += `= getNDArray(${this.identifier.arg_list.map(_=>_.toString()).join(',')})`
+
             }else if (this.initializer instanceof Array) {
                 str += list2String(this.initializer, ',', '[', ']')
             } else {
