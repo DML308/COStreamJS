@@ -45,11 +45,8 @@ declarator.prototype.toString = function () {
             var str = this.identifier.name
             str += this.op ? this.op : ''
             if(this.identifier.arg_list.length && !this.initializer){
-                if(this.identifier.arg_list.length == 2){
-                    str += `= Array.from({ length: ${this.identifier.arg_list[0]}}).map(_=>[])` // 为二维数组赋初值
-                }else{
-                    str += ' = []' // 为一维数组赋初值
-                }
+                str += `= getNDArray(${this.identifier.arg_list})`
+                
             }else if (this.initializer instanceof Array) {
                 str += list2String(this.initializer, ',', '[', ']')
             } else {

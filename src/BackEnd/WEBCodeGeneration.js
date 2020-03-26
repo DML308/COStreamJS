@@ -106,6 +106,10 @@ WEBCodeGeneration.prototype.CopyLib = function () {
     function isNumber(string) {
         return string == +string;
     }
+    function getNDArray(...args){
+        if(!args || !args.length) return 0;
+        return Array.from({ length: args[0] }).map(_=> getNDArray(...args.slice(1)))
+    }
     /** 生产者消费者 Constructor */
     class Buffer {
         constructor(size,copySize,copyStartPos){
@@ -266,7 +270,7 @@ WEBCodeGeneration.prototype.Pack = function Pack(){
 WEBCodeGeneration.prototype.CGactors = function () {
     var hasGenerated = new Set() //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
     this.ssg.flatNodes.forEach(flat => {
-        
+
         if (hasGenerated.has(flat.PreName)) return
         hasGenerated.add(flat.PreName)
 
@@ -287,7 +291,7 @@ WEBCodeGeneration.prototype.CGactors = function () {
         buf += this.CGactorsPushToken(oper);
         //init部分前的statement赋值
         buf += this.CGactorsinitVarAndState(oper.operBody.stmt_list, oper);
-        buf += this.CGactorsInit(oper, oper.operBody.init);
+        buf += this.CGactorsInit(oper.operBody.init, flat);
         buf += this.CGactorsWork(oper.operBody.work, flat);
         /* 类体结束*/
         buf += "}\n";
@@ -452,13 +456,37 @@ WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list, oper)
     String.prototype.toString = originToString;
     return result+'}';
 }
-WEBCodeGeneration.prototype.CGactorsInit = function(oper, init){
-    const memberTable = (oper._symbol_table||{}).memberTable || {} ;
+WEBCodeGeneration.prototype.CGactorsInit = function(init, flat){
+    // 基于符号表来把 init 转化为 string
+    const originToString = String.prototype.toString;
+    String.prototype.toString = function (){
+        if(!init) return this;
+        let searchResult = init._symbol_table.searchName(this)
+        if(flat._symbol_table.paramNames.includes(this)){
+            return 'this.'+this
+        }else if(searchResult){
+            // 替换符号表中的成员变量和流变量的访问 
+            if(searchResult.type === 'stream' || searchResult.type === 'member'){
+                return 'this.'+this
+            }else if(searchResult.type === 'variable'){
+                // 如果该变量是属于根符号表中的全局变量
+                if(searchResult.origin === init._symbol_table.root){
+                    return this
+                }
+                // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
+                else if(searchResult.origin !== init._symbol_table){
+                    if(!init._symbol_table.LookupIdentifySymbol(this).value){
+                        debugger;
+                    }
+                    return init._symbol_table.getVariableValue(this)
+                }
+            }
+        }
+        return this
+    }
+
     let buf = (init||'{ }').toString();
-    Object.keys(memberTable).forEach(memberName =>{
-        const reg  = new RegExp(`\\b(?<!\\.)${memberName}\\b`,'g')
-        buf = buf.replace(reg, 'this.'+memberName)
-    })
+    String.prototype.toString = originToString;
 
     return `init() ${buf} \n`
 }
