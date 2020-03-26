@@ -1,4 +1,4 @@
-name: Actions
+name: 黑盒测试
 on:
   push:
     branches:
@@ -6,7 +6,7 @@ on:
   pull_request:
       branches: [ master ]
 jobs:
-  单元测试:
+  black-box-test:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
