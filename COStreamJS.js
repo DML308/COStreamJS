@@ -820,7 +820,7 @@ var COStreamJS = (function () {
         activationLayerNode: activationLayerNode
     });
 
-    var version = "0.9.1";
+    var version = "0.9.2";
 
     //对外的包装对象
     var COStreamJS = {
