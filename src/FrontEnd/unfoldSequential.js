@@ -414,7 +414,7 @@ function MakeConv2DKernel(/** @type {conv2DLayerNode} */ layer){
     return COStreamJS.parser.parse(`
         composite conv2DKernel_${level}(input stream<double x>In, output stream<double x>Out){
             param 
-                int kerelIndex;
+                int kernelIndex;
             Out = conv2D_${level}(In){
                 init {
                     int j,n,m;
@@ -610,6 +610,7 @@ function makeConv2DDilateAndExtendOperator(/** @type {conv2DLayerNode} */ layer,
     const filters = layer.filters
     const [outputFeatureMapSize0,outputFeatureMapSize1] = layer.outputFeatureMapSize
     const slidingWindowSize = outputFeatureMapSize0 * outputFeatureMapSize1 * filters
+    const tumblingWindowSize = inputErrorSize0 * inputErrorSize1 * filters
 
     return COStreamJS.parser.parse(`
         composite conv2D_Dilate_Extend_${level}(){
@@ -617,6 +618,9 @@ function makeConv2DDilateAndExtendOperator(/** @type {conv2DLayerNode} */ layer,
                 init{}
                 work{
                     int i, j, filters;
+                    for (i=0;i<${tumblingWindowSize};i++){
+                        dilateAndExtend_${level}[i].x = 0;
+                    }
                     for (i = 0; i < ${outputFeatureMapSize0}; i++){
                         for (j = 0; j < ${outputFeatureMapSize1}; j++){
                             for (filters = 0; filters < ${filters}; filters++){
@@ -630,7 +634,7 @@ function makeConv2DDilateAndExtendOperator(/** @type {conv2DLayerNode} */ layer,
                 }
                 window{
                     ${inputs_id} sliding(${slidingWindowSize},${slidingWindowSize});
-                    ${outputs_id} tumbling(${inputErrorSize0 * inputErrorSize1 * filters});
+                    ${outputs_id} tumbling(${tumblingWindowSize});
                 }
             };
         }
@@ -660,11 +664,11 @@ function makeDConv2DKernel(/** @type {conv2DLayerNode} */ layer){
                             for (filterIndex = 0; filterIndex < ${filters}; filterIndex++){
                                 for (i = 0; i < ${kernel0}; i++){
                                     for (j = 0; j < ${kernel1}; j++){
-                                        temp += in0[(m + i) * ${inputErrorSize1} * ${filters} + (n + j) * ${filters} + filterIndex].x * _weight_${level}[filterIndex][depthIndex][${kernel0} - i][${kernel1} - j];
+                                        temp += in0[(m + i) * ${inputErrorSize1} * ${filters} + (n + j) * ${filters} + filterIndex].x * _weight_${level}[filterIndex][depthIndex][${kernel0-1} - i][${kernel1-1} - j];
                                     }
                                 }
                             }
-                            out[m * 3 + n].x = temp;
+                            out[m * ${inputSize1} + n].x = temp;
                         }
                     }
                     for (filterIndex = 0; filterIndex < ${filters}; filterIndex++){
