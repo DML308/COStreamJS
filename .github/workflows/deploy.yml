@@ -1,4 +1,4 @@
-name: Actions
+name: 部署
 on:
   push:
     branches:
@@ -6,7 +6,7 @@ on:
   pull_request:
       branches: [ master ]
 jobs:
-  部署:
+  deploy:
     runs-on: ubuntu-latest
     steps:
     - name: Deploy
