@@ -52,7 +52,10 @@ duplicate                                                   return 'DUPLICATE'
 roundrobin                                                  return 'ROUNDROBIN'
 sequential                                                  return 'SEQUENTIAL'
 DENSE|Dense                                                 return 'DENSE'
-Conv2d                                                      return 'CONV2D'
+Conv2D                                                      return 'CONV2D'
+MaxPooling2D                                                return 'MAXPOOLING2D'
+AveragePooling2D                                            return 'AVERAGEPOOLING2D'
+Activation                                                  return 'ACTIVATION'
 
 import                                                      return 'IMPORT'
 Matrix|matrix                                               return 'MATRIX'
@@ -291,6 +294,9 @@ operator_default_call:
 operator_layer:      
           DENSE  '(' argument_expression_list ')' ';'       { $$ = new denseLayerNode(@$,"dense", $3);}
         | CONV2D '(' argument_expression_list ')' ';'       { $$ = new conv2DLayerNode(@$,"conv2D", $3); }
+        | MAXPOOLING2D '(' argument_expression_list ')' ';'     { $$ = new maxPooling2DLayerNode(@$,"maxPooling2D", $3); }
+        | AVERAGEPOOLING2D '(' argument_expression_list ')' ';' { $$ = new averagePooling2DLayerNode(@$,"averagePooling2D", $3); }
+        | ACTIVATION '(' argument_expression_list ')' ';'       { $$ = new activationLayerNode(@$,"activation", $3); }
         ; 
 /*************************************************************************/
 /*        3. statement 花括号内以';'结尾的结构是statement                    */

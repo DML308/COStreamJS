@@ -443,9 +443,16 @@ export class layerNode extends Node {
     getInputSize(/** @type {sequentialNode} */ sequential){
         if(this.prevLayer){
             if(this.prevLayer instanceof denseLayerNode){
-                return [1, this.prevLayer.cols, 1] // 设置本层的输入数据规模, 用一个三维向量描述: [depth, rows, cols]
+                return [1, this.prevLayer.cols, 1] // 设置本层的输入数据规模, 用一个三维向量描述: [rows, cols, depth]
+
             }else if(this.prevLayer instanceof conv2DLayerNode){
                 return this.prevLayer.outputFeatureMapSize
+            }else if(this.prevLayer instanceof maxPooling2DLayerNode){
+                return this.prevLayer.outputPooledSize
+            }else if(this.prevLayer instanceof averagePooling2DLayerNode){
+                return this.prevLayer.outputPooledSize
+            }else if(this.prevLayer instanceof activationLayerNode){
+                return this.prevLayer.inputSize
             }else{
                 error("未识别的 layer 类型:", this.prevLayer)
             }
@@ -453,7 +460,7 @@ export class layerNode extends Node {
             if(sequential.arg_list[0] instanceof parenNode){
                 return sequential.arg_list[0].exp.map(_=>_.value)
             }
-            return [1, sequential.arg_list[0].value, 1] // [depth, rows, cols]
+            return [1, sequential.arg_list[0].value, 1] // [rows, cols, depth]
         }
     }
 };
@@ -507,8 +514,42 @@ export class conv2DLayerNode extends layerNode {
         }
     }
 }
+export class maxPooling2DLayerNode extends layerNode {
+    constructor(loc, layerName, arg_list = [0]){
+        super(loc, layerName, arg_list)
+        this.pool_size = arg_list[0].value
+        this.depth = 0
+        this.outputPooledSize = []
+    }
+    init(/** @type {sequentialNode} */ sequential){
+        this.inputSize = this.getInputSize(sequential)
+        this.outputPooledSize[0] = this.inputSize[0] / this.pool_size
+        this.outputPooledSize[1] = this.inputSize[1] / this.pool_size
+        this.outputPooledSize[2] = this.inputSize[2]
+        this.depth = this.inputSize[2]
+    }
+}
 export class averagePooling2DLayerNode extends layerNode {
+    constructor(loc, layerName, arg_list = [0]){
+        super(loc, layerName, arg_list)
+        this.pool_size = arg_list[0].value
+        this.depth = 0
+    }
+    init(/** @type {sequentialNode} */ sequential){
+        this.inputSize = this.getInputSize(sequential)
+        this.outputPooledSize[0] = this.inputSize[0] / this.pool_size
+        this.outputPooledSize[1] = this.inputSize[1] / this.pool_size
+        this.outputPooledSize[2] = this.inputSize[2]
+        this.depth = this.inputSize[2]
+    }
+}
+export class activationLayerNode extends layerNode {
     constructor(loc, layerName, arg_list){
         super(loc, layerName, arg_list)
+        this.count = 1;
+    }
+    init(/** @type {sequentialNode} */ sequential){
+        this.inputSize = this.getInputSize(sequential)
+        this.inputSize.forEach(num => this.count*=num)
     }
 }

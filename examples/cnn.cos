@@ -17,8 +17,8 @@ composite Main() {
     };
     Out = sequential (In, Y) ((3, 4, 1)) {
         // filters, kernel_size, strides, padding
-        add Conv2d(3, (2, 2), (1, 1), (0, 0));
-        add Conv2d(5, (2, 2), (1, 1), (0, 0));
+        add Conv2D(3, (2, 2), (1, 1), (0, 0));
+        add Conv2D(5, (2, 2), (1, 1), (0, 0));
         add Dense(10);
     };
     sink(Out) {

@@ -375,3 +375,22 @@ export class conv2DLayerNode extends layerNode {
     outputFeatureMapSize: number[]; 
     inputErrorSize: number[];
 }
+export class maxPooling2DLayerNode extends layerNode {
+    /** 整数，池化层的窗口大小 */
+    pool_size: number
+    /** 输入空间的维度 */
+    depth: number
+    /** 经过池化后输出的尺寸 */
+    outputPooledSize:number[]
+}
+export class averagePooling2DLayerNode extends layerNode {
+    /** 整数，池化层的窗口大小 */
+    pool_size: number
+    /** 输入空间的维度 */
+    depth: number
+    /** 经过池化后输出的尺寸 */
+    outputPooledSize:number[]
+}
+export class activationLayerNode extends layerNode {
+    count: number
+}

@@ -1,7 +1,7 @@
 import { UnfoldComposite, compositeCallFlow } from "./unfoldComposite"
 
 import { COStreamJS } from "./global"
-import { addNode, parenNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode, unaryNode, conv2DLayerNode } from "../ast/node";
+import { addNode, parenNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode, unaryNode, conv2DLayerNode, maxPooling2DLayerNode, activationLayerNode } from "../ast/node";
 import { top, setTop } from "./generateSymbolTables"
 import { SymbolTable, Variable, ArrayConstant } from "./symbol";
 import { sequentialNode, denseLayerNode, layerNode, averagePooling2DLayerNode } from "../ast/node";
@@ -246,15 +246,19 @@ UnfoldComposite.prototype.MakeCopyOperator = function () {
     return composite.body.stmt_list[0]
 }
 
-/**
- * @returns {compositeNode}
- */
+/** @returns {compositeNode} */
 function MakeForwardComposite(/** @type {layerNode} */layer, isLast) {
     let comp;
     if (layer instanceof denseLayerNode) {
         comp = MakeDenseComposite(layer, isLast)
     }else if(layer instanceof conv2DLayerNode) {
         comp = MakeConv2DComposite(layer, isLast)
+    }else if(layer instanceof maxPooling2DLayerNode){
+        comp = makeMaxPooling2DLayer(layer, isLast)
+    }else if(layer instanceof averagePooling2DLayerNode){
+        comp = makeAveragePooling2DLayer(layer, isLast)
+    }else if(layer instanceof activationLayerNode){
+        comp = makeActivationLayer(layer,isLast)
     }
     // 加入符号表
     COStreamJS.S.compTable[comp.compName] = { composite: comp }
@@ -303,7 +307,7 @@ function MakeDenseComposite(/** @type {denseLayerNode} */layer, isLast = false) 
                     int i,j;
                     for(i=0;i<${rows};i++){
                         for(j=0;j<${cols};j++){
-                            _weight_${level}[i][j]=0;
+                            _weight_${level}[i][j]=0.01;
                         }
                     }
                 }
@@ -331,7 +335,7 @@ function MakeDenseComposite(/** @type {denseLayerNode} */layer, isLast = false) 
                     int i,j;
                     for(i=0;i<${rows};i++){
                         for(j=0;j<${cols};j++){
-                            _weight_${level}[i][j]=0;
+                            _weight_${level}[i][j]=0.01;
                         }
                     }
                 }
@@ -421,7 +425,7 @@ function MakeConv2DKernel(/** @type {conv2DLayerNode} */ layer){
                     for(j=0;j<${depth};j++){
                         for(n=0;n<${rows};n++){
                             for(m=0;m<${cols};m++){
-                                _weight_${level}[kernelIndex][j][n][m]=0;
+                                _weight_${level}[kernelIndex][j][n][m]=0.01;
                             }		
                         }		
                     }		
@@ -483,12 +487,102 @@ function MakeLossComposite(/** @type {layerNode} */layer) {
     COStreamJS.ast.push(comp)
     return comp
 }
+function makeMaxPooling2DLayer(/** @type {maxPooling2DLayerNode} */layer, isLast = false){
+    const comp = makeMaxPooling2DKernel(layer)
+    COStreamJS.S.compTable[comp.compName] = { composite: comp }
+    COStreamJS.ast.push(comp)
+
+    if(isLast){
+        return COStreamJS.parser.parse(`
+        composite maxPooling2DLayer_${layer.level}(input stream<double x>In, output stream<double x>Out){
+            int i;
+            Out = splitjoin(In){
+                split roundrobin();
+                for(i = 0; i < ${layer.depth} ;i++){
+                    add ${comp.compName}(i);
+                }
+                join roundrobin();
+            };
+        }
+        `)[0]
+    }
+    return COStreamJS.parser.parse(`
+        composite maxPooling2DLayer_${layer.level}(input stream<double x>In, output stream<double x>Out0, stream<double x>Out1){
+            stream<double x> MID;
+            int i;
+            MID = splitjoin(In){
+                split roundrobin();
+                for(i = 0; i < ${layer.depth} ;i++){
+                    add ${comp.compName}();
+                }
+                join roundrobin();
+            };
+            (Out0, Out1) = copy(MID){
+                work{
+                    Out0[0].x = MID[0].x;
+                    Out1[0].x = MID[0].x;
+                }
+                window{
+                    MID sliding(1,1);
+                    Out0 tumbling(1);
+                    Out1 tumbling(1);
+                }
+             };
+
+        }
+        `)[0]
+}
+function makeMaxPooling2DKernel(/** @type {maxPooling2DLayerNode} */layer){
+    const { level } = layer
+    const [output0,output1] = layer.outputPooledSize
+    const size = layer.pool_size
+    const inputWindowSize = layer.inputSize[0] * layer.inputSize[1]
+    const [_,inputSize1] = layer.inputSize
+    return COStreamJS.parser.parse(`
+        composite maxPooling2DKernel_${level}(input stream<double x>In, output stream<double x>Out){
+            Out = maxPooling2D_${level}(In){
+                init {}
+                work {
+                    int i, j, n, m;
+                    double max;
+                    for (m = 0; m < ${output0}; m++){
+                        for (n = 0; n < ${output1}; n++){
+                            i = 0;
+                            j = 0;
+                            max = In[(m * ${size} + i) * ${inputSize1} + n * ${size} + j].x;
+                            for (i = 0; i < ${size}; i++){
+                                for (j = 0; j < ${size}; j++){
+                                    if (max < In[(m * ${size} + i) * ${inputSize1} + n * ${size} + j].x){
+                                        max = In[(m * ${size} + i) * ${inputSize1} + n * ${size} + j].x;
+                                    }
+                                }
+                            }
+                            Out[m*${output1} +n].x = max;
+                        }
+                    }
+                }
+                window {
+                    In sliding(${inputWindowSize}, ${inputWindowSize});
+                    Out tumbling(${output0*output1});
+                }
+            };
+        }
+    `)[0]
+}
+function makeAveragePooling2DLayer(/** @type {averagePooling2DLayerNode} */layer, isLast = false){
+
+}
+function makeActivationLayer(/** @type {activationLayerNode} */layer,isLast = false){
+
+}
 
 function MakeBackComposite(layer) {
     if (layer instanceof denseLayerNode) {
         var comp = MakeDDenseComposite(layer)
     }else if(layer instanceof conv2DLayerNode){
         var comp = MakeDConv2DComposite(layer)
+    }else if(layer instanceof maxPooling2DLayerNode){
+        var comp = makeDMaxPooling2DLayer(layer)
     }
     // 加入符号表
     COStreamJS.S.compTable[comp.compName] = { composite: comp }
@@ -549,7 +643,6 @@ function operToBinop(/** @type {operatorNode} */oper){
 function MakeDConv2DLayerBodyStmt(/** @type {conv2DLayerNode} */ layer, /** @type {compositeNode} */comp){
     const compStmtList = [] // 要返回的 body_stmt
     let streamName = "DConv2dStream_" + layer.level;
-    let errorList, fpInputList;
     
     // join operator的输入流
     let inputs_join = [];
@@ -700,10 +793,23 @@ function makeDConv2DKernel(/** @type {conv2DLayerNode} */ layer){
     return comp;
 }
 
-function makeSpecialSplitOperator(inputStreamName, splitCount, level, style = undefined){
+function makeSpecialSplitOperator(inputStreamName, splitCount, level, isRoundrobin = undefined){
     const outputs = Array.from({length: splitCount}).map((_,idx)=> inputStreamName+'_'+idx);
-    if(style){
-        error("暂未实现 special_split_roundrobin")
+    if(isRoundrobin){
+        return COStreamJS.parser.parse(`
+        composite special_roundrobin(input stream<double x>${inputStreamName}){
+            (${outputs.join(',')}) = special_roundrobin_${level}(${inputStreamName}){
+                init{}
+                work{
+                    ${outputs.map((name,idx) => `${name}[0] = ${inputStreamName}[${idx}];`).join('\n')}
+                }
+                window{
+                    ${inputStreamName} sliding(${splitCount},${splitCount});
+                    ${outputs.map(name => name + ' tumbling(1);').join('\n')}
+                }
+            };
+        }
+    `)[0].body.stmt_list[0].right
     }
     return COStreamJS.parser.parse(`
         composite special_duplicate(input stream<double x>${inputStreamName}){
@@ -738,3 +844,106 @@ function makeSpecialJoinOperator(outputStreamName, /** @type {string[]} */inputs
         }
     `)[0].body.stmt_list[0].right
 }
+function makeDMaxPooling2DLayer(/** @type {maxPooling2DLayerNode} */layer){
+    const { level } = layer
+    const comp =  COStreamJS.parser.parse(`
+        composite dMaxPooling2DLayer_${level}(input stream<double x>In0,stream<double x>In1, output stream<double x>Out) {
+            ;
+        }
+    `)[0]
+    comp.body.stmt_list = makeDMaxPooling2DBodyStmt(layer, comp)
+    return comp
+}
+function makeDMaxPooling2DBodyStmt(/** @type {maxPooling2DLayerNode} */layer, comp){
+    const compStmtList = [] // 要返回的 body_stmt
+    let streamName = "DMaxPooling2D_Stream_" + layer.level;
+    
+    // join operator的输入流
+    let inputs_join = [];
+
+    const strType = comp.inout.input_list[0].strType
+    const streamDecl = new declareNode(null, strType, []);
+    compStmtList.push(streamDecl);
+
+    let dupCount = layer.inputSize[layer.inputSize.length - 1];
+    // splitOperator1 将误差roundrobin成filters份, splitOperator2 将传入正向传播的输入再次传入到反向传播中,并roundrobin成多份
+    const splitOperator1 = makeSpecialSplitOperator("In0", dupCount, layer.level,1);
+    const splitOperator2 = makeSpecialSplitOperator('In1', dupCount, layer.level,1);
+    compStmtList.push(operToBinop(splitOperator1));
+    compStmtList.push(operToBinop(splitOperator2));
+
+    // 加入数据流声明中
+    debugger;
+    [...splitOperator1.outputs, ...splitOperator2.outputs].forEach(name => streamDecl.init_declarator_list.push(name))
+    
+    const dKernelComp = makeDMaxPooling2DKernel(layer);
+    //开始连接 oper
+    for(let i=0; i< dupCount; i++){
+        const tempName = streamName + "_" + i;
+        streamDecl.init_declarator_list.push(tempName)
+
+        //compositeCall的输出流是join节点的输入流
+        inputs_join.push(tempName);
+
+        // kernel的输出流
+        const call_outputs = [tempName];
+        //compositeCall的输入流
+        const call_inputs = [splitOperator1.outputs[i], splitOperator2.outputs[i]]
+        // compositeCallNode *call = new compositeCallNode(call_outputs, tempName, argList, call_inputs, dKernelComp);
+        const call = new compositeCallNode(null,dKernelComp.compName, call_inputs, [new constantNode(null,i)]);
+        call.outputs = call_outputs
+        compStmtList.push(call);
+    }
+
+    const joinOperator = makeSpecialJoinOperator('Out', inputs_join, layer.level);
+    compStmtList.push(operToBinop(joinOperator));
+
+    return compStmtList;
+}
+function makeDMaxPooling2DKernel(/** @type {maxPooling2DLayerNode} */layer){
+    const { level } = layer
+    const [error0,error1] = layer.outputPooledSize
+    const [inputSize0, inputSize1] = layer.inputSize
+    const size = layer.pool_size
+  
+    const comp = COStreamJS.parser.parse(`
+        composite dMaxPooling2DKernel_${level}(input stream<double x>in0, stream<double x>in1, output stream<double x>out){
+            out = dMaxPooling2DKernel_${level}(in0,in1){
+                init{}
+                work{
+                    int i, j, n, m;
+                    double max;
+                    for (m = 0; m < ${error0}; m++){
+                        for (n = 0; n < ${error1}; n++){
+                            i = 0;
+                            j = 0;
+                            max = in1[(m * ${size} + i) * ${inputSize1} + n * ${size} + j].x;
+                            for (i = 0; i < ${size}; i++){
+                                for (j = 0; j < ${size}; j++){
+                                    if (max < in1[(m * ${size} + i) * ${inputSize1} + n * ${size} + j].x){
+                                        max = in1[(m * ${size} + i) * ${inputSize1} + n * ${size} + j].x;
+                                    }
+                                }
+                            }
+                            for (i = 0; i < ${size}; i++){
+                                for (j = 0; j < ${size}; j++){
+                                    if (max == in1[(m * ${size} + i) * ${inputSize1} + n * ${size} + j].x){
+                                        out[(m * ${size} + i) * ${inputSize1} + n * ${size} + j].x = in0[m * ${error1} + n].x;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                window{
+                    in0 sliding(${error0 * error1},${error0 * error1});
+                    in1 sliding(${inputSize0 * inputSize1},${inputSize0 * inputSize1});
+                    out tumbling(${inputSize0 * inputSize1});
+                }
+            };
+        }
+    `)[0]
+    COStreamJS.S.compTable[comp.compName] = { composite: comp };
+    COStreamJS.ast.push(comp);
+    return comp;
+  }
