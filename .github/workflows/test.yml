@@ -1,4 +1,4 @@
-name: 单元测试
+name: Actions
 on:
   push:
     branches:
@@ -6,7 +6,7 @@ on:
   pull_request:
       branches: [ master ]
 jobs:
-  build-and-test:
+  单元测试:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
