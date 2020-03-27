@@ -37,12 +37,12 @@ COStreamJS.main = function(str, options = { coreNum:4 }){
     debugger
     COStreamJS.global.errors = utils.errors
     // 1. 先检查括号是否匹配
-    if(!utils.checkBraceMatching(str)) return
+    if(!utils.checkBraceMatching(str)) throw new Error();
     // 2. 词语法分析构建语法树
     this.ast = COStreamJS.parser.parse(str)
     // 3. 遍历语法树进行语义分析和构建符号表
     this.symbolTableList = generateSymbolTables(this.ast);
-    if(COStreamJS.global.errors.length) return;
+    if(COStreamJS.global.errors.length) throw new Error();
     this.S = this.symbolTableList[0]
     this.gMainComposite = this.SemCheck.findMainComposite(this.ast)
     

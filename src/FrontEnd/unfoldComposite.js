@@ -1,6 +1,6 @@
 import { deepCloneWithoutCircle } from "../utils"
 import { COStreamJS } from "./global"
-import { addNode, parenNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode, unaryNode } from "../ast/node";
+import { addNode, parenNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode, unaryNode, activationLayerNode } from "../ast/node";
 import { matrix_section, matrix_slice_pair, layerNode } from "../ast/node";
 import { top, setTop } from "./generateSymbolTables"
 import { SymbolTable } from "./symbol";
@@ -102,7 +102,7 @@ export function compositeCallFlow(/*list<Node *> */ stmts) {
 
         }else if(add.content instanceof layerNode){
             let copy = deepCloneWithoutCircle(add.content)
-            copy.arg_list = copy.arg_list.map(exp => exp.value)
+            if(!(copy instanceof activationLayerNode)) copy.arg_list = copy.arg_list.map(exp => exp.value)
             compositeCall_list.push(copy)
 
         }else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {

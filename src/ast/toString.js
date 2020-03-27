@@ -135,7 +135,7 @@ constantNode.prototype.toString = function () {
 castNode.prototype.toString = function () {
     if(COStreamJS.options.platform === "WEB"){
         if(this.type === 'int') return `Math.floor(${this.exp})`
-        else return this.exp
+        else return this.exp.toString()
     }
     return '(' + this.type + ')' + this.exp
 }
