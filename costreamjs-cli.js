@@ -821,7 +821,7 @@ var COStreamJS = (function () {
         activationLayerNode: activationLayerNode
     });
 
-    var version = "0.9.2";
+    var version = "0.9.3";
 
     //对外的包装对象
     var COStreamJS = {
@@ -2055,7 +2055,7 @@ var COStreamJS = (function () {
         }
     };
 
-    const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','round','ceil','abs','log','sqrt'];
+    const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','round','ceil','abs','log','sqrt','exp'];
     const BUILTIN_FUNCTIONS = ['print','println'].concat(BUILTIN_MATH);
 
     /** @type {SymbolTable} */
@@ -2648,7 +2648,7 @@ var COStreamJS = (function () {
     castNode.prototype.toString = function () {
         if(COStreamJS.options.platform === "WEB"){
             if(this.type === 'int') return `Math.floor(${this.exp})`
-            else return this.exp
+            else return this.exp.toString()
         }
         return '(' + this.type + ')' + this.exp
     };
@@ -3083,7 +3083,7 @@ var COStreamJS = (function () {
 
             }else if(add.content instanceof layerNode){
                 let copy = deepCloneWithoutCircle(add.content);
-                copy.arg_list = copy.arg_list.map(exp => exp.value);
+                if(!(copy instanceof activationLayerNode)) copy.arg_list = copy.arg_list.map(exp => exp.value);
                 compositeCall_list.push(copy);
 
             }else if (add.content instanceof splitjoinNode || add.content instanceof pipelineNode) {
@@ -3577,7 +3577,7 @@ var COStreamJS = (function () {
                 // 将数据流声明加入
                 streamDecl.init_declarator_list.push(tempName1);
                 call_inputs = [temp_stream[0]];
-                if (layer.nextLayer instanceof averagePooling2DLayerNode) {
+                if (layer.nextLayer instanceof averagePooling2DLayerNode || layer.nextLayer instanceof activationLayerNode) {
                     call_outputs = [tempName1];
                 } else {
                     // 传递给反向传播中本层的stream名称, 例如 F1_B2
@@ -3602,6 +3602,12 @@ var COStreamJS = (function () {
                 temp_stream.pop();
                 temp_stream.push(tempName);
                 streamDecl.init_declarator_list.push(tempName);
+                
+            }
+            if(layer instanceof activationLayerNode){
+                const tempName3 = `F${layer.level}_B${layer.level}`;
+                streamDecl.init_declarator_list.push(tempName3);
+                call_outputs.push(tempName3);
             }
             // 构造实际的正向传播composite
             const comp = MakeForwardComposite(layer, call_outputs.length == 1);
@@ -3624,8 +3630,10 @@ var COStreamJS = (function () {
         for (let layer of layers.slice().reverse()) {
             let call_inputs, call_outputs;
             if (layer instanceof averagePooling2DLayerNode) {
-                call_inputs = [temp_stream];
-            } else {
+                call_inputs = [temp_stream[0]];
+            }else if(layer instanceof activationLayerNode){
+                call_inputs = [temp_stream[0], `F${layer.level}_B${layer.level}`];
+            }else {
                 temp_stream_list[temp_stream_list.length - 1].unshift(temp_stream[0]);
                 call_inputs = temp_stream_list.pop();
             }
@@ -3687,18 +3695,18 @@ var COStreamJS = (function () {
     };
 
     /** @returns {compositeNode} */
-    function MakeForwardComposite(/** @type {layerNode} */layer, isLast) {
+    function MakeForwardComposite(/** @type {layerNode} */layer, singleOutput) {
         let comp;
         if (layer instanceof denseLayerNode) {
-            comp = MakeDenseComposite(layer, isLast);
+            comp = MakeDenseComposite(layer, singleOutput);
         }else if(layer instanceof conv2DLayerNode) {
-            comp = MakeConv2DComposite(layer, isLast);
+            comp = MakeConv2DComposite(layer, singleOutput);
         }else if(layer instanceof maxPooling2DLayerNode){
-            comp = makeMaxPooling2DLayer(layer, isLast);
+            comp = makeMaxPooling2DLayer(layer, singleOutput);
         }else if(layer instanceof averagePooling2DLayerNode){
-            comp = makeAveragePooling2DLayer(layer, isLast);
+            comp = makeAveragePooling2DLayer(layer, singleOutput);
         }else if(layer instanceof activationLayerNode){
-            comp = makeActivationLayer(layer,isLast);
+            comp = makeActivationLayer(layer);
         }
         // 加入符号表
         COStreamJS.S.compTable[comp.compName] = { composite: comp };
@@ -3738,9 +3746,9 @@ var COStreamJS = (function () {
         };
       }
     */
-    function MakeDenseComposite(/** @type {denseLayerNode} */layer, isLast = false) {
+    function MakeDenseComposite(/** @type {denseLayerNode} */layer, singleOutput = false) {
         const { level, rows, cols } = layer;
-        if (isLast) {
+        if (singleOutput) {
             var compStr = `composite dense_${level}(input stream<double x>In, output stream<double x>Out) {
             Out = dense_${level}(In){
                 init{
@@ -3803,12 +3811,12 @@ var COStreamJS = (function () {
     }
 
     /** @returns {compositeNode} */
-    function MakeConv2DComposite(/** @type {conv2DLayerNode} */ layer, isLast){
+    function MakeConv2DComposite(/** @type {conv2DLayerNode} */ layer, singleOutput){
         const conv2D_comp = MakeConv2DKernel(layer);
         COStreamJS.S.compTable[conv2D_comp.compName] = { composite: conv2D_comp };
         COStreamJS.ast.push(conv2D_comp);
 
-        if(isLast){
+        if(singleOutput){
             return COStreamJS.parser.parse(`
         composite conv2DLayer_${layer.level}(input stream<double x>In, output stream<double x>Out){
             int i;
@@ -3902,8 +3910,10 @@ var COStreamJS = (function () {
         let win = 0;
         if (layer instanceof denseLayerNode) {
             win = layer.cols;
+        }else if(layer instanceof activationLayerNode){
+            win = layer.count;
         } else {
-            error("未支持的 layer 类型");
+            error$1("未支持的 layer 类型");
         }
         var compStr = `composite loss(input stream<double x>In0, stream<double x>In1, output stream<double x>Out) {
         Out = loss(In0,In1){
@@ -3927,12 +3937,12 @@ var COStreamJS = (function () {
         COStreamJS.ast.push(comp);
         return comp
     }
-    function makeMaxPooling2DLayer(/** @type {maxPooling2DLayerNode} */layer, isLast = false){
+    function makeMaxPooling2DLayer(/** @type {maxPooling2DLayerNode} */layer, singleOutput = false){
         const comp = makeMaxPooling2DKernel(layer);
         COStreamJS.S.compTable[comp.compName] = { composite: comp };
         COStreamJS.ast.push(comp);
 
-        if(isLast){
+        if(singleOutput){
             return COStreamJS.parser.parse(`
         composite maxPooling2DLayer_${layer.level}(input stream<double x>In, output stream<double x>Out){
             int i;
@@ -4009,11 +4019,79 @@ var COStreamJS = (function () {
         }
     `)[0]
     }
-    function makeAveragePooling2DLayer(/** @type {averagePooling2DLayerNode} */layer, isLast = false){
+    function makeAveragePooling2DLayer(/** @type {averagePooling2DLayerNode} */layer, singleOutput = false){
 
     }
-    function makeActivationLayer(/** @type {activationLayerNode} */layer,isLast = false){
-
+    function makeActivationLayer(/** @type {activationLayerNode} */layer){
+        const { level, count } = layer;
+        const funcName = layer.arg_list[0].source.slice(1,-1); // 刚拿到是 "relu", 通过 slice 移出左右两侧双引号
+        if(!["relu", "softmax","sigmoid"].includes(funcName)){
+            error$1(layer._loc, `不支持此种激活函数:${funcName}, 仅支持 relu,softmax,sigmoid`);
+        }
+        const works = {
+            "relu":     `for (i = 0; i < ${count}; i++){
+                        if (In[i].x > 0){
+                            out0[i].x = In[i].x;
+                            out1[i].x = In[i].x;
+                            derivative[i].x = 1;
+                        }
+                        else{
+                            out0[i].x = 0;
+                            out1[i].x = 0;
+                            derivative[i].x = 0;
+                        }
+                    }`,
+            "softmax": `double total = 0, res;
+                    for (i = 0; i < ${count}; i++){
+                        total += exp(In[i].x);
+                    }
+                    for (i = 0; i < ${count}; i++){
+                        res = exp(In[i].x) / total;
+                        out0[i].x = res;
+                        out1[i].x = res;
+                        derivative[i].x = res;
+                    }`,
+            "sigmoid": `for (i = 0; i < ${count}; i++) {
+                        res = 1 / ( 1 + exp(-In[i].x));
+                        out0[i].x = res;
+                        out1[i].x = res;
+                        derivative[i].x = res * (1 - res);
+                    }
+        `
+        };
+        if (!layer.nextLayer || layer.nextLayer instanceof averagePooling2DLayerNode) {
+            var compStr = `composite Activation_${level}(input stream<double x>In, output stream<double x>out0, stream<double x>derivative) {
+            (out0,derivative) = activation_${funcName}_${level}(In){
+                init{}
+                work{
+                    int i;
+                    ${works[funcName].split('\n').filter(str => !(/out1/.test(str))).join('\n')}
+                }
+                window{
+                    In sliding(${count},${count});
+                    out0 tumbling(${count},${count});
+                    derivative tumbling(${count},${count});
+                }
+            };
+            }`;
+        } else {
+            var compStr = `composite Activation_${level}(input stream<double x>In, output stream<double x>out0,stream<double x>out1, stream<double x>derivative) {
+            (out0,out1,derivative) = activation_${funcName}_${level}(In){
+                init{}
+                work{
+                    int i;
+                    ${works[funcName]}
+                }
+                window{
+                    In sliding(${count},${count});
+                    out0 tumbling(${count},${count});
+                    out1 tumbling(${count},${count});
+                    derivative tumbling(${count},${count});
+                }
+            };
+          }`;
+        }
+        return COStreamJS.parser.parse(compStr)[0]
     }
 
     function MakeBackComposite(layer) {
@@ -4023,6 +4101,8 @@ var COStreamJS = (function () {
             var comp = MakeDConv2DComposite(layer);
         }else if(layer instanceof maxPooling2DLayerNode){
             var comp = makeDMaxPooling2DLayer(layer);
+        }else if(layer instanceof activationLayerNode){
+            var comp = makeDActivitionComposite(layer);
         }
         // 加入符号表
         COStreamJS.S.compTable[comp.compName] = { composite: comp };
@@ -4051,7 +4131,7 @@ var COStreamJS = (function () {
                 {
                     for (j = 0; j < ${cols}; j++)
                     {
-                        _weight_${level}[i][j] = _weight_${level}[i][j] + In0[j].x * In1[i].x * lr;
+                        _weight_${level}[i][j] = _weight_${level}[i][j] - In0[j].x * In1[i].x * lr;
                     }
                 }
             }
@@ -4388,6 +4468,50 @@ var COStreamJS = (function () {
         return comp;
       }
 
+    function makeDActivitionComposite(/** @type {activationLayerNode} */layer){
+        const { level, count } = layer;
+        const funcName = layer.arg_list[0].source.slice(1,-1); // 刚拿到是 "relu", 通过 slice 移出左右两侧双引号
+        if(!["relu", "softmax","sigmoid"].includes(funcName)){
+            error$1(layer._loc, `不支持此种激活函数:${funcName}, 仅支持 relu,softmax,sigmoid`);
+        }
+        const works = {
+            "relu":     `for (i = 0; i < ${count}; i++) {
+                        out[i].x = error[i].x * In[i].x;
+                    }`,
+            "softmax": `int j;
+                    for(i = 0; i < ${count}; i++) {
+                        double temp = 0;
+                        for (j = 0; j < ${count}; j++) {
+                            if (i == j) {
+                                temp += error[j].x * In[i].x * (1 - In[i].x);
+                            } else {
+                                temp += error[j].x * In[i].x * In[j].x;
+                            }
+                        }
+                        out[i].x = temp;
+                    }`,
+            "sigmoid": `for (i = 0; i < ${count}; i++) {
+                        out[i].x = error[i].x * In[i].x;
+                    }`,
+        };
+
+        var compStr = `composite DActivation_${level}(input stream<double x>error, stream<double x>In, output stream<double x>out) {
+        out = dActivation_${funcName}_${level}(error, In){
+            init{}
+            work{
+                int i;
+                ${works[funcName]}
+            }
+            window{
+                In sliding(${count},${count});
+                error sliding(${count},${count});
+                out tumbling(${count},${count});
+            }
+        };
+        }`;
+        return COStreamJS.parser.parse(compStr)[0]
+    }
+
     /**
      * 对 ssg 中的 flatNode 进行工作量估计
      * @param {StaticStreamGraph} ssg
@@ -4404,7 +4528,7 @@ var COStreamJS = (function () {
              *                          取 "标识符, 运算符" 的总数量 * 10 + 窗口大小 * 20
              * 未来有更优的工作量估计策略后可替换此处代码.
              */
-            var w_steady = (body.work + '').match(/\w+|[-+*/=<>?:]/g).length *10; //body.work ? body.work.WorkEstimate() : 0;
+            var w_steady = (body.work + ';').match(/\w+|[-+*/=<>?:;]/g).length *10; //body.work ? body.work.WorkEstimate() : 0;
             w_steady += (flat.outFlatNodes.length + flat.inFlatNodes.length) * 20; //多核下调整缓冲区head和tail
             ssg.mapInitWork2FlatNode.set(flat, w_init);
             ssg.mapSteadyWork2FlatNode.set(flat, w_steady);
@@ -6403,12 +6527,12 @@ extern int MAX_ITER;
         debugger
         COStreamJS.global.errors = errors;
         // 1. 先检查括号是否匹配
-        if(!checkBraceMatching(str)) return
+        if(!checkBraceMatching(str)) throw new Error();
         // 2. 词语法分析构建语法树
         this.ast = COStreamJS.parser.parse(str);
         // 3. 遍历语法树进行语义分析和构建符号表
         this.symbolTableList = generateSymbolTables(this.ast);
-        if(COStreamJS.global.errors.length) return;
+        if(COStreamJS.global.errors.length) throw new Error();
         this.S = this.symbolTableList[0];
         this.gMainComposite = this.SemCheck.findMainComposite(this.ast);
         
