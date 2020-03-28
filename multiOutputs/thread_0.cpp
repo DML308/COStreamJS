@@ -12,8 +12,8 @@ extern int MAX_ITER;
 void thread_0_fun()
 {
   masterSync(3);
-  fun fun_2_obj(fun_2_sink_4,test_1_fun_2);
-  sink sink_4_obj(fun_2_sink_4,fun_3_sink_4);
+  fun fun_2_obj(fun_2_sink_4,test_1_fun_2,1,0);
+  sink sink_4_obj(fun_2_sink_4,fun_3_sink_4,1,0);
   char stage[4] = {
     1,0,0,0
   };

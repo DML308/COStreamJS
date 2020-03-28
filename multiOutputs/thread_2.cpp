@@ -12,7 +12,7 @@ extern int MAX_ITER;
 void thread_2_fun()
 {
   workerSync(2);
-  test test_1_obj(test_1_fun_2,test_1_fun_3,start_0_test_1);
+  test test_1_obj(test_1_fun_2,test_1_fun_3,start_0_test_1,1,0);
   char stage[4] = {
     1,0,0,0
   };

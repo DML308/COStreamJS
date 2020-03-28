@@ -11,9 +11,9 @@
 using namespace std;
 class Source{
   public:
-  Source(Buffer<streamData>& Source_0_B_1):Source_0_B_1(Source_0_B_1){
-    steadyScheduleCount = 1;
-    initScheduleCount = 0;
+  Source(Buffer<streamData>& S,int steadyC,int initC):S(S){
+    steadyScheduleCount = steadyC;
+    initScheduleCount = initC;
   }
   
   void runInitScheduleWork() {
@@ -22,17 +22,17 @@ class Source{
     for(int i=0;i<initScheduleCount;i++){
       work();
     }
-    Source_0_B_1.resetTail();
+    S.resetTail();
   }
   
   void runSteadyScheduleWork() {
     for(int i=0;i<steadyScheduleCount;i++){
       work();
     }
-    Source_0_B_1.resetTail();
+    S.resetTail();
   }
   private:
-  Producer<streamData>Source_0_B_1;
+  Producer<streamData>S;
   int steadyScheduleCount;	//稳态时一次迭代的执行次数
   int initScheduleCount;
   
@@ -40,7 +40,7 @@ class Source{
   }
   
   void pushToken(){
-    Source_0_B_1.updatetail(8);
+    S.updatetail(8);
   }
   void initVarAndState() {
   }
@@ -55,7 +55,7 @@ class Source{
     
     int i;
     for(i=0;i<8;i++){
-      Source_0_B_1[i].x=aaa[i];
+      S[i].x=aaa[i];
     }
     
     

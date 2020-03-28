@@ -11,9 +11,9 @@
 using namespace std;
 class start{
   public:
-  start(Buffer<streamData>& start_0_test_1):start_0_test_1(start_0_test_1){
-    steadyScheduleCount = 1;
-    initScheduleCount = 0;
+  start(Buffer<streamData>& Data,int steadyC,int initC):Data(Data){
+    steadyScheduleCount = steadyC;
+    initScheduleCount = initC;
   }
   
   void runInitScheduleWork() {
@@ -22,17 +22,17 @@ class start{
     for(int i=0;i<initScheduleCount;i++){
       work();
     }
-    start_0_test_1.resetTail();
+    Data.resetTail();
   }
   
   void runSteadyScheduleWork() {
     for(int i=0;i<steadyScheduleCount;i++){
       work();
     }
-    start_0_test_1.resetTail();
+    Data.resetTail();
   }
   private:
-  Producer<streamData>start_0_test_1;
+  Producer<streamData>Data;
   int steadyScheduleCount;	//稳态时一次迭代的执行次数
   int initScheduleCount;
   
@@ -40,7 +40,7 @@ class start{
   }
   
   void pushToken(){
-    start_0_test_1.updatetail(1);
+    Data.updatetail(1);
   }
   void initVarAndState() {
   }
@@ -50,8 +50,8 @@ class start{
   
   void work(){
     
-    start_0_test_1[0].x=1;
-    cout<<"start work start_0_test_1[0].x = "<<start_0_test_1[0].x<<endl;
+    Data[0].x=1;
+    cout<<"start work Data[0].x = "<<Data[0].x<<endl;
     
     pushToken();
     popToken();

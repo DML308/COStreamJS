@@ -12,7 +12,7 @@ extern int MAX_ITER;
 void thread_0_fun()
 {
   masterSync(2);
-  B B_1_obj(B_1_Sink_2,Source_0_B_1);
+  B B_1_obj(B_1_Sink_2,Source_0_B_1,8,0,88,99);
   char stage[3] = {
     1,0,0
   };

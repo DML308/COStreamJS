@@ -11,9 +11,9 @@
 using namespace std;
 class Sink{
   public:
-  Sink(Buffer<streamData>& B_1_Sink_2):B_1_Sink_2(B_1_Sink_2){
-    steadyScheduleCount = 8;
-    initScheduleCount = 0;
+  Sink(Buffer<streamData>& P,int steadyC,int initC):P(P){
+    steadyScheduleCount = steadyC;
+    initScheduleCount = initC;
   }
   
   void runInitScheduleWork() {
@@ -22,22 +22,22 @@ class Sink{
     for(int i=0;i<initScheduleCount;i++){
       work();
     }
-    B_1_Sink_2.resetHead();
+    P.resetHead();
   }
   
   void runSteadyScheduleWork() {
     for(int i=0;i<steadyScheduleCount;i++){
       work();
     }
-    B_1_Sink_2.resetHead();
+    P.resetHead();
   }
   private:
-  Consumer<streamData>B_1_Sink_2;
+  Consumer<streamData>P;
   int steadyScheduleCount;	//稳态时一次迭代的执行次数
   int initScheduleCount;
   
   void popToken(){
-    B_1_Sink_2.updatehead(1);
+    P.updatehead(1);
   }
   
   void pushToken(){
@@ -48,7 +48,7 @@ class Sink{
   }
   void work(){
     
-    cout<<B_1_Sink_2[0].x<<endl;
+    cout<<P[0].x<<endl;
     
     pushToken();
     popToken();

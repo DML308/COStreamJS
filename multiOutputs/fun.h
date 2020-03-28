@@ -11,9 +11,9 @@
 using namespace std;
 class fun{
   public:
-  fun(Buffer<streamData>& fun_2_sink_4,Buffer<streamData>& test_1_fun_2):fun_2_sink_4(fun_2_sink_4),test_1_fun_2(test_1_fun_2){
-    steadyScheduleCount = 1;
-    initScheduleCount = 0;
+  fun(Buffer<streamData>& FunOut,Buffer<streamData>& FunIn,int steadyC,int initC):FunOut(FunOut),FunIn(FunIn){
+    steadyScheduleCount = steadyC;
+    initScheduleCount = initC;
   }
   
   void runInitScheduleWork() {
@@ -22,29 +22,29 @@ class fun{
     for(int i=0;i<initScheduleCount;i++){
       work();
     }
-    fun_2_sink_4.resetTail();
-    test_1_fun_2.resetHead();
+    FunOut.resetTail();
+    FunIn.resetHead();
   }
   
   void runSteadyScheduleWork() {
     for(int i=0;i<steadyScheduleCount;i++){
       work();
     }
-    fun_2_sink_4.resetTail();
-    test_1_fun_2.resetHead();
+    FunOut.resetTail();
+    FunIn.resetHead();
   }
   private:
-  Producer<streamData>fun_2_sink_4;
-  Consumer<streamData>test_1_fun_2;
+  Producer<streamData>FunOut;
+  Consumer<streamData>FunIn;
   int steadyScheduleCount;	//稳态时一次迭代的执行次数
   int initScheduleCount;
   
   void popToken(){
-    test_1_fun_2.updatehead(1);
+    FunIn.updatehead(1);
   }
   
   void pushToken(){
-    fun_2_sink_4.updatetail(1);
+    FunOut.updatetail(1);
   }
   void initVarAndState() {
   }
@@ -54,9 +54,9 @@ class fun{
   
   void work(){
     
-    fun_2_sink_4[0].x=test_1_fun_2[0].x*2;
-    cout<<"fun work fun_2_sink_4[0].x = ";
-    cout<<fun_2_sink_4[0].x<<endl;
+    FunOut[0].x=FunIn[0].x*2;
+    cout<<"fun work FunOut[0].x = ";
+    cout<<FunOut[0].x<<endl;
     
     pushToken();
     popToken();

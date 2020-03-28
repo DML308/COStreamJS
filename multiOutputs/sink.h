@@ -11,9 +11,9 @@
 using namespace std;
 class sink{
   public:
-  sink(Buffer<streamData>& fun_2_sink_4,Buffer<streamData>& fun_3_sink_4):fun_2_sink_4(fun_2_sink_4),fun_3_sink_4(fun_3_sink_4){
-    steadyScheduleCount = 1;
-    initScheduleCount = 0;
+  sink(Buffer<streamData>& Out3,Buffer<streamData>& Out4,int steadyC,int initC):Out3(Out3),Out4(Out4){
+    steadyScheduleCount = steadyC;
+    initScheduleCount = initC;
   }
   
   void runInitScheduleWork() {
@@ -22,26 +22,26 @@ class sink{
     for(int i=0;i<initScheduleCount;i++){
       work();
     }
-    fun_2_sink_4.resetHead();
-    fun_3_sink_4.resetHead();
+    Out3.resetHead();
+    Out4.resetHead();
   }
   
   void runSteadyScheduleWork() {
     for(int i=0;i<steadyScheduleCount;i++){
       work();
     }
-    fun_2_sink_4.resetHead();
-    fun_3_sink_4.resetHead();
+    Out3.resetHead();
+    Out4.resetHead();
   }
   private:
-  Consumer<streamData>fun_2_sink_4;
-  Consumer<streamData>fun_3_sink_4;
+  Consumer<streamData>Out3;
+  Consumer<streamData>Out4;
   int steadyScheduleCount;	//稳态时一次迭代的执行次数
   int initScheduleCount;
   
   void popToken(){
-    fun_2_sink_4.updatehead(1);
-    fun_3_sink_4.updatehead(1);
+    Out3.updatehead(1);
+    Out4.updatehead(1);
   }
   
   void pushToken(){
@@ -52,8 +52,8 @@ class sink{
   }
   void work(){
     
-    cout<<"sink work fun_2_sink_4[0].x = "<<fun_2_sink_4[0].x<<endl;
-    cout<<"sink work fun_3_sink_4[0].x = "<<fun_3_sink_4[0].x<<endl;
+    cout<<"sink work Out3[0].x = "<<Out3[0].x<<endl;
+    cout<<"sink work Out4[0].x = "<<Out4[0].x<<endl;
     
     pushToken();
     popToken();

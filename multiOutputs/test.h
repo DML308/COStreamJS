@@ -11,9 +11,9 @@
 using namespace std;
 class test{
   public:
-  test(Buffer<streamData>& test_1_fun_2,Buffer<streamData>& test_1_fun_3,Buffer<streamData>& start_0_test_1):test_1_fun_2(test_1_fun_2),test_1_fun_3(test_1_fun_3),start_0_test_1(start_0_test_1){
-    steadyScheduleCount = 1;
-    initScheduleCount = 0;
+  test(Buffer<streamData>& Out1,Buffer<streamData>& Out2,Buffer<streamData>& In1,int steadyC,int initC):Out1(Out1),Out2(Out2),In1(In1){
+    steadyScheduleCount = steadyC;
+    initScheduleCount = initC;
   }
   
   void runInitScheduleWork() {
@@ -22,33 +22,33 @@ class test{
     for(int i=0;i<initScheduleCount;i++){
       work();
     }
-    test_1_fun_2.resetTail();
-    test_1_fun_3.resetTail();
-    start_0_test_1.resetHead();
+    Out1.resetTail();
+    Out2.resetTail();
+    In1.resetHead();
   }
   
   void runSteadyScheduleWork() {
     for(int i=0;i<steadyScheduleCount;i++){
       work();
     }
-    test_1_fun_2.resetTail();
-    test_1_fun_3.resetTail();
-    start_0_test_1.resetHead();
+    Out1.resetTail();
+    Out2.resetTail();
+    In1.resetHead();
   }
   private:
-  Producer<streamData>test_1_fun_2;
-  Producer<streamData>test_1_fun_3;
-  Consumer<streamData>start_0_test_1;
+  Producer<streamData>Out1;
+  Producer<streamData>Out2;
+  Consumer<streamData>In1;
   int steadyScheduleCount;	//稳态时一次迭代的执行次数
   int initScheduleCount;
   
   void popToken(){
-    start_0_test_1.updatehead(1);
+    In1.updatehead(1);
   }
   
   void pushToken(){
-    test_1_fun_2.updatetail(1);
-    test_1_fun_3.updatetail(1);
+    Out1.updatetail(1);
+    Out2.updatetail(1);
   }
   void initVarAndState() {
   }
@@ -58,10 +58,10 @@ class test{
   
   void work(){
     
-    test_1_fun_2[0].x=start_0_test_1[0].x+1;
-    test_1_fun_3[0].x=start_0_test_1[0].x+2;
-    cout<<"test work test_1_fun_2[0].x = ";
-    cout<<test_1_fun_2[0].x<<endl;
+    Out1[0].x=In1[0].x+1;
+    Out2[0].x=In1[0].x+2;
+    cout<<"test work Out1[0].x = ";
+    cout<<Out1[0].x<<endl;
     
     pushToken();
     popToken();
