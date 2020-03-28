@@ -424,6 +424,7 @@ X86CodeGeneration.prototype.CGAllActorHeader = function () {
  * 生成所有线程文件
  */
 X86CodeGeneration.prototype.CGThreads = function () {
+    debugger;
     for (let i = 0; i < this.nCpucore; i++) {
         var buf = ''
         let MaxStageNum = COStreamJS.MaxStageNum
@@ -445,7 +446,7 @@ extern int MAX_ITER;
 
         let actorSet = this.mp.PartitonNum2FlatNode.get(i) //获取到当前线程上所有flatNode
         actorSet.forEach(flat => {
-            //准备构造如下格式的声明语句: Name Name_obj(out1,out2,in1,in2);
+            //准备构造如下格式的声明语句: Name Name_obj(out1,out2,in1,in2,steadyC,initC,[params?]);
             buf += flat.PreName + ' ' + flat.name + '_obj('
             let streamNames = [], comments = []
             flat.outFlatNodes.forEach(out => {
@@ -464,7 +465,9 @@ extern int MAX_ITER;
                 }
                 streamNames.push(buffer.instance) //使用实际的缓冲区
             })
-            buf += streamNames.join(',') + ');'
+            streamNames.push(flat.steadyCount)
+            streamNames.push(flat.initCount)
+            buf += streamNames.concat(flat.params).join(',') + ');'
             comments.length && (buf += ' //' + comments.join(','))
             buf += '\n'
         })
@@ -572,8 +575,8 @@ X86CodeGeneration.prototype.CGactors = function () {
         buf += `class ${flat.PreName}{\n`
         buf += `public:\n`
         /*写入类成员函数*/
-        let inEdgeNames = flat.inFlatNodes.map(src => src.name + '_' + flat.name)
-        let outEdgeNames = flat.outFlatNodes.map(out => flat.name + '_' + out.name)
+        let inEdgeNames = flat.contents.inputs
+        let outEdgeNames = flat.contents.outputs
         buf += this.CGactorsConstructor(flat, inEdgeNames, outEdgeNames);
         buf += this.CGactorsRunInitScheduleWork(inEdgeNames, outEdgeNames);
         buf += this.CGactorsRunSteadyScheduleWork(inEdgeNames, outEdgeNames);
@@ -581,6 +584,7 @@ X86CodeGeneration.prototype.CGactors = function () {
         buf += "private:\n";
         outEdgeNames.forEach(out => buf += `Producer<streamData>${out};\n` )
         inEdgeNames.forEach(src => buf += `Consumer<streamData>${src};\n`)
+        flat._symbol_table.paramNames.forEach(param => buf += `int ${param};\n`)
         buf += "int steadyScheduleCount;\t//稳态时一次迭代的执行次数\n";
         buf += "int initScheduleCount;\n";
         //写入init部分前的statement定义，调用tostring()函数，解析成规范的类变量定义格式
@@ -601,19 +605,21 @@ X86CodeGeneration.prototype.CGactors = function () {
 /**
  * 生成actors constructor
  * @example
- * rtest_3(Buffer<streamData>& Rstream0_0,Buffer<streamData>& round1_0):Rstream0_0(Rstream0_0),round1_0(round1_0){
- *		steadyScheduleCount = 1;
- *		initScheduleCount = 0;
+ * rtest_3(Buffer<streamData>& Out,Buffer<streamData>& In, int steadyC, int initC, [params?]):Out(Out),In(In),param(param){
+ *		steadyScheduleCount = steadyC;
+ *		initScheduleCount = initC;
  * }
  */
 X86CodeGeneration.prototype.CGactorsConstructor = function(flat, inEdgeNames, outEdgeNames) {
     var OutAndInEdges = (outEdgeNames || []).concat(inEdgeNames) // 把 out 放前面, in 放后面
+    var paramNames = flat._symbol_table.paramNames
+    var paramWithType = paramNames.map(name => 'int '+name) // FIXME 暂时先都用 int
     var buf = flat.PreName + '('
-    buf += OutAndInEdges.map(s => 'Buffer<streamData>& ' + s).join(',') + '):'
-    buf += OutAndInEdges.map(s => s + '(' + s + ')').join(',') + '{'
+    buf += OutAndInEdges.map(s => 'Buffer<streamData>& ' + s).concat(['int steadyC','int initC']).concat(paramWithType).join(',') + '):'
+    buf += OutAndInEdges.concat(paramNames).map(s => s + '(' + s + ')').join(',') + '{'
     buf += `
-        steadyScheduleCount = ${flat.steadyCount};
-		initScheduleCount = ${flat.initCount};
+        steadyScheduleCount = steadyC;
+		initScheduleCount = initC;
 	}
     `
     return buf
@@ -659,9 +665,9 @@ X86CodeGeneration.prototype.CGactorsRunSteadyScheduleWork = function(inEdgeNames
 		for(int i=0;i<steadyScheduleCount;i++){
             work();
         }`;
-    var use1Or2 = str => this.bufferMatch.get(str).buffertype == 1 ? '' : '2';
-    (outEdgeNames || []).forEach(out => buf += out + '.resetTail' + use1Or2(out) + '();\n');
-    (inEdgeNames || []).forEach(src => buf += src + '.resetHead' + use1Or2(src) + '();\n');
+    // var use1Or2 = str => this.bufferMatch.get(str).buffertype == 1 ? '' : '2';
+    (outEdgeNames || []).forEach(out => buf += out + '.resetTail();\n');
+    (inEdgeNames || []).forEach(src => buf += src + '.resetHead();\n');
     return buf + '}\n'
 }
 
@@ -693,8 +699,11 @@ X86CodeGeneration.prototype.CGactorsStmts = function (stmt_list) {
  * @param {FlatNode} flat
  */
 X86CodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
-    const pop = flat.inPopWeights[0]
-    const stmts = inEdgeNames.map(src => `${src}.updatehead(${pop});\n`).join('')
+    let streams = {}
+    for(let winStmt of flat.contents.operBody.win){
+        streams[winStmt.winName] = winStmt.arg_list[0].toString()
+    }
+    const stmts = inEdgeNames.map(src => `${src}.updatehead(${streams[src]});\n`).join('')
     return `\n void popToken(){ ${stmts} }\n`
 }
 
@@ -706,8 +715,11 @@ X86CodeGeneration.prototype.CGactorsPopToken = function (flat, inEdgeNames) {
  * @param {FlatNode} flat
  */
 X86CodeGeneration.prototype.CGactorsPushToken = function (flat, outEdgeNames) {
-    const push = flat.outPushWeights[0]
-    const stmts = outEdgeNames.map(out => `${out}.updatetail(${push});\n`).join('')
+    let streams = {}
+    for(let winStmt of flat.contents.operBody.win){
+        streams[winStmt.winName] = winStmt.arg_list[0].toString()
+    }
+    const stmts = outEdgeNames.map(out => `${out}.updatetail(${streams[out]});\n`).join('')
     return `\n void pushToken(){ ${stmts} }\n`
 }
 
