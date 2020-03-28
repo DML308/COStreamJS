@@ -223,7 +223,7 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
 
 /**  
  * 返回一个将输入数据流拷贝2份的 operator 
- * (copy_1, copy_2) = copy(In){
+ * (copy_1, copy_2) = _copy(In){
  *     work{
  *          copy_1[0].x = In[0].x;
  *          copy_2[0].x = In[0].x;
@@ -240,7 +240,7 @@ UnfoldComposite.prototype.MakeCopyOperator = function () {
     /** @type {compositeNode} */
     const composite = COStreamJS.parser.parse(`
     composite copy(input stream<double x>In, output stream<double x>copy_1, stream<double x>copy_2){
-      (copy_1, copy_2) = copy(In){
+      (copy_1, copy_2) = _copy(In){
          work{
               copy_1[0].x = In[0].x;
               copy_2[0].x = In[0].x;
@@ -402,7 +402,7 @@ function MakeConv2DComposite(/** @type {conv2DLayerNode} */ layer, singleOutput)
                 }
                 join roundrobin();
             };
-            (Out0, Out1) = copy(MID){
+            (Out0, Out1) = _copy(MID){
                 work{
                     Out0[0].x = MID[0].x;
                     Out1[0].x = MID[0].x;
@@ -528,7 +528,7 @@ function makeMaxPooling2DLayer(/** @type {maxPooling2DLayerNode} */layer, single
                 }
                 join roundrobin();
             };
-            (Out0, Out1) = copy(MID){
+            (Out0, Out1) = _copy(MID){
                 work{
                     Out0[0].x = MID[0].x;
                     Out1[0].x = MID[0].x;
@@ -971,7 +971,7 @@ function makeDMaxPooling2DBodyStmt(/** @type {maxPooling2DLayerNode} */layer, co
         //compositeCall的输入流
         const call_inputs = [splitOperator1.outputs[i], splitOperator2.outputs[i]]
         // compositeCallNode *call = new compositeCallNode(call_outputs, tempName, argList, call_inputs, dKernelComp);
-        const call = new compositeCallNode(null,dKernelComp.compName, call_inputs, [new constantNode(null,i)]);
+        const call = new compositeCallNode(null,dKernelComp.compName, call_inputs);
         call.outputs = call_outputs
         compStmtList.push(call);
     }
