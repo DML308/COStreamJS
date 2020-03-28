@@ -59,6 +59,7 @@ export class GreedyPartition extends Partition {
 GreedyPartition.prototype.SssgPartition = function (ssg) {
     if (this.mnparts == 1) {
         this.X = [ssg.flatNodes] // 此时 X 的长度为1, 下标0对应了全部的 flatNodes
+        this.finalParts = 1
     } else {
         this.nvtxs = ssg.flatNodes.length
         this.setActorWorkload(ssg)
