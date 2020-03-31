@@ -179,7 +179,7 @@ doNode.prototype.toString = function (){
 selection_statement.prototype.toString = function () {
     if (this.op1 === 'if') {
         var str = 'if(' + this.exp + ')' + this.statement
-        str += this.op4 === 'else' ? ('else' + this.else_statement) : ''
+        str += this.op4 === 'else' ? ('else ' + this.else_statement) : ''
         return str
     } else if (this.op1 == 'switch') {
 

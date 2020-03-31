@@ -316,7 +316,7 @@ function MakeDenseComposite(/** @type {denseLayerNode} */layer, singleOutput = f
                     int i,j;
                     for(i=0;i<${rows};i++){
                         for(j=0;j<${cols};j++){
-                            _weight_${level}[i][j]=0.01;
+                            _weight_${level}[i][j]= random() - 0.5;
                         }
                     }
                 }
@@ -434,7 +434,7 @@ function MakeConv2DKernel(/** @type {conv2DLayerNode} */ layer){
                     for(j=0;j<${depth};j++){
                         for(n=0;n<${rows};n++){
                             for(m=0;m<${cols};m++){
-                                _weight_${level}[kernelIndex][j][n][m]=0.01;
+                                _weight_${level}[kernelIndex][j][n][m]= random() - 0.5;
                             }		
                         }		
                     }		
@@ -612,7 +612,8 @@ function makeActivationLayer(/** @type {activationLayerNode} */layer){
                         out1[i].x = res;
                         derivative[i].x = res;
                     }`,
-        "sigmoid": `for (i = 0; i < ${count}; i++) {
+        "sigmoid": `double res;
+                    for (i = 0; i < ${count}; i++) {
                         res = 1 / ( 1 + exp(-In[i].x));
                         out0[i].x = res;
                         out1[i].x = res;
