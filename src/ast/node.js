@@ -1,5 +1,5 @@
 import { definePrivate } from "./js-hacker.js"
-import { error } from "../utils";
+import { error, errors } from "../utils";
 
 export class Node {
     constructor(loc) {
@@ -375,12 +375,16 @@ export class matrix_constant extends Node{
         this.rawData = rawData.map(x => (
             x instanceof matrix_constant ? x.rawData : x
         ))
-        this.shape = []
-        /** 下面代码逐层深入一个多维数组, 计算它的 shape */
-        let currentArray = this.rawData
-        while (currentArray instanceof Array){
-            this.shape.push(rawData.length)
-            currentArray = currentArray[0]
+        if(this.rawData[0] instanceof Array){
+            if(typeof this.rawData[0][0] === 'object'){
+                errors(loc,"暂不支持超过2维的数据, 只能是1维向量或2维矩阵")
+                return
+            }
+            this.shape = [this.rawData.length, this.rawData[0].length]
+        }else{
+            // 向量型的矩阵, 行数为1
+            const cols = this.rawData.length
+            this.shape = [1, cols]
         }
     }
 }

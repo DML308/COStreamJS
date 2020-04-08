@@ -2,7 +2,7 @@ import { runningStack, SymbolTable, Constant, ArrayConstant, Variable, symbolTab
 import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode, sequentialNode, layerNode} from "../ast/node";
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
-import { BUILTIN_FUNCTIONS } from "./built-in-function";
+import { BUILTIN_FUNCTIONS, BUILDIN_MATRIX_FUNCTIONS } from "./built-in-function";
 
 /** @type {SymbolTable} */
 export let top;
@@ -169,6 +169,16 @@ function generateStmt(/** @type {Node} */stmt) {
         case callNode: {
             /** FIXME: 函数调用这一块不够完美 */
             if(BUILTIN_FUNCTIONS.includes(stmt.name)) return 
+            if(stmt.name instanceof binopNode){
+                if(1){ // FIXME:如果这里判断左边的类型是矩阵, 那么检查该调用是否合规
+                    if(BUILDIN_MATRIX_FUNCTIONS.includes(stmt.name.right)){
+                        return
+                    }else{
+                        error(stmt._loc, "不支持的函数调用:",stmt.name.right)
+                    }
+                }
+            }
+            
 
             let func = top.LookupFunctionSymbol(stmt.name);
             stmt.actual_callnode = func;

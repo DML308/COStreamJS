@@ -85,6 +85,9 @@ const Matrix_Object = {
                                 ${name} = MatrixXd(${shape[0]},${shape[1]});
                                 ${name} << ${sequence};
                             `
+                        }else if(declarator.initializer instanceof callNode){
+                            const name = declarator.identifier.name
+                            buf += `${name} = ${declarator.initializer};`
                         }else{
                             debug("FIXME: 代码生成-矩阵插件-矩阵常量初始化类型错误")
                         }

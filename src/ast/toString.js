@@ -263,7 +263,9 @@ matrix_section.prototype.toString = function (){
 lib_binopNode.prototype.toString = function (){
     if(this.lib_name === 'Matrix'){
         let maps = {
-            'zeros': 'Zero'
+            'zeros': 'Zero',
+            'random': 'Random',
+            'Constant': 'Constant'
         }
         return 'Matrix::' + maps[this.function_name]
     }else{

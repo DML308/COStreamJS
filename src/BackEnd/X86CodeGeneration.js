@@ -301,6 +301,10 @@ X86CodeGeneration.prototype.shareBuffers = function () {
             //当该节点内存分配完之后说明该节点执行完毕，可以将节点上游能够复用的缓冲区加入到队列中
             flat.inFlatNodes.forEach(src => {
                 let buffer = this.bufferMatch.get(src.name + '_' + flat.name)
+                if(!buffer){
+                    console.log(this.bufferMatch)
+                    console.warn(src.name, flat.name);
+                }
                 if (buffer.buffertype == 2) {
                     vb.push(buffer)
                 }
@@ -510,6 +514,7 @@ extern int MAX_ITER;
                 //如果该线程在阶段i有actor
                 let ifStr = `if(stage[${stage}]){`
                 //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
+                debugger;
                 let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage)
                 ifStr += flatVec.map(flat => flat.name + '_obj.runSteadyScheduleWork();\n').join('') + '}\n'
                 forBody += ifStr
