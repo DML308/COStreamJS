@@ -4796,7 +4796,11 @@ var COStreamJS = (function () {
             flatNodes.forEach(flat => {
                 this.FlatNode2PartitionNum.set(flat, coreNum);
             });
-            this.PartitonNum2FlatNode.set(coreNum, flatNodes);
+            // 设置划分核号 - flatNode 节点的映射时, 对其按标号排序
+            this.PartitonNum2FlatNode.set(coreNum, flatNodes.sort((a,b)=>{
+                let a_num = a.name.split('_').pop(), b_num = b.name.split('_').pop();
+                return a_num - b_num
+            }));
         });
     };
     /**
