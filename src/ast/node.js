@@ -527,8 +527,8 @@ export class maxPooling2DLayerNode extends layerNode {
     }
     init(/** @type {sequentialNode} */ sequential){
         this.inputSize = this.getInputSize(sequential)
-        this.outputPooledSize[0] = this.inputSize[0] / this.pool_size
-        this.outputPooledSize[1] = this.inputSize[1] / this.pool_size
+        this.outputPooledSize[0] = Math.floor(this.inputSize[0] / this.pool_size)
+        this.outputPooledSize[1] = Math.floor(this.inputSize[1] / this.pool_size)
         this.outputPooledSize[2] = this.inputSize[2]
         this.depth = this.inputSize[2]
     }
