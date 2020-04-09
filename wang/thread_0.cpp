@@ -11,7 +11,7 @@
 extern int MAX_ITER;
 void thread_0_fun()
 {
-  masterSync(2);
+  masterSync(3);
   B B_1_obj(B_1_Sink_2,Source_0_B_1,8,0,88,99);
   char stage[3] = {
     1,0,0
@@ -22,7 +22,7 @@ void thread_0_fun()
       B_1_obj.runInitScheduleWork();
     }
     
-    masterSync(2);
+    masterSync(3);
     
   }
   
@@ -37,7 +37,7 @@ void thread_0_fun()
       stage[0] = 0;
     }
     
-    masterSync(2);
+    masterSync(3);
     
   }
 }

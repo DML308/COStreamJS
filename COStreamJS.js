@@ -588,12 +588,16 @@ var COStreamJS = (function () {
             this.rawData = rawData.map(x => (
                 x instanceof matrix_constant ? x.rawData : x
             ));
-            this.shape = [];
-            /** 下面代码逐层深入一个多维数组, 计算它的 shape */
-            let currentArray = this.rawData;
-            while (currentArray instanceof Array){
-                this.shape.push(rawData.length);
-                currentArray = currentArray[0];
+            if(this.rawData[0] instanceof Array){
+                if(Array.isArray(this.rawData[0][0])){
+                    error$1(loc,"暂不支持超过2维的数据, 只能是1维向量或2维矩阵");
+                    return
+                }
+                this.shape = [this.rawData.length, this.rawData[0].length];
+            }else {
+                // 向量型的矩阵, 行数为1
+                const cols = this.rawData.length;
+                this.shape = [1, cols];
             }
         }
     }
@@ -734,8 +738,8 @@ var COStreamJS = (function () {
         }
         init(/** @type {sequentialNode} */ sequential){
             this.inputSize = this.getInputSize(sequential);
-            this.outputPooledSize[0] = this.inputSize[0] / this.pool_size;
-            this.outputPooledSize[1] = this.inputSize[1] / this.pool_size;
+            this.outputPooledSize[0] = Math.floor(this.inputSize[0] / this.pool_size);
+            this.outputPooledSize[1] = Math.floor(this.inputSize[1] / this.pool_size);
             this.outputPooledSize[2] = this.inputSize[2];
             this.depth = this.inputSize[2];
         }
@@ -820,7 +824,7 @@ var COStreamJS = (function () {
         activationLayerNode: activationLayerNode
     });
 
-    var version = "0.9.3";
+    var version = "0.9.4";
 
     //对外的包装对象
     var COStreamJS = {
@@ -2055,7 +2059,8 @@ var COStreamJS = (function () {
     };
 
     const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','round','ceil','abs','log','sqrt','exp', 'random'];
-    const BUILTIN_FUNCTIONS = ['print','println'].concat(BUILTIN_MATH);
+    const BUILTIN_FUNCTIONS = ['print','println','Native'].concat(BUILTIN_MATH);
+    const BUILDIN_MATRIX_FUNCTIONS = ['transpose','cwiseProduct'];
 
     /** @type {SymbolTable} */
     let top;
@@ -2222,6 +2227,16 @@ var COStreamJS = (function () {
             case callNode: {
                 /** FIXME: 函数调用这一块不够完美 */
                 if(BUILTIN_FUNCTIONS.includes(stmt.name)) return 
+                if(stmt.name instanceof binopNode){
+                    { // FIXME:如果这里判断左边的类型是矩阵, 那么检查该调用是否合规
+                        if(BUILDIN_MATRIX_FUNCTIONS.includes(stmt.name.right)){
+                            return
+                        }else {
+                            error$1(stmt._loc, "不支持的函数调用:",stmt.name.right);
+                        }
+                    }
+                }
+                
 
                 let func = top.LookupFunctionSymbol(stmt.name);
                 stmt.actual_callnode = func;
@@ -2734,6 +2749,12 @@ var COStreamJS = (function () {
             return differentPlatformPrintln[platform](this.arg_list)
         } else if (BUILTIN_MATH.includes(this.name) && platform === 'WEB'){
             return 'Math.'+this.name + '(' + list2String(this.arg_list, ',') + ')'
+        } else if(this.name === "Native"){
+            if(this.arg_list[1].source.slice(1,-1) !== platform){
+                error$1(this._loc, `该 Native 函数与当前的执行平台不符`);
+                return this.name;
+            }
+            return this.arg_list[0].source.slice(1,-1) //通过 slice 来移除左右两侧的引号
         }
         else {
             return this.name + '(' + list2String(this.arg_list, ',') + ')'
@@ -2773,7 +2794,9 @@ var COStreamJS = (function () {
     lib_binopNode.prototype.toString = function (){
         if(this.lib_name === 'Matrix'){
             let maps = {
-                'zeros': 'Zero'
+                'zeros': 'Zero',
+                'random': 'Random',
+                'Constant': 'Constant'
             };
             return 'Matrix::' + maps[this.function_name]
         }else {
@@ -5121,6 +5144,9 @@ part               actor             workload           percent\n`;
                                 ${name} = MatrixXd(${shape[0]},${shape[1]});
                                 ${name} << ${sequence};
                             `;
+                            }else if(declarator.initializer instanceof callNode){
+                                const name = declarator.identifier.name;
+                                buf += `${name} = ${declarator.initializer};`;
                             }else {
                                 debug("FIXME: 代码生成-矩阵插件-矩阵常量初始化类型错误");
                             }
@@ -5445,6 +5471,10 @@ using namespace std;\n
                 //当该节点内存分配完之后说明该节点执行完毕，可以将节点上游能够复用的缓冲区加入到队列中
                 flat.inFlatNodes.forEach(src => {
                     let buffer = this.bufferMatch.get(src.name + '_' + flat.name);
+                    if(!buffer){
+                        console.log(this.bufferMatch);
+                        console.warn(src.name, flat.name);
+                    }
                     if (buffer.buffertype == 2) {
                         vb.push(buffer);
                     }
@@ -5645,6 +5675,7 @@ extern int MAX_ITER;
                     //如果该线程在阶段i有actor
                     let ifStr = `if(stage[${stage}]){`;
                     //获取既在这个thread i 上 && 又在这个 stage 上的 actor 集合
+                    debugger;
                     let flatVec = this.mp.PartitonNum2FlatNode.get(i).filter(flat => flat.stageNum == stage);
                     ifStr += flatVec.map(flat => flat.name + '_obj.runSteadyScheduleWork();\n').join('') + '}\n';
                     forBody += ifStr;
@@ -6543,6 +6574,9 @@ extern int MAX_ITER;
     COStreamJS.main = function(str, options = { coreNum:4 }){
         debugger
         COStreamJS.global.errors = errors;
+        COStreamJS.global.errors.length = 0; // 清空错误统计列表
+        this.options.platform = options.platform || this.options.platform;
+
         // 1. 先检查括号是否匹配
         if(!checkBraceMatching(str)) throw new Error();
         // 2. 词语法分析构建语法树
@@ -6571,7 +6605,6 @@ extern int MAX_ITER;
         this.MaxStageNum = this.StageAssignment(this.ssg,this.mp);
         // 10.目标代码生成
         this.files = {};
-        this.options.platform = options.platform || this.options.platform;
         this.codeGeneration(this.mp.finalParts,this.ssg,this.mp);
     };
 

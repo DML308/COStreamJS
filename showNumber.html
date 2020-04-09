@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <input id="input" type="text">
+    <button id="button">draw</button>
+    <canvas width="28" height="28" style="background: #ccc;transform: scale(10);transform-origin: top left;"></canvas>
+    <script>
+        var $ = document.querySelector.bind(document)
+        var canvas = $('canvas');
+        var ctx = canvas.getContext('2d')
+
+        $('#button').onclick = function(){
+            var rawData784 = $('#input').value
+            var datas784 = rawData784.split(',')
+            var myImageData = ctx.createImageData(28, 28);
+            for(var i=0;i<784;i++){
+                myImageData.data[i*4+3] = datas784[i]
+            }
+            ctx.putImageData(myImageData, 0, 0);
+
+        }
+        
+
+    </script>
+</body>
+</html>
