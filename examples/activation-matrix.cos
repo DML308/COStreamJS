@@ -82,7 +82,7 @@ composite loss(input stream<Matrix x>In,stream<Matrix x>Y, output stream<Matrix 
   Out=loss(In,Y){
     work{
       Out[0].x = Y[0].x - In[0].x ;    
-      println(In[0].x);
+      //println(In[0].x);
     }
     window{
       In sliding(1,1);

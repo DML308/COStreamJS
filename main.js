@@ -35,7 +35,10 @@ Object.assign(COStreamJS.__proto__, {
 
 COStreamJS.main = function(str, options = { coreNum:4 }){
     debugger
-    COStreamJS.global.errors = utils.errors
+    COStreamJS.global.errors = utils.errors;
+    COStreamJS.global.errors.length = 0; // 清空错误统计列表
+    this.options.platform = options.platform || this.options.platform
+
     // 1. 先检查括号是否匹配
     if(!utils.checkBraceMatching(str)) throw new Error();
     // 2. 词语法分析构建语法树
@@ -64,7 +67,6 @@ COStreamJS.main = function(str, options = { coreNum:4 }){
     this.MaxStageNum = this.StageAssignment(this.ssg,this.mp)
     // 10.目标代码生成
     this.files = {}
-    this.options.platform = options.platform || this.options.platform
     this.codeGeneration(this.mp.finalParts,this.ssg,this.mp)
 }
 

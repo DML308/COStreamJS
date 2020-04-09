@@ -93,6 +93,14 @@
     <div id="container" style="position: absolute;top: 0; bottom: 0;left: 900px;">
         <div id="ast-svg"></div>
     </div>
+    <!-- 右边 canvas 部分 -->
+    <div style="position: absolute;top: 0; bottom: 0;left: 900px;">
+        <canvas id="canvas" width="280" height="280" style="background: grey;"></canvas>
+        <button id="log">log</button>
+        <button id="clear">clear</button>
+        <hr>
+        <canvas width="140" id="chart_box"></canvas>
+    </div>
 
     <script src="./COStreamJS.js"></script>
     <script src="./data.js"></script>
@@ -100,6 +108,9 @@
     <script src="https://cdn.bootcss.com/ace/1.4.4/ace.js"></script>
     <script src="https://cdn.bootcss.com/viz.js/2.1.2/viz.js"></script>
     <script src="https://cdn.bootcss.com/viz.js/2.1.2/lite.render.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@2.3.2/dist/signature_pad.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.min.js"></script>
+
     <script>
         window.renderDot = async function (str) {
             var viz = new Viz();
@@ -180,7 +191,7 @@
                     var str = editor.getValue()
                     old_code = str;
                     try {
-                        window.COStreamJS.main(str, { platform: 'WEB' })
+                        window.COStreamJS.main(str, { platform: 'WEB', coreNum:1 })
                         this.flats = COStreamJS.ssg.flatNodes
                         this.flats.forEach(flat => {
                             Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat))
@@ -257,6 +268,78 @@
         }
         console.log = hackerConsoleLog
     </script>
+    <script>
+        var canvas = document.querySelector("canvas");
+        var ctx = canvas.getContext('2d');
+        var signaturePad = new SignaturePad(canvas, {
+            minWidth: 10,
+            maxWidth: 15,
+        });
+
+        document.querySelector('#log').onclick = function(){
+            var imgBigData = ctx.getImageData(0,0,280,280)
+            var imgGreyData = []
+            for(var i =0 ;i< 78400;i++){
+                imgGreyData[i] = imgBigData.data[i*4+3]
+            }
+            var img28 = []
+            for(var i = 0;i< 28; i++){
+                for(var j=0;j<28;j++){
+                    var sum = 0; // start: [i*10,j*10]  =  i*10*280+j*10
+                    for(var m = 0; m<10;m++){
+                        for(var n = 0;n<10;n++){
+                            // [i*10+m, j*10+n] = (i*10+m)*280 + j*10+n
+                            //img28[i][j] = imgGrey(i~i+10, j~j+10).average
+                            sum += imgGreyData[(i*10+m)*280+j*10+n]
+                        }
+                    }
+                    img28[i*28+j] = sum / 100
+                }
+            }
+            console.log(img28);
+            window.img28 = img28;
+        }
+        document.querySelector('#clear').onclick = function(){
+            signaturePad.clear();
+        }
+
+        // 概率表部分
+        var chart = document.getElementById('chart_box');
+        var chart_context = chart.getContext('2d');
+
+        var show_data = function(probabilities) {
+            window.chart =  new Chart(chart_context, {
+                type: 'bar',
+                data: {
+                  labels: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+                  datasets: [{
+                      label: 'probabilities',
+                      backgroundColor: 'rgba(255, 64, 129, 0.8)',
+                      data: probabilities,
+                  }]
+                },
+                options: {
+                    scales: {
+                        yAxes: [{
+                            ticks: {
+                                suggestedMin: 0,
+                                suggestedMax: 1,
+                                stepSize: 0.2
+                            }
+                        }]
+                    }
+                }
+            })
+        }
+
+        window.update_data = function(probabilities) {
+            window.chart.data.datasets[0].data = probabilities;
+            window.chart.update();
+        }
+
+        show_data();
+    </script>
+    <script src="./weight.js"></script>
 </body>
 
 </html>

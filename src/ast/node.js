@@ -1,5 +1,5 @@
 import { definePrivate } from "./js-hacker.js"
-import { error, errors } from "../utils";
+import { error } from "../utils";
 
 export class Node {
     constructor(loc) {
@@ -376,8 +376,8 @@ export class matrix_constant extends Node{
             x instanceof matrix_constant ? x.rawData : x
         ))
         if(this.rawData[0] instanceof Array){
-            if(typeof this.rawData[0][0] === 'object'){
-                errors(loc,"暂不支持超过2维的数据, 只能是1维向量或2维矩阵")
+            if(Array.isArray(this.rawData[0][0])){
+                error(loc,"暂不支持超过2维的数据, 只能是1维向量或2维矩阵")
                 return
             }
             this.shape = [this.rawData.length, this.rawData[0].length]

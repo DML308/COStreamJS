@@ -224,6 +224,12 @@ callNode.prototype.toString = function () {
         return differentPlatformPrintln[platform](this.arg_list)
     } else if (BUILTIN_MATH.includes(this.name) && platform === 'WEB'){
         return 'Math.'+this.name + '(' + list2String(this.arg_list, ',') + ')'
+    } else if(this.name === "Native"){
+        if(this.arg_list[1].source.slice(1,-1) !== platform){
+            error(this._loc, `该 Native 函数与当前的执行平台不符`);
+            return this.name;
+        }
+        return this.arg_list[0].source.slice(1,-1) //通过 slice 来移除左右两侧的引号
     }
     else{
         return this.name + '(' + list2String(this.arg_list, ',') + ')'

@@ -1,0 +1,146 @@
+// 该文件使用了 Native 接口, 只能在 WEB 环境中运行
+double _weight_3[100][10];
+double _weight_1[784][100];
+
+composite dense_1(input stream<double x>In, output stream<double x>Out){
+  Out=dense_1(In){
+    init{
+      int i, j;
+      for(i=0;i<784;i++){
+        for(j=0;j<100;j++){
+          _weight_1[i][j]= Native("wih[i][j]", "WEB");
+        }
+        
+      }
+      
+    }
+    work{
+      int i, j;
+      double temp;
+      for(j=0;j<100;j++){
+        temp=0;
+        for(i=0;i<784;i++){
+          temp+=In[i].x*_weight_1[i][j];
+        }
+        
+        Out[j].x=temp;
+      }
+      
+    }
+    window{
+      In sliding(784,784);
+      Out tumbling(100,100);
+    }
+  }
+  ;
+}
+composite Activation_2(input stream<double x>In, output stream<double x>out0){
+  out0=activation_sigmoid_2(In){
+    init{
+    }
+    work{
+      int i;
+      double res;
+      for(i=0;i<100;i++){
+        res=1/(1+exp(-In[i].x));
+        out0[i].x=res;
+      }
+      
+    }
+    window{
+      In sliding(100,100);
+      out0 tumbling(100,100);
+    }
+  }
+  ;
+}
+composite dense_3(input stream<double x>In, output stream<double x>Out){
+  Out=dense_3(In){
+    init{
+      int i, j;
+      for(i=0;i<100;i++){
+        for(j=0;j<10;j++){
+          _weight_3[i][j]=Native("who[i][j]", "WEB");
+        }
+        
+      }
+      
+    }
+    work{
+      int i, j;
+      double temp;
+      for(j=0;j<10;j++){
+        temp=0;
+        for(i=0;i<100;i++){
+          temp+=In[i].x*_weight_3[i][j];
+        }
+        
+        Out[j].x=temp;
+      }
+      
+    }
+    window{
+      In sliding(100,100);
+      Out tumbling(10,10);
+    }
+  }
+  ;
+}
+composite Activation_4(input stream<double x>In, output stream<double x>out0){
+  out0=activation_sigmoid_4(In){
+    init{
+    }
+    work{
+      int i;
+      double res;
+      for(i=0;i<10;i++){
+        res=1/(1+exp(-In[i].x));
+        out0[i].x=res;
+      }
+      
+    }
+    window{
+      In sliding(10,10);
+      out0 tumbling(10,10);
+    }
+  }
+  ;
+}
+
+composite squential_0(input stream<double x>In, output stream<double x>Out){
+  stream<double x> hidden_inputs,hidden_outputs, final_inputs;
+  hidden_inputs=dense_1(In)();
+  hidden_outputs=Activation_2(hidden_inputs)();
+  final_inputs=dense_3(hidden_outputs)();
+  Out=Activation_4(final_inputs)();
+}
+composite Main(){
+  stream<double x> In, Out;
+  In=Start(){
+    work{
+        int i=0;
+        for(i = 0; i < 784; i++)
+            In[i].x = Native("img28[i]", "WEB")/255.0 + 0.01;
+    }
+    window{
+      In tumbling(784);
+    }
+  }
+  ;
+  Out=squential_0(In,Y)();
+  sink(Out){
+    work{
+        int i;
+        Native("let arr=[];","WEB");
+        for(i=0;i<10;i++){
+            println(Out[i].x);
+            Native("arr.push(this.Out[i].x);","WEB");
+        }
+        Native("update_data(arr);","WEB");
+    }
+    window{
+      Out sliding(10,10);
+    }
+  }
+  ;
+}
