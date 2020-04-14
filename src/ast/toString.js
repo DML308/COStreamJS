@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, arrayNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode, splitjoinNode, addNode, splitNode, joinNode } from "./node.js"
+import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode, splitjoinNode, addNode, splitNode, joinNode } from "./node.js"
 import { COStreamJS } from "../FrontEnd/global"
 import { error } from "../utils/color.js";
 import { BUILTIN_MATH } from "../FrontEnd/built-in-function.js";
@@ -230,8 +230,9 @@ callNode.prototype.toString = function () {
             return this.name;
         }
         return this.arg_list[0].source.slice(1,-1) //通过 slice 来移除左右两侧的引号
-    }
-    else{
+    } else if(this.name === "random" && platform === "X86"){
+        return `rand()/(double)RAND_MAX`;
+    } else{
         return this.name + '(' + list2String(this.arg_list, ',') + ')'
     }
 }
