@@ -124,9 +124,6 @@ binopNode.prototype.toString = function () {
     }
     return this.left.toString() + this.op + this.right // 例如 In[0].i = i 时, 对左边的.i 不检查符号表, 而对右侧的 i 检查是否是上层符号表的成员 
 }
-arrayNode.prototype.toString = function () {
-    return '' + this.exp + list2String(this.arg_list, '][', '[', ']')
-}
 constantNode.prototype.toString = function () {
     let value = this.value
     let escaped = this.source.replace(/\n|↵/g, "\\n")

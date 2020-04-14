@@ -1,5 +1,5 @@
 
-import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, arrayNode } from "../ast/node.js"
+import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode } from "../ast/node.js"
 import { error } from "../utils"
 
 /**

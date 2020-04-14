@@ -1,4 +1,4 @@
-import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, arrayNode, constantNode, castNode } from "./node.js"
+import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, constantNode, castNode } from "./node.js"
 import { error } from "../utils"
 import { top } from "../FrontEnd/generateSymbolTables"
 import { matrix_section } from "./node.js"
@@ -101,9 +101,6 @@ binopNode.prototype.getValue = function () {
     }
 }
 
-arrayNode.prototype.getValue = function () {
-    return NaN
-}
 callNode.prototype.getValue = function () {
     return NaN
 }

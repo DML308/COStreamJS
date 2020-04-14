@@ -180,7 +180,7 @@ type exp = expNode
 type primary_expression = string | expNode
 type argument_expression_list = exp[]
 type operator_arguments = void | argument_expression_list
-type postfix_expression = primary_expression | arrayNode | compositeCallNode | callNode | binopNode | unaryNode | operatorNode | splitjoinNode | pipelineNode;
+type postfix_expression = primary_expression | compositeCallNode | callNode | binopNode | unaryNode | operatorNode | splitjoinNode | pipelineNode;
 type unary_expression = postfix_expression | unaryNode | castNode
 type basic_type_name = string
 type type_specifier = string
@@ -224,12 +224,6 @@ export class parenNode extends expNode {
 
     constructor(loc: YYLTYPE, exp: exp)
 }
-export class arrayNode extends expNode {
-    exp: string | arrayNode
-    arg_list: expression[]
-    //TODO: index: string | constantNode | binopNode
-    constructor(loc: YYLTYPE, exp: exp | arrayNode, arg: expression)
-}
 export class callNode extends expNode {
     name: expNode | string
     arg_list: expNode[]
@@ -246,6 +240,12 @@ export class constantNode extends expNode {
 export class operNode extends Node {
     outputs?: string[]
     inputs?: string[]
+}
+export class fileReaderNode extends operNode{
+    fileName: string
+    /** 一次读入的 */
+    dataLength: number
+    constructor(loc: YYLTYPE,fileName:string,dataLength: number)
 }
 export class compositeCallNode extends operNode {
     compName: string

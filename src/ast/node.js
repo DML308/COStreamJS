@@ -251,18 +251,6 @@ export class parenNode extends expNode {
         Object.assign(this, { op1: '(', exp, op2: ')' })
     }
 }
-export class arrayNode extends expNode {
-    constructor(loc, exp, arg) {
-        super(loc)
-        if (exp instanceof arrayNode) {
-            this.exp = exp.exp
-            this.arg_list = exp.arg_list.slice().concat(arg)
-        } else {
-            this.exp = exp
-            this.arg_list = [arg]
-        }
-    }
-}
 export class callNode extends expNode {
     constructor(loc, name, arg_list) {
         super(loc)
@@ -285,6 +273,13 @@ export class operNode extends Node {
     constructor(loc) {
         super(loc)
         this.outputs = []
+    }
+}
+export class fileReaderNode extends operNode{
+    constructor(loc,fileName,dataLength){
+        super(loc)
+        this.fileName = fileName
+        this.dataLength = dataLength - 0; // 字符串转数字
     }
 }
 export class compositeCallNode extends operNode {
@@ -422,7 +417,9 @@ export class lib_binopNode extends Node{
     }
 }
 
-/** 神经网络相关 node */
+/********************************************************/
+/* 神经网络相关 node                                      */
+/********************************************************/
 export class sequentialNode extends operNode {
     constructor(loc, options = {}) {
       super(loc)
