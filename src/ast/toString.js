@@ -1,4 +1,4 @@
-import { jump_statement, blockNode, idNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode, splitjoinNode, addNode, splitNode, joinNode } from "./node.js"
+import { jump_statement, blockNode, idNode, ternaryNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode, splitjoinNode, addNode, splitNode, joinNode } from "./node.js"
 import { COStreamJS } from "../FrontEnd/global"
 import { error } from "../utils/color.js";
 import { BUILTIN_MATH } from "../FrontEnd/built-in-function.js";
@@ -123,6 +123,9 @@ binopNode.prototype.toString = function () {
         return this.left.toString() + this.op + this.right.toString()
     }
     return this.left.toString() + this.op + this.right // 例如 In[0].i = i 时, 对左边的.i 不检查符号表, 而对右侧的 i 检查是否是上层符号表的成员 
+}
+ternaryNode.prototype.toString = function (){
+    return this.first.toString() + '?' + this.second.toString() + ':' + this.third.toString();
 }
 constantNode.prototype.toString = function () {
     let value = this.value

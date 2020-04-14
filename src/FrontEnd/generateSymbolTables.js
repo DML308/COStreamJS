@@ -1,5 +1,5 @@
 import { runningStack, SymbolTable, Constant, ArrayConstant, Variable, symbolTableList} from "./symbol";
-import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode, sequentialNode, layerNode} from "../ast/node";
+import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode, sequentialNode, layerNode, fileReaderNode} from "../ast/node";
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
 import { BUILTIN_FUNCTIONS, BUILDIN_MATRIX_FUNCTIONS } from "./built-in-function";
@@ -88,7 +88,7 @@ function generateComposite(/** @type{compositeNode} */composite) {
 }
 
 // 解析 语句
-const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section]
+const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section, fileReaderNode]
 function generateStmt(/** @type {Node} */stmt) {
     switch (stmt.constructor) {
         case Number: break;
@@ -201,7 +201,7 @@ function generateStmt(/** @type {Node} */stmt) {
             if (ignoreTypes.some(ignoreType => stmt instanceof ignoreType)) {
                 /** 这些类型不需要在生成符号表这一步进行处理,可暂时跳过 */
             } else {
-                console.warn("[generateStmt] FIXME: 暂未识别的 stmt 类型")
+                console.warn(`[generateStmt] FIXME: 暂未识别的 stmt 类型 ${stmt.constructor.name}`)
             }
         }
     }

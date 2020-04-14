@@ -3,6 +3,7 @@ import { top, setTop, generateCompositeRunningContext } from "../FrontEnd/genera
 import { runningStack, SymbolTable, Variable } from "../FrontEnd/symbol"
 import { debug } from "../utils"
 import { binopNode, operatorNode, compositeCallNode, splitjoinNode, pipelineNode, operNode, sequentialNode, parenNode } from "../ast/node";
+import { fileReaderNode } from "../ast/node";
 
 /*
  *  功能：将抽象语法树转为平面图
@@ -84,7 +85,10 @@ function GraphToOperators(call, composite, ssg, unfold, S, params = []){
         
         let exp = it instanceof binopNode ? it.right : it
 
-        if(exp instanceof operatorNode){
+        if(exp instanceof fileReaderNode){
+            ssg.GenerateFlatNodes(exp)
+        }
+        else if(exp instanceof operatorNode){
             ssg.GenerateFlatNodes(exp, params)
 
         }else if(exp instanceof compositeCallNode){

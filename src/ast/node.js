@@ -279,6 +279,7 @@ export class fileReaderNode extends operNode{
     constructor(loc,fileName,dataLength){
         super(loc)
         this.fileName = fileName
+        this.operName = 'FileReader'
         this.dataLength = dataLength - 0; // 字符串转数字
     }
 }

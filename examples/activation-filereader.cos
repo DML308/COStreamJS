@@ -1,0 +1,39 @@
+int flag = 0;
+
+composite Main() {
+    stream<double x> Source,In, Out, Y;
+    Source = FILEREADER()("./mnist_train.csv",785);
+    (In, Y) = Start(Source) {
+        int i = 0;
+        work {
+            for(i = 0; i < 784; i++)
+                In[i].x = Source[i+1].x/255.0 + 0.01;
+            for(i = 0; i < 10; i++){
+                Y[i].x = Source[0].x == i ? 1:0;
+            }
+            flag++;
+        }
+        window {
+            Source sliding(785,785);
+            In tumbling(784);
+            Y tumbling(10);
+        }
+    };
+    Out = sequential (In, Y) (784, 0.001, "crossEntropy", 'gaussRandom') {
+        add Dense(100);
+        add Activation("sigmoid");
+        add Dense(10);
+        add Activation("sigmoid");
+    };
+    sink(Out) {
+        work {
+            // int i;
+            // for(i=0;i<784;i++){
+            //     print(Out[i].x);
+            // } 
+        }
+        window{
+            Out sliding(784, 784);
+        }
+    };
+}

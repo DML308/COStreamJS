@@ -33,7 +33,7 @@ composite                                                   return 'COMPOSITE'
 input                                                       return 'INPUT'
 output                                                      return 'OUTPUT'
 stream                                                      return 'STREAM'
-FileReader                                                  return 'FILEREADER'
+FileReader|fileReader|FILEREADER                            return 'FILEREADER'
 FileWriter                                                  return 'FILEWRITER'
 add                                                         return 'ADD'
 
@@ -403,10 +403,10 @@ postfix_expression:
                                                                 }
                                                             }
     | MATRIX '.' IDENTIFIER                                 { $$ = new lib_binopNode(@$,$1,$3) }
-    | postfix_expression '.' IDENTIFIER                     { $$ = new binopNode(@$,$1,$2,$3) }
-    | postfix_expression '++'                               { $$ = new unaryNode(@$,$1,$2)    }
-    | postfix_expression '--'                               { $$ = new unaryNode(@$,$1,$2)    }
-    | FILEREADER '(' ')' '(' stringConstant ')'             { error("暂不支持FILEREADER")      }
+    | postfix_expression '.' IDENTIFIER                     { $$ = new binopNode(@$,$1,$2,$3)  }
+    | postfix_expression '++'                               { $$ = new unaryNode(@$,$1,$2)     }
+    | postfix_expression '--'                               { $$ = new unaryNode(@$,$1,$2)     }
+    | FILEREADER '(' ')' '(' STRING_LITERAL ',' NUMBER ')'  { $$ = new fileReaderNode(@$,$5,$7) }
     | postfix_expression operator_arguments operator_selfdefine_body       
                                                             {
                                                                 $$ = new operatorNode(@$,$1,$2,$3)
@@ -503,7 +503,7 @@ assignment_expression:
       conditional_expression
     | unary_expression assignment_operator assignment_expression    
       {
-          if([splitjoinNode,pipelineNode,compositeCallNode,operatorNode,sequentialNode].some(x=> $3 instanceof x)){
+          if([fileReaderNode,splitjoinNode,pipelineNode,compositeCallNode,operatorNode,sequentialNode].some(x=> $3 instanceof x)){
               if($1 instanceof parenNode){
                   $3.outputs = $1.exp instanceof Array ? $1.exp.slice() : [$1.exp] // 可能是单个 string
               }else if(typeof $1 == "string"){

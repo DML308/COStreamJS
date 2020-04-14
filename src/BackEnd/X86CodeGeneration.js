@@ -1,5 +1,5 @@
 import { COStreamJS } from "../FrontEnd/global"
-import { declareNode, function_definition, compositeNode, strdclNode, blockNode } from "../ast/node";
+import { declareNode, function_definition, compositeNode, strdclNode, blockNode, fileReaderNode } from "../ast/node";
 import { getIOHandlerStrings } from "./IOHandler"
 import { FlatNode } from "../FrontEnd/FlatNode"
 import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
@@ -544,6 +544,13 @@ const ProtectedActor = ['join', 'duplicate', 'roundrobin']
 X86CodeGeneration.prototype.CGactors = function () {
     var hasGenerated = new Set() //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
     this.ssg.flatNodes.forEach(flat => {
+        // 先对 FileReader 进行特殊处理
+        if(flat.contents instanceof fileReaderNode){
+            COStreamJS.files[`${flat.PreName}.h`] = this.cgFileReaderActor(flat);
+            return;
+        }
+        // 再处理普通 oper
+
         /** 暂时不对COStream 内建节点做去重操作 */
         if(ProtectedActor.includes(flat.PreName)){
             flat.PreName = flat.name
@@ -606,7 +613,81 @@ X86CodeGeneration.prototype.CGactors = function () {
         COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
     })
 }
-
+X86CodeGeneration.prototype.cgFileReaderActor = function(/** @type {FlatNode} */flat){
+    /** @type {fileReaderNode} */
+    const fnode = flat.contents
+    const fileName = fnode.fileName.slice(1,-1) // 原始数据首尾都有双引号, 例如 "./mnist_train.csv"
+    const length = fnode.dataLength
+    return `
+#ifndef _FileReader_
+#define _FileReader_
+#include <string>
+#include <iostream>
+#include <fstream>
+#include "Buffer.h"
+#include "Consumer.h"
+#include "Producer.h"
+#include "Global.h"
+#include "GlobalVar.h"
+using namespace std;
+class FileReader{
+  public:
+  FileReader(Buffer<streamData>& Out,int steadyC,int initC):Out(Out){
+    steadyScheduleCount = steadyC;
+    initScheduleCount = initC;
+  }
+  
+  void runInitScheduleWork() {
+    initVarAndState();
+    init();
+    for(int i=0;i<initScheduleCount;i++){
+      work();
+    }
+    Out.resetTail();
+  }
+  
+  void runSteadyScheduleWork() {
+    for(int i=0;i<steadyScheduleCount;i++){
+      work();
+    }
+    Out.resetTail();
+  }
+  private:
+  Producer<streamData>Out;
+  int steadyScheduleCount;	//稳态时一次迭代的执行次数
+  int initScheduleCount;
+  ifstream ifile;
+  
+  void popToken(){
+  }
+  
+  void pushToken(){
+    Out.updatetail(${length});
+  }
+  void initVarAndState() {
+    ifile = ifstream("${fileName}");
+    if(!ifile){
+      cout<<"打开文件 ${fileName} 失败"<<endl;
+      exit(0);
+    }
+  }
+  void init() {
+  }
+  void work(){
+    int a;
+    char c;
+    for(int i=0;i<${length};i++){
+      ifile>>a;
+      Out[i].x = a;
+      if(i != 784) ifile>>c; //这里读入一个 c 是为了在处理"1,2,3 \\n 4,5,6"的输入文件时, 跳过逗号','
+    }
+    pushToken();
+    popToken();
+  }
+};
+#endif
+`
+}
 /**
  * 生成actors constructor
  * @example

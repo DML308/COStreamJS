@@ -1,5 +1,5 @@
 import { COStreamJS } from "../FrontEnd/global"
-import { declareNode, function_definition, compositeNode, strdclNode, blockNode, operatorNode } from "../ast/node";
+import { declareNode, function_definition, compositeNode, strdclNode, blockNode, operatorNode, fileReaderNode } from "../ast/node";
 import { FlatNode } from "../FrontEnd/FlatNode"
 import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
 import { Partition } from "./Partition"
@@ -270,10 +270,15 @@ WEBCodeGeneration.prototype.Pack = function Pack(){
 WEBCodeGeneration.prototype.CGactors = function () {
     var hasGenerated = new Set() //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
     this.ssg.flatNodes.forEach(flat => {
-
+        // 先对 FileReader 进行特殊处理
+        if(flat.contents instanceof fileReaderNode){
+            COStreamJS.files[`${flat.PreName}.h`] = this.cgFileReaderActor(flat);
+            return;
+        }
+        // 再处理普通 oper
         if (hasGenerated.has(flat.PreName)) return
         hasGenerated.add(flat.PreName)
-
+        
         var buf = ''
         //开始构建 class
         buf += `class ${flat.PreName}{\n`
@@ -297,6 +302,11 @@ WEBCodeGeneration.prototype.CGactors = function () {
         buf += "}\n";
         COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
     })
+}
+WEBCodeGeneration.prototype.CGactors = function(){
+    return `
+    
+    `
 }
 
 /**

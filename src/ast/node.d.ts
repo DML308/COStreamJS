@@ -243,7 +243,8 @@ export class operNode extends Node {
 }
 export class fileReaderNode extends operNode{
     fileName: string
-    /** 一次读入的 */
+    operName: 'FileReader'
+    /** 一次读入的数据量 */
     dataLength: number
     constructor(loc: YYLTYPE,fileName:string,dataLength: number)
 }
