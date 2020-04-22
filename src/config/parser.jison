@@ -64,7 +64,7 @@ Matrix|matrix                                               return 'MATRIX'
 [a-zA-Z_][a-zA-Z0-9_]*                                      return 'IDENTIFIER'
 
 "*="|"/="|"+="|"-="|"<<="|">>="|"&="|"^="|"|="              return 'ASSIGNMENT_OPERATOR'
-"##"|"++"|"--"|">>"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
+"##"|"++"|"--"|"<<"|">>"|"<="|">="|"=="|"!="|"&&"|"||"      return yytext
 [-*+/%&|~!()\[\]{}'"#,\.?:;<>=]                             return yytext
 
 <<EOF>>               return 'EOF'

@@ -36,7 +36,7 @@ describe("lexer 字符串长度为1的运算符", function () {
 describe("lexer 字符串长度大于1的运算符", function () {
     var regOfDouble = lexer.rules.find(x => /##/.test(x.source))
     var reg = new RegExp(regOfDouble)
-    "## ++ -- >> >> <= >= == != && ||".split(' ').forEach(x => {
+    "## ++ -- << >> <= >= == != && ||".split(' ').forEach(x => {
         it(`输入运算符 ${x}`, () => {
             assert(reg.test(x))
         })
