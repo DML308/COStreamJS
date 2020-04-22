@@ -496,7 +496,7 @@ exp:
 
 conditional_expression:
       exp
-    | exp '?' expression ':' conditional_expression { $$ = new ternaryNode(@$,$1,$3,$5) }
+    | exp '?' expression ':' expression { $$ = new ternaryNode(@$,$1,$3,$5) }
     ;
 
 assignment_expression:

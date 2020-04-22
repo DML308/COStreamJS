@@ -303,10 +303,8 @@ WEBCodeGeneration.prototype.CGactors = function () {
         COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
     })
 }
-WEBCodeGeneration.prototype.CGactors = function(){
-    return `
-    
-    `
+WEBCodeGeneration.prototype.cgFileReaderActor = function(){
+    throw new Error('WEB端暂不支持FileReader')
 }
 
 /**
