@@ -1,0 +1,19 @@
+import Matrix;
+Matrix A = Matrix.random(100,100);
+composite Main(){
+    stream<double x>S1;
+    S1=First(){
+        work{
+            S1[0].x = A.determinant();
+        }
+        window{
+            S1 tumbling(1);
+        }
+    };
+    Sink(S1){
+        work{}
+        window{
+            S1 sliding(1,1);
+        }
+    }
+}

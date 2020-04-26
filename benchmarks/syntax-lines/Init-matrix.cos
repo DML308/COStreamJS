@@ -1,0 +1,18 @@
+import Matrix;
+composite Main(){
+    stream<Matrix x>S;
+    S = Source(){
+        work{
+            S[0].x = Matrix.random(784,100);
+        }
+        window{
+            S tumbling(1,1);
+        }
+    };
+    Sink(S){
+        work{}
+        window{
+            S sliding(1,1);
+        }
+    };
+}

@@ -1,0 +1,39 @@
+double img[3][3];
+double kernel[2][2];
+
+composite Main(){
+    stream<Matrix x>S;
+    S=Source(){
+        work{
+            int kernel_heigh = 2; //kernel.rows();               //获取卷积核(滤波)的高度
+            int kernel_width = 2; //kernel.cols();               //获取卷积核(滤波)的宽度
+            int conv_heigh = 2;//img.rows() - kernel.rows() + 1;    //确定卷积结果的大小
+            int conv_width = 2;//img.cols() - kernel.cols() + 1;
+
+            double conv[2][2]; //Matrix conv = Matrix.zeros(conv_heigh,conv_width);
+
+            int i,j,m,n;
+            for(i=0;i<conv_heigh;i++){                  //逐点相乘并求和得到每一个点
+                for(j=0;j<conv_width;j++){
+                    double temp = 0;
+                    for(m=0;m<kernel_heigh;m++){
+                        for(n=0;n<kernel_width;n++){
+                            temp += img[i+m][j+n]*kernel[m][n]
+                        }
+                    }
+                    conv[i][j] = temp;
+                    Out[i*2+j] = conv[i][j];
+                }
+            }
+        }
+        window{
+            S tumbling(2*2);
+        }
+    };
+    Sink(S){
+        work{}
+        window{
+            S sliding(1,1);
+        }
+    };
+}

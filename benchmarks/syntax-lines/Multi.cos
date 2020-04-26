@@ -1,0 +1,28 @@
+double A[100][100];
+double B[100][100];
+composite Main(){
+    stream<double x>S1;
+    S1=First(){
+        work{
+            int i,j,k;
+            for(i=0;i<100;i++){
+                for(j=0;j<100;j++){
+                    double temp = 0;
+                    for(k=0;k<100;k++){
+                        temp += A[i][k] * B[k][i];
+                    }
+                    S1[i*100+j].x =temp;
+                }
+            }
+        }
+        window{
+            S1 tumbling(100*100);
+        }
+    };
+    Sink(S1){
+        work{}
+        window{
+            S1 sliding(1,1);
+        }
+    }
+}

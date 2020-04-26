@@ -1,0 +1,45 @@
+double A[100][100];
+int N = 100;    //测试矩阵维数定义, 程序来自https://www.cnblogs.com/xiaoxi666/p/6421228.html
+
+//按第一行展开计算|A|
+double getA(double arcs[N][N],int n){
+    if(n==1){
+         return arcs[0][0];
+     }
+    double ans = 0;
+    double temp[N][N]={0.0};
+    int i,j,k;
+    for(i=0;i<n;i++){
+        for(j=0;j<n-1;j++){
+            for(k=0;k<n-1;k++){
+                temp[j][k] = arcs[j+1][(k>=i)?k+1:k];
+            }
+        }
+        double t = getA(temp,n-1);
+        if(i%2==0){
+            ans += arcs[0][i]*t;
+        }
+        else{
+            ans -= arcs[0][i]*t;
+        }
+    }
+    return ans;
+}
+ 
+composite Main(){
+    stream<double x>S1;
+    S1=First(){
+        work{
+            S1[0].x = getA(A,100);
+        }
+        window{
+            S1 tumbling(1);
+        }
+    };
+    Sink(S1){
+        work{}
+        window{
+            S1 sliding(1,1);
+        }
+    }
+}

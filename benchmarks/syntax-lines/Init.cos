@@ -1,0 +1,24 @@
+double weight[784][100];
+composite Main(){
+    stream<double x>S;
+    S = Source(){
+        work{
+            int i,j;
+            for(i=0;i<784;i++){
+                for(j=0;j<100;j++){
+                    weight[i][j] = random();
+                    S[i*100+j].x = weight[i][j];
+                }
+            }
+        }
+        window{
+            S tumbling(784*100,784*100);
+        }
+    };
+    Sink(S){
+        work{}
+        window{
+            S sliding(1,1);
+        }
+    };
+}
