@@ -21,7 +21,7 @@ import { error } from "../utils";
  *   composite sequential_0(input stream<double x>In, stream<double x>Y, output stream<double x> Out){
  *          stream<double x> copy_1, copy_2, F1_F2, F1_B2, F2_loss, _Loss, B2_B1, Out;
  *          (copy_1,copy2) = copy(In);                     // 内容参见 MakeCopyOperator
-            F1_F2,F1_B2=dense_1(copy_1)();
+            (F1_F2,F1_B2)=dense_1(copy_1)();
             F2_loss=dense_2(F1_F2)();
             _Loss=loss(F2_loss,Y)();
             B2_B1=dDense_2(_Loss,F1_B2)();
@@ -174,7 +174,7 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
         const comp = MakeForwardComposite(layer, call_outputs.length == 1)
         const call = new compositeCallNode(null, comp.compName, call_inputs)
         call.outputs = call_outputs
-        result.push(new binopNode(null, call_outputs, '=', call))
+        result.push(new binopNode(null, '('+call_outputs+')', '=', call))
     }
     debugger;
     // dl/dy的输入为y, y`
@@ -210,7 +210,7 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
         const back_comp = MakeBackComposite(layer)
         const back_call = new compositeCallNode(null, back_comp.compName, call_inputs)
         back_call.outputs = call_outputs
-        result.push(new binopNode(null, call_outputs, '=', back_call))
+        result.push(new binopNode(null, '('+call_outputs+')', '=', back_call))
     }
 
     // 反向传播展开完毕

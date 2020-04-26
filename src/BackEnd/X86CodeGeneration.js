@@ -62,20 +62,20 @@ SOURCES := $(wildcard ./*.cpp)
 SOURCES += $(wildcard ./src/*.cpp)
 OBJS    := $(patsubst %.cpp,%.o,$(SOURCES))
 CXX     := g++
-CPPFLAGS := -ggdb -Wall -std=c++11
+CPPFLAGS := -DNDEBUG -Wall -std=c++11 -Ofast -march=native
 INCLUDE := -I .
 LIB     := -lpthread -ldl
 
 .PHONY: clean install
 $(PROGRAM): $(OBJS)
-\t$(CXX) -o $@ $^ $(LIB) $(CFLAGS)
+\t$(CXX) -o $@ $^ $(LIB) $(CPPFLAGS)
 %.o: %.c
 \t$(CXX) -o $@ -c $< $(CPPFLAGS) $(INCLUDE)
 clean:
 \trm -f $(OBJS) $(PROGRAM)
 install: $(PROGRAM)
 \tcp $(PROGRAM) ./bin/
-    `
+`
     COStreamJS.files['Makefile'] = buf
 }
 
