@@ -3490,7 +3490,7 @@ var COStreamJS = (function () {
      *   composite sequential_0(input stream<double x>In, stream<double x>Y, output stream<double x> Out){
      *          stream<double x> copy_1, copy_2, F1_F2, F1_B2, F2_loss, _Loss, B2_B1, Out;
      *          (copy_1,copy2) = copy(In);                     // 内容参见 MakeCopyOperator
-                F1_F2,F1_B2=dense_1(copy_1)();
+                (F1_F2,F1_B2)=dense_1(copy_1)();
                 F2_loss=dense_2(F1_F2)();
                 _Loss=loss(F2_loss,Y)();
                 B2_B1=dDense_2(_Loss,F1_B2)();
@@ -3642,7 +3642,7 @@ var COStreamJS = (function () {
             const comp = MakeForwardComposite(layer, call_outputs.length == 1);
             const call = new compositeCallNode(null, comp.compName, call_inputs);
             call.outputs = call_outputs;
-            result.push(new binopNode(null, call_outputs, '=', call));
+            result.push(new binopNode(null, '('+call_outputs+')', '=', call));
         }
         debugger;
         // dl/dy的输入为y, y`
@@ -3678,7 +3678,7 @@ var COStreamJS = (function () {
             const back_comp = MakeBackComposite(layer);
             const back_call = new compositeCallNode(null, back_comp.compName, call_inputs);
             back_call.outputs = call_outputs;
-            result.push(new binopNode(null, call_outputs, '=', back_call));
+            result.push(new binopNode(null, '('+call_outputs+')', '=', back_call));
         }
 
         // 反向传播展开完毕
@@ -5243,20 +5243,20 @@ SOURCES := $(wildcard ./*.cpp)
 SOURCES += $(wildcard ./src/*.cpp)
 OBJS    := $(patsubst %.cpp,%.o,$(SOURCES))
 CXX     := g++
-CPPFLAGS := -ggdb -Wall -std=c++11
+CPPFLAGS := -DNDEBUG -Wall -std=c++11 -Ofast -march=native
 INCLUDE := -I .
 LIB     := -lpthread -ldl
 
 .PHONY: clean install
 $(PROGRAM): $(OBJS)
-\t$(CXX) -o $@ $^ $(LIB) $(CFLAGS)
+\t$(CXX) -o $@ $^ $(LIB) $(CPPFLAGS)
 %.o: %.c
 \t$(CXX) -o $@ -c $< $(CPPFLAGS) $(INCLUDE)
 clean:
 \trm -f $(OBJS) $(PROGRAM)
 install: $(PROGRAM)
 \tcp $(PROGRAM) ./bin/
-    `;
+`;
         COStreamJS.files['Makefile'] = buf;
     };
 
