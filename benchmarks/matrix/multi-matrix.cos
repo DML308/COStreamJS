@@ -1,0 +1,40 @@
+import Matrix;
+Matrix A = Matrix.random(100,100);
+Matrix B = Matrix.random(100,100);
+composite Main(){
+    stream<Matrix x>S1,S2,S3,S4;
+    S1=First(){
+        work{
+            S1[0].x = A*B;
+        }
+        window{
+            S1 tumbling(1);
+        }
+    };
+    S2=Second(S1){
+        work{
+            S2[0].x = S1[0].x*B;
+        }
+        window{
+            S1 sliding(1,1);
+            S2 tumbling(1);
+        }
+    };
+    S3=Third(S2){
+        work{
+            S3[0].x = S2[0].x*B;
+        }
+        window{
+            S2 sliding(1,1);
+            S3 tumbling(1);
+        }
+    };
+    Fourth(S3){
+        work{
+            Matrix m = S3[0].x*B;
+        }
+        window{
+            S3 sliding(1,1);
+        }
+    };
+}

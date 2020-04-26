@@ -1,0 +1,8 @@
+A = rand(1000,1000);
+B = rand(1000,1000);
+for i=1:100,
+    A = A*B;
+    A = A*B;
+    A = A*B;
+    A = A*B;
+end

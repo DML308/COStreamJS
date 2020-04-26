@@ -1,0 +1,75 @@
+double A[100][100];
+double B[100][100];
+composite Main(){
+    stream<double x>S1,S2,S3,S4;
+    S1=Source(){
+        work{
+            int i,j,k;
+            for(i=0;i<100;i++){
+                for(j=0;j<100;j++){
+                    double temp = 0;
+                    for(k=0;k<100;k++){
+                        temp += A[i][k] * B[k][i];
+                    }
+                    S1[i*100+j].x =temp;
+                }
+            }
+        }
+        window{
+            S1 tumbling(100*100);
+        }
+    };
+    S2=Source2(S1){
+        work{
+            int i,j,k;
+            for(i=0;i<100;i++){
+                for(j=0;j<100;j++){
+                    double temp = 0;
+                    for(k=0;k<100;k++){
+                        temp += A[i][k] * B[k][i];
+                    }
+                    S2[i*100+j].x =temp;
+                }
+            }
+        }
+        window{
+            S1 sliding(100*100,100*100);
+            S2 tumbling(100*100);
+        }
+    };
+    S3=Source3(S2){
+        work{
+            int i,j,k;
+            for(i=0;i<100;i++){
+                for(j=0;j<100;j++){
+                    double temp = 0;
+                    for(k=0;k<100;k++){
+                        temp += A[i][k] * B[k][i];
+                    }
+                    S3[i*100+j].x =temp;
+                }
+            }
+        }
+        window{
+            S2 sliding(100*100,100*100);
+            S3 tumbling(100*100);
+        }
+    };
+    Source4(S3){
+        work{
+            int i,j,k;
+            for(i=0;i<100;i++){
+                for(j=0;j<100;j++){
+                    double temp = 0;
+                    for(k=0;k<100;k++){
+                        temp += A[i][k] * B[k][i];
+                    }
+                    //S1[i*100+j].x =temp;
+                }
+            }
+        }
+        window{
+            S3 sliding(100*100,100*100);
+        }
+    };
+}
