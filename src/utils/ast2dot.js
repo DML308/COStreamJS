@@ -33,6 +33,9 @@ export function ast2dot(node){
                 return ast2dot.count++
             }
         }else{
+            if(!node.initializer && node.identifier){ //避免特殊的idNode产生的空白节点
+                node = node.identifier //减少空白dot节点
+            }
             //生成一个dot 文件中的行
             var nThis = newNode(node)
             //遍历它的孩子将 nThis 和 nChild 进行连线
@@ -72,6 +75,7 @@ export function ast2dot(node){
         var keys = Object.keys(node)
         for(var i of keys){
             if(node[i] === undefined) continue
+            if(i === "arg_list" && node[i].length == 0) continue
             line+= first ? '' : " |"
             first = false
             line += `<${tag++}> `
