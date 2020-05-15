@@ -1,6 +1,6 @@
 import Matrix;
-Matrix A = Matrix.random(100,100);
-Matrix B = Matrix.random(100,100);
+Matrix A = Matrix.random(2000,2000);
+Matrix B = Matrix.random(2000,2000);
 composite Main(){
     stream<Matrix x>S1,S2,S3,S4;
     S1=First(){
