@@ -283,6 +283,15 @@ export class fileReaderNode extends operNode{
         this.dataLength = dataLength - 0; // 字符串转数字
     }
 }
+export class fileWriterNode extends operNode{
+    constructor(loc,streamName,fileName,dataLength){
+        super(loc)
+        this.inputs = [streamName]
+        this.operName = "FileWriter"
+        this.fileName = fileName
+        this.dataLength = dataLength
+    }
+}
 export class compositeCallNode extends operNode {
     constructor(loc, compName, inputs, params = []) {
         super(loc)

@@ -34,7 +34,7 @@ input                                                       return 'INPUT'
 output                                                      return 'OUTPUT'
 stream                                                      return 'STREAM'
 FileReader|fileReader|FILEREADER                            return 'FILEREADER'
-FileWriter                                                  return 'FILEWRITER'
+FileWriter|fileWriter|FILEWRITER                            return 'FILEWRITER'
 add                                                         return 'ADD'
 
 param                                                       return 'PARAM'
@@ -407,6 +407,7 @@ postfix_expression:
     | postfix_expression '++'                               { $$ = new unaryNode(@$,$1,$2)     }
     | postfix_expression '--'                               { $$ = new unaryNode(@$,$1,$2)     }
     | FILEREADER '(' ')' '(' STRING_LITERAL ',' NUMBER ')'  { $$ = new fileReaderNode(@$,$5,$7) }
+    | FILEWRITER '(' IDENTIFIER ')' '(' STRING_LITERAL ',' NUMBER ')'  { $$ = new fileWriterNode(@$,$3,$6,$8) }
     | postfix_expression operator_arguments operator_selfdefine_body       
                                                             {
                                                                 $$ = new operatorNode(@$,$1,$2,$3)

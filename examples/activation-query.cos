@@ -115,32 +115,20 @@ composite squential_0(input stream<double x>In, output stream<double x>Out){
   Out=Activation_4(final_inputs)();
 }
 composite Main(){
-  stream<double x> In, Out;
-  In=Start(){
+  stream<double x> RAW,In, Out;
+  RAW = FileReader()("canvas",784);
+  In=Start(RAW){
     work{
         int i=0;
         for(i = 0; i < 784; i++)
-            In[i].x = Native("img28[i]", "WEB")/255.0 + 0.01;
+            In[i].x = RAW[i].x/255.0 + 0.01;
     }
     window{
+      RAW sliding(784,784);
       In tumbling(784);
     }
   }
   ;
   Out=squential_0(In,Y)();
-  sink(Out){
-    work{
-        int i;
-        Native("let arr=[];","WEB");
-        for(i=0;i<10;i++){
-            println(Out[i].x);
-            Native("arr.push(this.Out[i].x);","WEB");
-        }
-        Native("update_data(arr);","WEB");
-    }
-    window{
-      Out sliding(10,10);
-    }
-  }
-  ;
+  FileWriter(Out)("chart",10);
 }

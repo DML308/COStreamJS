@@ -3,6 +3,7 @@ import { declareNode, compositeNode, function_definition, expNode, blockNode, wh
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
 import { BUILTIN_FUNCTIONS, BUILDIN_MATRIX_FUNCTIONS } from "./built-in-function";
+import { fileWriterNode } from "../ast/node";
 
 /** @type {SymbolTable} */
 export let top;
@@ -88,7 +89,7 @@ function generateComposite(/** @type{compositeNode} */composite) {
 }
 
 // 解析 语句
-const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section, fileReaderNode]
+const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section, fileReaderNode, fileWriterNode]
 function generateStmt(/** @type {Node} */stmt) {
     switch (stmt.constructor) {
         case Number: break;

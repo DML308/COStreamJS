@@ -1,6 +1,7 @@
 
 import { expNode, unaryNode, binopNode, ternaryNode, parenNode, callNode, fileReaderNode } from "../ast/node.js"
 import { error } from "../utils"
+import { fileWriterNode } from "../ast/node.js";
 
 /**
  * 对 ssg 中的 flatNode 进行工作量估计
@@ -18,8 +19,8 @@ export function WorkEstimate(ssg)
          *                          取 "标识符, 运算符" 的总数量 * 10 + 窗口大小 * 20
          * 未来有更优的工作量估计策略后可替换此处代码.
          */
-        if(flat.contents instanceof fileReaderNode){
-            var w_steady = 100; // 对读文件节点先随便估一个工作量
+        if(flat.contents instanceof fileReaderNode || flat.contents instanceof fileWriterNode){
+            var w_steady = flat.contents.dataLength || 100; // 对读写文件节点先随便估一个工作量
         }else{
             var w_steady = (body.work + ';').match(/\w+|[-+*/=<>?:;]/g).length *10 //body.work ? body.work.WorkEstimate() : 0;
         }

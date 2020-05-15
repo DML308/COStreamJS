@@ -2,6 +2,7 @@ import { FlatNode } from "./FlatNode";
 import { top } from "./generateSymbolTables"
 import { error } from "../utils";
 import { fileReaderNode } from "../ast/node";
+import { fileWriterNode } from "../ast/node";
 
 export class StaticStreamGraph {
     constructor() {
@@ -84,6 +85,9 @@ StaticStreamGraph.prototype.GenerateFlatNodes = function (/* operatorNode* */ u,
     // 下面 设置 flatNode 的边的 weight
     if(u instanceof fileReaderNode){
         flat.outPushWeights[0] = u.dataLength
+    }else if(u instanceof fileWriterNode){
+        flat.inPeekWeights[0] = u.dataLength
+        flat.inPopWeights[0] = u.dataLength
     }else{
         let win_stmts = u.operBody.win
         for(let it of win_stmts){

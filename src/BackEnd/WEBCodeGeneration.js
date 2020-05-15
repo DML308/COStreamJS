@@ -5,6 +5,7 @@ import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
 import { Partition } from "./Partition"
 import Plugins from "../plugins"
 import { error } from "../utils";
+import { fileWriterNode } from "../ast/node";
 
 export class WEBCodeGeneration {
 
@@ -271,8 +272,8 @@ WEBCodeGeneration.prototype.CGactors = function () {
     var hasGenerated = new Set() //存放已经生成过的 FlatNode 的 PreName , 用来做去重操作
     this.ssg.flatNodes.forEach(flat => {
         // 先对 FileReader 进行特殊处理
-        if(flat.contents instanceof fileReaderNode){
-            COStreamJS.files[`${flat.PreName}.h`] = this.cgFileReaderActor(flat);
+        if(flat.contents instanceof fileReaderNode || flat.contents instanceof fileWriterNode){
+            COStreamJS.files[`${flat.PreName}.h`] = this.cgFileActor(flat.contents);
             return;
         }
         // 再处理普通 oper
@@ -303,8 +304,66 @@ WEBCodeGeneration.prototype.CGactors = function () {
         COStreamJS.files[`${flat.PreName}.h`] = buf.beautify()
     })
 }
-WEBCodeGeneration.prototype.cgFileReaderActor = function(){
-    throw new Error('WEB端暂不支持FileReader')
+WEBCodeGeneration.prototype.cgFileActor = function(fileNode){
+    if(fileNode instanceof fileReaderNode && /canvas/.test(fileNode.fileName)){
+        return `
+        class FileReader{
+            constructor(/* Buffer<StreamData>& */RAW,steadyC,initC){
+                this.steadyScheduleCount = steadyC;
+                this.initScheduleCount = initC;
+                this.RAW = new Producer(RAW);
+            }
+            runInitScheduleWork() {}
+            runSteadyScheduleWork() {
+                for (let i = 0; i < this.steadyScheduleCount; i++) {
+                    this.work();
+                }
+                this.RAW.resetTail();
+            }
+            popToken(){ }
+            pushToken(){
+                this.RAW.updatetail(784);
+            }
+            work(){
+                
+                let i=0;
+                window.getCanvasData();
+                for(i=0;i<784;i++)
+                    this.RAW[i].x= window.img28[i];
+                this.pushToken();
+                this.popToken();
+            }
+        }`
+    }else if(fileNode instanceof fileWriterNode && /chart/.test(fileNode.fileName)){
+        return `
+        class FileWriter{
+            constructor(/* Buffer<StreamData>& */Out,steadyC,initC){
+                this.steadyScheduleCount = steadyC;
+                this.initScheduleCount = initC;
+                this.Out = new Consumer(Out);
+            }
+            runInitScheduleWork() {}
+            runSteadyScheduleWork() {
+                for (let i = 0; i < this.steadyScheduleCount; i++) {
+                    this.work();
+                }
+                this.Out.resetHead();
+            }
+            popToken(){ 
+                this.Out.updatehead(10);
+            }
+            pushToken(){}
+            work(){
+                let i=0, arr= [];
+                for(i=0;i<10;i++)
+                    arr.push(this.Out[i].x)
+                window.update_data(arr) //调用index.html中提供的更新图表的接口
+                this.pushToken();
+                this.popToken();
+            }
+        }`
+    }
+    throw new Error('WEB端暂不支持该类型的FileReader or FileWriter')
 }
 
 /**
