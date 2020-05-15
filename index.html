@@ -19,7 +19,7 @@
     <div id="editor" style="position: absolute;top: 0; bottom: 0;left: 0;width:400px;">
     </div>
 
-    <div id="app" style="position:absolute;top:0;left:420px;width:500px;" data-app
+    <div id="app" style="position:absolute;top:0;left:420px;width:530px;" data-app
         class="application application--light">
         <section class="buttons">
             <md-button class="md-raised md-primary" @click="updateSVG">打印语法树</md-button>
@@ -63,7 +63,7 @@
             <md-button class="md-primary" @click="showSnackbar = false">ㄨ</md-button>
         </md-snackbar>
 
-        <md-table md-card>
+        <md-table md-card style="display:none;">
             <md-table-toolbar>
                 <h1 class="md-title">当前作用域</h1>
             </md-table-toolbar>
@@ -79,7 +79,7 @@
             </md-table-row>
         </md-table>
 
-        <md-table md-card>
+        <md-table md-card style="display:none;">
             <md-table-toolbar>
                 <h1 class="md-title">composite</h1>
             </md-table-toolbar>
@@ -94,9 +94,9 @@
         <div id="ast-svg"></div>
     </div>
     <!-- 右边 canvas 部分 -->
-    <div style="position: absolute;top: 0; bottom: 0;left: 900px;">
+    <div class="canvas-container" style="display:none;position: absolute;top: 0; bottom: 0;left: 900px;">
         <canvas id="canvas" width="280" height="280" style="background: grey;"></canvas>
-        <button id="log">log</button>
+        <button id="log" style="display:none">log</button>
         <button id="clear">clear</button>
         <hr>
         <canvas width="140" id="chart_box"></canvas>
@@ -129,8 +129,8 @@
     <script>
         let old_code = '';
         var editor = ace.edit("editor");
-        //editor.setTheme("ace/theme/twilight");
-        editor.setTheme("ace/theme/tomorrow_night_eighties");
+        editor.setTheme("ace/theme/clouds");
+        //editor.setTheme("ace/theme/tomorrow_night_eighties");
         editor.session.setMode("ace/mode/c_cpp");
         editor.session.setUseWrapMode(true);
         editor.session.on('change', function (delta) {
@@ -191,7 +191,7 @@
                     var str = editor.getValue()
                     old_code = str;
                     try {
-                        window.COStreamJS.main(str, { platform: 'WEB', coreNum:1 })
+                        window.COStreamJS.main(str, { platform: 'WEB', coreNum:4 })
                         this.flats = COStreamJS.ssg.flatNodes
                         this.flats.forEach(flat => {
                             Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat))
@@ -228,10 +228,12 @@
                 },
                 onToggleTargetCode() {
                     if (this.status == 1) {
+                        if(/canvas/.test(old_code))document.querySelector(".canvas-container").style.display = "block";
                         showCode(COStreamJS.files["main.cpp"], "ace/mode/javascript");
                         editor.getSession().foldAll()
                         this.status = 2
                     } else if (this.status == 2) {
+                        if(/canvas/.test(old_code))document.querySelector(".canvas-container").style.display = "none";
                         showCode(old_code)
                         this.status = 1
                     }
@@ -257,7 +259,7 @@
         /** 输出缓存的控制台信息 */
         hackerConsoleLog.flush = function flush(){
             window.app.snackBarMessage = ("控制台输出结果:\n" + hackerConsoleLog.cachedMessages.join('')).replace(/\n/g, '<br>')
-            window.app.showSnackbar = true
+            if(hackerConsoleLog.cachedMessages.length>0)window.app.showSnackbar = true
             hackerConsoleLog.cachedMessages = []
         }
         function hackerConsoleLog(...args) {
@@ -276,7 +278,8 @@
             maxWidth: 15,
         });
 
-        document.querySelector('#log').onclick = function(){
+        document.querySelector('#log').onclick = getCanvasData;
+        function getCanvasData(){
             var imgBigData = ctx.getImageData(0,0,280,280)
             var imgGreyData = []
             for(var i =0 ;i< 78400;i++){
@@ -296,7 +299,7 @@
                     img28[i*28+j] = sum / 100
                 }
             }
-            console.log(img28);
+            console.warn(img28);
             window.img28 = img28;
         }
         document.querySelector('#clear').onclick = function(){
@@ -339,7 +342,7 @@
 
         show_data();
     </script>
-    <script src="./weight.js"></script>
+    <script src="./weight2.js"></script>
 </body>
 
 </html>
