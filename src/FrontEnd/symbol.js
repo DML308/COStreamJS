@@ -1,51 +1,24 @@
 import { compositeNode, inOutdeclNode, declareNode, declarator, strdclNode, Node } from "../ast/node.js"
 import { FlatNode } from "./FlatNode"
+import { matrix_constant } from "../ast/node.js";
 
-const MAX_SCOPE_DEPTH = 10 //定义最大嵌套深度为100
+const MAX_SCOPE_DEPTH = 100 //定义最大嵌套深度为100
 
 /** @type {SymbolTable[]} */
 export let runningStack = [];
 export const current_version = Array.from({length:MAX_SCOPE_DEPTH}).fill(0);
 export const symbolTableList = /** @type{SymbolTable[]}*/[];
 
-
-export class Constant {
-    constructor(/* string */ type, val) {
-        this.type = type
-        /** @type{number} */
-        this.val = val
-    }
-    print(/* boolean */ isArray) {
-        console.log(`[Constant] type: ${this.type} val: ${this.val}`)
-    }
-
-};
-
-export class ArrayConstant {
-    constructor(type /* string */, values, arg_list) {
-        this.type = type
-        /** @type {Array<Constant>} */
-        this.values = values
-        /** @type {number[]} */
-        this.arg_list = arg_list || []
-    }
-    print() { };
-};
-
 export class Variable {
     constructor(valType, name, i, _loc) {
         this.type = valType
+        if(valType !== 'Matrix'){
+            this.shape = [1,1]
+        }
         this.name = name
         this._loc = _loc
-        if (i instanceof Constant) {
-            this.value = i;
-        }
-        else if (i instanceof ArrayConstant) {
-            this.array = i
-        }
-        else {
-            this.value = new Constant(valType, i);
-        }
+        /** @type {Node} */
+        this.value = i
     }
 }
 
@@ -73,6 +46,7 @@ export class SymbolTable {
         /** @type {Dict<Variable>} */
         this.memberTable = {} // 专门用来存储一个operator的成员变量字段
         this.paramNames = []
+        /** @type {Dict<Variable>} */
         this.variableTable = {}; //变量
         this.compTable = {}; // composite
         this.optTable = {}; //operator
@@ -115,7 +89,7 @@ export class SymbolTable {
     InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
         const name = inOutNode.id
         this.streamTable[name] ? console.log(`stream ${name} has been declared`)
-        : this.streamTable[name]= { strType: inOutNode.strType };
+        : this.streamTable[name]= { strType: inOutNode.strType.copy() };
     }
     InsertOperatorSymbol(name, operatorNode){
         this.optTable[name] = operatorNode
@@ -125,12 +99,11 @@ export class SymbolTable {
             let name = de.identifier.name
             let { initializer, arg_list } = de.identifier
             if(de.identifier.arg_list.length){
-                let array_c = new ArrayConstant(de.type,initializer, arg_list.map(_=>_.value))
-                var variable = new Variable(de.type,name,array_c, de._loc)
+                var variable = new Variable(de.type,name,undefined, de._loc)
+                variable.shape = arg_list.map(_=>_.value)
             }else{
                 var variable = new Variable(de.type,name,initializer, de._loc)
             }
-            variable._loc = decl._loc
             this.memberTable[name] = variable
         })
     }
@@ -145,23 +118,14 @@ export class SymbolTable {
 }
 SymbolTable.sid = 0; // 类的静态类型, 类似 vue 的 cid, 用来区分生成的符号表的顺序
 
-SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(node, /** @type {Constant} */ constant){
-    if(node instanceof Node){
-        if(node instanceof declarator){
-            let name = node.identifier.name;
-            let variable = new Variable(node.type, name, constant, node._loc); // 无论传入的是常量还是变量, 归一为 Variable 结构
-
-            this.variableTable[name] ? console.log(`${name} had been declared`)
-                                 : this.variableTable[name]= variable;
-        }else if(node instanceof inOutdeclNode){
-            let name = node.id
-            this.variableTable[name] ? console.log(`${name} had been declared`)
-                                 : this.variableTable[name]= null;
-        }
-    }else if(node instanceof Variable){
+SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(/** @type {Variable} */ node){
+    if(node instanceof Variable){
         let name = node.name;
-        this.variableTable[name] ? console.log(`${name} had been declared`)
-                                 : this.variableTable[name]= node;
+        if(this.variableTable[name]) {
+            throw new Error(error(node._loc,`${name} 重复定义`))
+        }else{
+            this.variableTable[name]= node;
+        }
     }else{
         throw new Error("插入 IndetifySymbol 时出错, node 类型错误")
     }

@@ -1,23 +1,22 @@
-import { runningStack, SymbolTable, Constant, ArrayConstant, Variable, symbolTableList} from "./symbol";
+import { runningStack, SymbolTable, Variable, symbolTableList} from "./symbol";
 import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode, sequentialNode, layerNode, fileReaderNode} from "../ast/node";
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
-import { BUILTIN_FUNCTIONS, BUILDIN_MATRIX_FUNCTIONS } from "./built-in-function";
+import { BUILTIN_FUNCTIONS, BUILDIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG } from "./built-in-function";
 import { fileWriterNode } from "../ast/node";
-
-/** @type {SymbolTable} */
-export let top;
-export function setTop(newTop){ top = newTop; }
+import { checkShape } from "./checkShape"
+import { top,setTop } from './global'
 
 let saved = [];
+let isInOperator = false; // 判断当前处理的二元节点是否正处于operator体内的上下文中, 若处于, 则检查shape且不修改符号表中的值. 若不处于, 则允许修改符号表中的值
 
 function EnterScopeFn(/** @type {YYLTYPE}*/loc){ 
     saved.push(top);
-    top = new SymbolTable(top,loc);
+    setTop(new SymbolTable(top,loc));
 }
 
 function ExitScopeFn(){
-    top = saved.pop();
+    setTop(saved.pop());
 }
 
 /**
@@ -28,7 +27,7 @@ export function generateSymbolTables(program){
     S.loc = {first_line:0,last_line:Infinity};
     symbolTableList.length = 0; // 清空旧的符号表(当程序重复执行时可能会遇到符号表 List 不为空的情况)
     symbolTableList.push(S) 
-    top = S;
+    setTop(S);
     
     program.forEach(node => {
         if(node instanceof declareNode){
@@ -36,7 +35,8 @@ export function generateSymbolTables(program){
         }
         else if(node instanceof compositeNode){
             top.InsertCompositeSymbol(node);
-            EnterScopeFn(node._loc);/* 进入 composite 块级作用域 */ 
+            EnterScopeFn(node._loc);/* 进入 composite 块级作用域 */
+            isInOperator = false; 
             generateComposite(node);
             ExitScopeFn(); /* 退出 composite 块级作用域 */ 
         } 
@@ -49,17 +49,13 @@ export function generateSymbolTables(program){
 
 function generateDeclareNode(/** @type{declareNode} */node){
     node.init_declarator_list.forEach(init_node=>{
-        if(Array.isArray(init_node.initializer)){ //是数组
-            let array = new ArrayConstant(node.type);
-            array.values = (init_node.initializer||[]).map(init => new Constant(node.type, init.value))
-            const variable = new Variable("array",init_node.identifier.name,array);
-            top.InsertIdentifySymbol(variable);
-
-        }else{
-            // 不是数组的情况
-            const constant = new Constant(node.type, (init_node.initializer || {}).value)
-            top.InsertIdentifySymbol(init_node,constant);
+        const name = init_node.identifier.name
+        const variable = new Variable(node.type,name,init_node.initializer,node._loc);
+        if(node.type === "Matrix"){
+            variable.shape = checkShape(init_node.initializer, init_node._loc)
+            debugger;
         }
+        top.InsertIdentifySymbol(variable);
     })
 }
 
@@ -80,7 +76,9 @@ function generateComposite(/** @type{compositeNode} */composite) {
     // 第二步 解析 param
     if(body.param && body.param.param_list){
         (body.param.param_list|| []).forEach(decl => { 
-            top.InsertIdentifySymbol(decl)
+            const name = decl.identifier.name
+            const variable = new Variable(decl.type,name,undefined,decl._loc);
+            top.InsertIdentifySymbol(variable)
             top.paramNames.push(decl.identifier.name)
         })
     }
@@ -106,35 +104,29 @@ function generateStmt(/** @type {Node} */stmt) {
             break;
         }
         case binopNode: {
-            /** 常见的 binop 节点有2种情况, 
-             * 1. Out = Method(In){ ... } 这样右边是 operator 的, 则分别左右两边 generatStmt 即可进入流程
-             * 2. c = a+b+c 对于这种尝试进行常量传播
-             * 3. Out[0].x = In[0].x 对这种情况要校验流变量类型成员中是否有 x 字段 */
-            if(stmt.op === '.'){
-                if(stmt.left instanceof matrix_section){
-                    let streamName = stmt.left.exp
-                    let memberName = stmt.right
-                    const current = top.searchName(streamName).origin
-                    const type_list = current.streamTable[streamName].strType.id_list
-                    if(type_list.every(obj=> obj.identifier!=memberName)){
-                        error(stmt._loc, `流 ${streamName} 上不存在成员 ${memberName}`)
-                    }
-                    
-                }
+            /**
+             * 对赋值语句有两种上下文需要处理
+             * 1. operator内,此时数据的变化发生在运行时, 因此只做shape检查和变量名是否存在的校验
+             * 2. composite内operator外, 此时变量名N的变化可能会影响到param数值,因此需要修改符号表内的数 */
+            debugger;
+            if(isInOperator){
+                checkShape(stmt)
             }else{
                 if (stmt.op === '=' && stmt.left instanceof String && stmt.right instanceof expNode) {
                     let variable = top.LookupIdentifySymbol(stmt.left);
                     variable.value = right.value;
                 }
-                generateStmt(stmt.left);
-                generateStmt(stmt.right);
+                generateStmt(stmt.left)
+                generateStmt(stmt.right)
             }
             break;
         }
         case operatorNode: {
             top.InsertOperatorSymbol(stmt.operName, stmt);
             EnterScopeFn(stmt._loc);
+            isInOperator = true
             generateOperatorNode(stmt);  //解析 operator 节点
+            isInOperator = false;
             ExitScopeFn();
             break;
         }
@@ -168,14 +160,26 @@ function generateStmt(/** @type {Node} */stmt) {
             break;
         }
         case callNode: {
-            /** FIXME: 函数调用这一块不够完美 */
-            if(BUILTIN_FUNCTIONS.includes(stmt.name)) return 
-            if(stmt.name instanceof binopNode){
+            if(typeof stmt.name === "string"){
+                if(BUILTIN_FUNCTIONS.includes(stmt.name)){
+                    const wanted_args = BUILTIN_FUNCTIONS_ARG[stmt.name].length
+                    if(wanted_args !== 'any' && wanted_args !== stmt.arg_list.length){
+                        const hint = BUILTIN_FUNCTIONS_ARG[stmt.name].hint
+                        throw new Error(error(stmt._loc, `调用函数${stmt.name}传参数量错误,当前传参为${stmt.arg_list},期待传参为${hint}`)) 
+                    }
+                }
+                else{
+                    const msg = `你是否想使用函数 ${getMostNearName(BUILDIN_MATRIX_FUNCTIONS,stmt.name)} ?`
+                    throw new Error(error(stmt._loc, `不支持的函数调用:${stmt.name},${msg}`))
+                }
+            } 
+            else if(stmt.name instanceof binopNode){
                 if(1){ // FIXME:如果这里判断左边的类型是矩阵, 那么检查该调用是否合规
                     if(BUILDIN_MATRIX_FUNCTIONS.includes(stmt.name.right)){
-                        return
+                        
                     }else{
-                        error(stmt._loc, "不支持的函数调用:",stmt.name.right)
+                        
+                        throw new Error(error(stmt._loc, "不支持的函数调用:",stmt.name.right))
                     }
                 }
             }
@@ -322,7 +326,7 @@ function generateSequential(/** @type {sequentialNode} */ sequential){
  * @param {number[]} params
  */
 export function generateCompositeRunningContext(call,composite,params=[]){
-    top = new SymbolTable(top, composite._loc)
+    setTop(new SymbolTable(top, composite._loc))
 
     generateComposite(composite)
 
@@ -331,7 +335,7 @@ export function generateCompositeRunningContext(call,composite,params=[]){
     if(composite.body.param){
         composite.body.param.param_list.forEach((decla, index)=>{
             const variable = top.variableTable[decla.identifier.name]
-            variable.value = new Constant(decla.type, params[index])
+            variable.value = params[index]
         })
     }
 

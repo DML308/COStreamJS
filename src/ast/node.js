@@ -94,6 +94,19 @@ export class strdclNode extends Node {
         ]
         this.op2 = '>'
     }
+    copy(){
+        const copy = new strdclNode(this._loc)
+        //为每个object申请了一块新的内存
+        copy.id_list = this.id_list.map(({type,identifier})=>{
+            const idWithShape = { type,identifier }
+            Object.defineProperty(idWithShape,'shape',{ 
+                writable: true,
+                enumerable: false 
+            }) //定义一个不可枚举的shape属性
+            return idWithShape
+        }) 
+        return copy
+    }
 }
 export class compBodyNode extends Node {
     constructor(loc, param, stmt_list) {
@@ -374,7 +387,7 @@ export class addNode extends Node {
 /********************************************************/
 /* 矩阵相关 node                       */
 /********************************************************/
-export class matrix_constant extends Node{
+export class matrix_constant extends expNode{
     constructor(loc, rawData){
         super(loc)
         this.rawData = rawData.map(x => (

@@ -1,0 +1,38 @@
+
+import Matrix;
+
+Matrix matrixs[8] = { 
+    [ [0,0], [0,0] ],
+    [ [1,1], [1,1] ],
+    [ [2,2], [2,2] ],
+    [ [3,3], [3,3] ],
+    [ [4,4], [4,4] ],
+    [ [5,5], [5,5] ],
+    [ [6,6], [6,6] ],
+    [ [7,7], [7,7] ]
+};                
+composite Main(){
+    stream<Matrix x>S,P;
+    S=Source(){
+        int i;
+        init{ }
+        work{
+            S[0].x = matrixs[0];
+            Matrix m = [ [1,0,0], [1,0,0] ];
+            Matrix s = S[0].x * m;
+            Matrix s1 = s.transpose();
+            S[0].x = s1.exp() + 2;
+        }
+        window{
+            S tumbling(8);
+        }
+    };
+    Sink(S){
+        work{
+            println(S[0].x);
+        }
+        window{
+            S sliding(1,1);
+        }
+    };
+}
