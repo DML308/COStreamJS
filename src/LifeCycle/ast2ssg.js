@@ -1,5 +1,6 @@
 import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
-import { top, setTop, generateCompositeRunningContext } from "../FrontEnd/generateSymbolTables" 
+import { top,setTop } from "../FrontEnd/global"
+import { generateCompositeRunningContext } from "../FrontEnd/generateSymbolTables" 
 import { runningStack, SymbolTable, Variable } from "../FrontEnd/symbol"
 import { debug } from "../utils"
 import { binopNode, operatorNode, compositeCallNode, splitjoinNode, pipelineNode, operNode, sequentialNode, parenNode } from "../ast/node";

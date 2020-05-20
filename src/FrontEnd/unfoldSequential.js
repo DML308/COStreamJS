@@ -2,8 +2,8 @@ import { UnfoldComposite, compositeCallFlow } from "./unfoldComposite"
 
 import { COStreamJS } from "./global"
 import { addNode, parenNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode, unaryNode, conv2DLayerNode, maxPooling2DLayerNode, activationLayerNode } from "../ast/node";
-import { top, setTop } from "./generateSymbolTables"
-import { SymbolTable, Variable, ArrayConstant } from "./symbol";
+import { top, setTop } from "./global"
+import { SymbolTable, Variable } from "./symbol";
 import { sequentialNode, denseLayerNode, layerNode, averagePooling2DLayerNode } from "../ast/node";
 import { error } from "../utils";
 
@@ -99,7 +99,9 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
                 const declare = COStreamJS.parser.parse(declStr)[0] // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
 
                 COStreamJS.ast.unshift(declare);
-                COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'))
+                const variable = new Variable('double', weightName, undefined)
+                variable.shape = [layer.rows, layer.cols];
+                COStreamJS.S.variableTable[weightName] = variable
                 break
             }
             case conv2DLayerNode: {
@@ -110,7 +112,9 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
                 const declare = COStreamJS.parser.parse(declStr)[0] // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
 
                 COStreamJS.ast.unshift(declare);
-                COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'))
+                const variable = new Variable('double', weightName)
+                variable.shape = [layer.filters,depth,rows,cols]
+                COStreamJS.S.variableTable[weightName] = variable
                 break;
             }
             default: break;

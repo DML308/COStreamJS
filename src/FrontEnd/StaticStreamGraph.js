@@ -1,5 +1,5 @@
 import { FlatNode } from "./FlatNode";
-import { top } from "./generateSymbolTables"
+import { top } from "./global"
 import { error } from "../utils";
 import { fileReaderNode } from "../ast/node";
 import { fileWriterNode } from "../ast/node";

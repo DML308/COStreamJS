@@ -154,18 +154,18 @@
             editor.session.setValue(str);
         }
 
-        editor.selection.on('changeCursor', function (e) {
-            if (window.app.status != 2 && editor.getValue() != str) {
-                window.app.status = 0;
-            }
-            /* 符号表相关代码 */
-            /*
-            let current_line = editor.getCursorPosition().row + 1;
-            let symbol_table = window.COStreamJS.SymbolTable.FindRightSymbolTable(current_line, COStreamJS.S);
-            let print_table = symbol_table.printSymbol();
-            Vue.set(app._data.symbol_table, 'compTable', print_table.compTable);
-            Vue.set(app._data.symbol_table, 'idTable', print_table.idTable); */
-        });
+        // editor.selection.on('changeCursor', function (e) {
+        //     // if (window.app.status != 2 && editor.getValue() != window.str) {
+        //     //     window.app.status = 0;
+        //     // }
+        //     /* 符号表相关代码 */
+        //     /*
+        //     let current_line = editor.getCursorPosition().row + 1;
+        //     let symbol_table = window.COStreamJS.SymbolTable.FindRightSymbolTable(current_line, COStreamJS.S);
+        //     let print_table = symbol_table.printSymbol();
+        //     Vue.set(app._data.symbol_table, 'compTable', print_table.compTable);
+        //     Vue.set(app._data.symbol_table, 'idTable', print_table.idTable); */
+        // });
 
     </script>
 
@@ -199,7 +199,12 @@
                         })
                         this.status = 1
                     } catch (err) {
-                        console.warn(err)
+                        console.warn(errors)
+                        editor.renderer.setAnnotations(errors.map(x => ({
+                            row: x.loc.first_line-1,
+                            type:'error',
+                            text: x.msg
+                        })))
                         this.snackBarMessage = err
                         this.showSnackbar = true
                     }

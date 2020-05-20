@@ -2,7 +2,7 @@ import { deepCloneWithoutCircle } from "../utils"
 import { COStreamJS } from "./global"
 import { addNode, parenNode, forNode, compositeCallNode, splitjoinNode, pipelineNode, ComInOutNode, compHeadNode, compBodyNode, compositeNode, binopNode, operatorNode, splitNode, roundrobinNode, duplicateNode, joinNode, constantNode, blockNode, declareNode, operBodyNode, winStmtNode, declarator, idNode, inOutdeclNode, strdclNode, unaryNode, activationLayerNode } from "../ast/node";
 import { matrix_section, matrix_slice_pair, layerNode } from "../ast/node";
-import { top, setTop } from "./generateSymbolTables"
+import { top, setTop } from "./global"
 import { SymbolTable } from "./symbol";
 
 export class UnfoldComposite {
