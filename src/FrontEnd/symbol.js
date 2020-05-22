@@ -1,6 +1,5 @@
 import { compositeNode, inOutdeclNode, declareNode, declarator, strdclNode, Node } from "../ast/node.js"
 import { FlatNode } from "./FlatNode"
-import { matrix_constant } from "../ast/node.js";
 
 const MAX_SCOPE_DEPTH = 100 //定义最大嵌套深度为100
 
@@ -88,8 +87,11 @@ export class SymbolTable {
     }
     InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
         const name = inOutNode.id
-        this.streamTable[name] ? console.log(`stream ${name} has been declared`)
-        : this.streamTable[name]= { strType: inOutNode.strType.copy() };
+        if(this.streamTable[name]){
+            throw new Error(error(inOutNode._loc,`stream ${name} has been declared`))
+        }else{
+            this.streamTable[name]= { strType: inOutNode.strType.copy() };
+        }
     }
     InsertOperatorSymbol(name, operatorNode){
         this.optTable[name] = operatorNode

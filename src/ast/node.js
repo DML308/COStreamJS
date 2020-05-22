@@ -99,10 +99,7 @@ export class strdclNode extends Node {
         //为每个object申请了一块新的内存
         copy.id_list = this.id_list.map(({type,identifier})=>{
             const idWithShape = { type,identifier }
-            Object.defineProperty(idWithShape,'shape',{ 
-                writable: true,
-                enumerable: false 
-            }) //定义一个不可枚举的shape属性
+            definePrivate(idWithShape,'shape')  //定义一个不可枚举的shape属性
             return idWithShape
         }) 
         return copy
@@ -390,6 +387,7 @@ export class addNode extends Node {
 export class matrix_constant extends expNode{
     constructor(loc, rawData){
         super(loc)
+        definePrivate(this,'shape')
         this.rawData = rawData.map(x => (
             x instanceof matrix_constant ? x.rawData : x
         ))

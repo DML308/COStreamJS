@@ -1,8 +1,8 @@
-import { runningStack, SymbolTable, Variable, symbolTableList} from "./symbol";
+import { SymbolTable, Variable, symbolTableList} from "./symbol";
 import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode, sequentialNode, layerNode, fileReaderNode} from "../ast/node";
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
-import { BUILTIN_FUNCTIONS, BUILDIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG } from "./built-in-function";
+import { BUILTIN_FUNCTIONS, BUILTIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG, getMostNearName } from "./built-in-function";
 import { fileWriterNode } from "../ast/node";
 import { checkShape } from "./checkShape"
 import { top,setTop } from './global'
@@ -20,7 +20,7 @@ function ExitScopeFn(){
 }
 
 /**
- * 生成符号表
+ * 生成全局根符号表, 包括全局变量/composite表/函数表, 不深入composite内部(深入composite内部的符号表构建放在ast2ssg中完成)
  */
 export function generateSymbolTables(program){
     let S = new SymbolTable();
@@ -35,10 +35,6 @@ export function generateSymbolTables(program){
         }
         else if(node instanceof compositeNode){
             top.InsertCompositeSymbol(node);
-            EnterScopeFn(node._loc);/* 进入 composite 块级作用域 */
-            isInOperator = false; 
-            generateComposite(node);
-            ExitScopeFn(); /* 退出 composite 块级作用域 */ 
         } 
         else if(node instanceof function_definition){
             console.warn("目前未支持函数符号表")
@@ -57,33 +53,6 @@ function generateDeclareNode(/** @type{declareNode} */node){
         }
         top.InsertIdentifySymbol(variable);
     })
-}
-
-// 解析 Composite 节点 
-function generateComposite(/** @type{compositeNode} */composite) {
-    composite._symbol_table = top;
-    let inout = composite.inout || {}; //输入输出参数
-    let body = composite.body; //body
-    // 第一步, 解析输入输出流 inout
-    (inout.input_list || []).forEach(input => {
-        const copy = deepCloneWithoutCircle(input)
-        top.InsertStreamSymbol(copy)
-    });
-    (inout.output_list || []).forEach(output => {
-        const copy = deepCloneWithoutCircle(output)
-        top.InsertStreamSymbol(copy)
-    });
-    // 第二步 解析 param
-    if(body.param && body.param.param_list){
-        (body.param.param_list|| []).forEach(decl => { 
-            const name = decl.identifier.name
-            const variable = new Variable(decl.type,name,undefined,decl._loc);
-            top.InsertIdentifySymbol(variable)
-            top.paramNames.push(decl.identifier.name)
-        })
-    }
-    // 第三步 解析 body
-    body.stmt_list.forEach(stmt => generateStmt(stmt))
 }
 
 // 解析 语句
@@ -169,13 +138,13 @@ function generateStmt(/** @type {Node} */stmt) {
                     }
                 }
                 else{
-                    const msg = `你是否想使用函数 ${getMostNearName(BUILDIN_MATRIX_FUNCTIONS,stmt.name)} ?`
-                    throw new Error(error(stmt._loc, `不支持的函数调用:${stmt.name},${msg}`))
+                    const msg = `你是否想使用函数 ${getMostNearName(BUILTIN_FUNCTIONS,stmt.name)} ?`
+                    throw new Error(error(stmt._loc, `不支持的函数调用 ${stmt.name},${msg} `))
                 }
             } 
             else if(stmt.name instanceof binopNode){
                 if(1){ // FIXME:如果这里判断左边的类型是矩阵, 那么检查该调用是否合规
-                    if(BUILDIN_MATRIX_FUNCTIONS.includes(stmt.name.right)){
+                    if(BUILTIN_MATRIX_FUNCTIONS.includes(stmt.name.right)){
                         
                     }else{
                         
@@ -183,11 +152,9 @@ function generateStmt(/** @type {Node} */stmt) {
                     }
                 }
             }
-            
-
-            let func = top.LookupFunctionSymbol(stmt.name);
-            stmt.actual_callnode = func;
-            // 检查传入的参数是否存在
+            /**
+             * 暂未支持用户自定义函数
+             */
             break;
         }
         case splitjoinNode: generateSplitjoin(stmt); break;
@@ -197,7 +164,7 @@ function generateStmt(/** @type {Node} */stmt) {
         case compositeCallNode: {
             /** 检查传入的参数是否存在 以及 获得参数值 FIXME */
             if(! symbolTableList[0].compTable[stmt.compName]){
-                error(stmt._loc, `此处调用的 composite 未定义:${stmt.compName}`)
+                throw new Error(error(stmt._loc, `此处调用的 composite 未定义:${stmt.compName}`))
             }
             break
         }
@@ -328,35 +295,47 @@ function generateSequential(/** @type {sequentialNode} */ sequential){
 export function generateCompositeRunningContext(call,composite,params=[]){
     setTop(new SymbolTable(top, composite._loc))
 
-    generateComposite(composite)
+    if(!composite.body) throw new Error(error(call._loc, `调用的${composite.compName}没有body,编译中止`))
 
-    if(!composite.body) return top
-    // 处理 param
-    if(composite.body.param){
-        composite.body.param.param_list.forEach((decla, index)=>{
-            const variable = top.variableTable[decla.identifier.name]
-            variable.value = params[index]
+    composite._symbol_table = top;
+    isInOperator = false;
+
+    // 第一步 解析 param
+    let param = composite.body.param;
+    if(param && param.param_list){
+        (param.param_list|| []).forEach((decl,index) => { 
+            const name = decl.identifier.name
+            const variable = new Variable(decl.type,name,params[index],decl._loc);
+            top.InsertIdentifySymbol(variable)
+            top.paramNames.push(decl.identifier.name)
         })
     }
 
-    // 处理 inputs 和 outputs
+    // 第二步, 处理 inputs 和 outputs
     // 例子 composite Test(input stream<int x>In1, output stream<int x>Out1, stream<int x>Out2)
     if(composite.inout){
         composite.inout.input_list.forEach((inDecl, inIndex) => {
             let prevStream = top.prev.streamTable[call.inputs[inIndex]]
-            let currentStream = top.streamTable[inDecl.id]
-            const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(currentStream.strType);
-            isTypeOK ? top.streamTable[inDecl.id] = prevStream
-                     : error(call._loc, `调用${composite.compName}时输入流类型与定义不吻合`)
+            const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(inDecl.strType);
+            if(isTypeOK){
+                top.streamTable[inDecl.id] = prevStream
+            }else{
+                throw new Error(error(call._loc, `调用${composite.compName}时输入流类型与定义不吻合`))
+            }
         })
         composite.inout.output_list.forEach((outDecl, outIndex) => {
             let prevStream = top.prev.streamTable[call.outputs[outIndex]]
-            let currentStream = top.streamTable[outDecl.id]
-            const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(currentStream.strType);
-            isTypeOK ? top.streamTable[outDecl.id] = prevStream
-                     : error(call._loc, `调用${composite.compName}时输出流类型与定义不吻合`)
+            const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(outDecl.strType);
+            if(isTypeOK){
+                top.streamTable[outDecl.id] = prevStream
+            }else{
+                throw new Error(error(call._loc, `调用${composite.compName}时输出流类型与定义不吻合`))
+            }
         })
     }
+
+    // 第三步, 确认该composite的param和输入输出流都没问题后, 开始解析其body
+    composite.body.stmt_list.forEach(stmt => generateStmt(stmt))
 
     return top
 }

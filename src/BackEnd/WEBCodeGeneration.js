@@ -409,7 +409,7 @@ WEBCodeGeneration.prototype.CGactorsConstructor = function(/** @type {operatorNo
             }
             // 非数组类型
             else{
-                var initializer = variable.value.val;
+                var initializer = variable.value;
             }
             buf += `this.${name} = ${initializer};\n`
         }

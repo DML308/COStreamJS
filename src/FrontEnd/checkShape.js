@@ -4,7 +4,9 @@ import { top } from "./global"
 import { ternaryNode } from "../ast/node";
 import { matrix_section, callNode } from "../ast/node";
 import { matrix_constant } from "../ast/node";
+import { BUILTIN_FUNCTIONS, BUILTIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG, getMostNearName, BUILTIN_MATRIX_FUNCTIONS_ARG } from "./built-in-function";
 import { constantNode } from "../ast/node";
+import { parenNode } from "../ast/node";
 
 let lastLoc  = 0; //标记最近检查中处理到的最后一个行号,用于识别只有一个string的场景, 由于string类型无法得知自己的行号,因此需要从外部记忆
 
@@ -32,6 +34,10 @@ function checkBinopShape(/** @type {binopNode} */stmt){
         return checkAssignmentShape(stmt.left,checkEqualShape(lshape,rshape,stmt._loc))
     }else if(stmt.op === '*'){
         return checkMultiShape(stmt)
+    }else if(['+','-','/'].includes(stmt.op)){
+        const lshape = checkShape(stmt.left), rshape = checkShape(stmt.right)
+        debugger;
+        return checkEqualShape(lshape,rshape,stmt._loc)
     }
     debugger;
     return lshape
@@ -103,18 +109,54 @@ function checkUnaryShape(/** @type {Node} */stmt){
         }
     }else if(stmt instanceof callNode){
         return checkCallNodeShape(stmt)
-    }
-    else{
+    }else if(stmt instanceof parenNode){
+        return checkShape(stmt.exp)
+    }else if(stmt instanceof constantNode){
+        return [1,1] //常数节点
+    }else{
         debugger
         console.warn("返回了一个shape [1,1]", stmt)
         return [1,1]
     }
 }
 function checkCallNodeShape(/** @type {callNode} */node){
-    if(typeof node.name === "string"){ //若为直接方位一个函数, 一般为数学函数
-        return 
+    if(typeof node.name === "string"){ //若为直接执行一个函数, 一般为数学函数
+        if(BUILTIN_FUNCTIONS.includes(node.name)){
+            const wanted_args = BUILTIN_FUNCTIONS_ARG[node.name].length
+            if(wanted_args !== 'any' && wanted_args !== node.arg_list.length){
+                const hint = BUILTIN_FUNCTIONS_ARG[node.name].hint
+                throw new Error(error(stmt._loc, `调用函数${node.name}传参数量错误,当前传参为${node.arg_list},期待传参为${hint}`)) 
+            }
+            return [1,1] //全部检查通过, 因此该数学计算得到的值的结果是个数字, 返回数字的shape [1,1]
+        }
+        else{
+            const msg = `你是否想使用函数 ${getMostNearName(BUILTIN_FUNCTIONS,node.name)} ?`
+            throw new Error(error(stmt._loc, `不支持的函数调用 ${node.name},${msg} `))
+        }
     }
-    const lshape = checkShape(node.name)
+    else if(node.name instanceof binopNode){
+        const lshape = checkShape(node.name.left), funcName = node.name.right
+        debugger;
+        if(typeof funcName === 'string' && BUILTIN_MATRIX_FUNCTIONS.includes(funcName)){
+            const wanted_args = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].length
+            if(wanted_args !== 'any' && wanted_args !== node.arg_list.length){
+                const hint = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].hint
+                throw new Error(error(stmt._loc, `调用矩阵函数${funcName}传参数量错误,当前传参为(${node.arg_list}),提示: ${hint}`)) 
+            }
+            const returnShape = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].returnShape
+            if(Array.isArray(returnShape)) return returnShape
+            else if(typeof returnShape === 'function'){
+                return returnShape(lshape,node.arg_list,node._loc)
+            }
+        }else{
+            const mostNearName = getMostNearName(BUILTIN_MATRIX_FUNCTIONS,funcName)
+            const msg = `你是否想使用函数 ${mostNearName} ? hint:${BUILTIN_MATRIX_FUNCTIONS_ARG[mostNearName]}`
+            throw new Error(error(stmt._loc, `不支持的矩阵函数调用 ${funcName},${msg}`))
+        }
+
+    }else{
+        throw new Error(error(stmt._loc, `未识别的callNode类型`))
+    }
 }
 /** 
  * 获取右侧矩阵或数组表达式的shape
@@ -174,30 +216,30 @@ function checkAssignmentShape(left,right){
         // A[0] = 1 的情况
     }else if(left instanceof binopNode && left.op == '.' && left.left instanceof matrix_section && typeof left.right ==='string'){
         // S[0].x = 1 的情况
-        const matrix_s = left.left
+        const matrix_s = left.left , _loc = left._loc
         const result = top.searchName(matrix_s.exp)
         if(result && result.type === 'stream'){
             const id_list = result.origin.streamTable[matrix_s.exp].strType.id_list
             const member = id_list.find(record => record.identifier === left.right)
             if(!member){
-                throw new Error(error(stmt._loc,`数据流${stmt.exp}上不存在成员${left.right}`));
+                throw new Error(error(_loc,`数据流${matrix_s.exp}上不存在成员${left.right}`));
             }
             const rshape = checkShape(right)
             if(member.type !== 'Matrix'){
-                if(rshape.join('')!=='11') throw new Error(error(stmt._loc,`不能给shape为1,1的值赋值新shape ${rshape}`));
+                if(rshape.join('')!=='11') throw new Error(error(_loc,`不能给shape为1,1的值赋值新shape ${rshape}`));
                 return [1,1]
             }else{
                 if(!member.shape){
                     return member.shape = rshape // 若该数据流的该字段是矩阵类型且未定义shape,则为其定义shape
                 }else{
                     if(member.shape.join() !== rshape.join()){
-                        throw new Error(error(stmt._loc,`不能给shape为${member.shape}的值赋值新shape ${rshape}`));
+                        throw new Error(error(_loc,`不能给shape为${member.shape}的值赋值新shape ${rshape}`));
                     }
                     return member.shape // 若该数据流的该字段是矩阵类型且校验通过,则返回该shape
                 }
             }
         }else{
-            throw new Error(error(stmt._loc,`在符号表中找不到流${stmt.exp}`))
+            throw new Error(error(_loc,`在符号表中找不到流${matrix_s.exp}`))
         }
     }
     throw new Error(error(right._loc," = 左侧的表达式不支持赋值"))
@@ -210,6 +252,5 @@ function checkEqualShape(/** @type {[number,number]} */lshape,/** @type {[number
     }else if(lshape.join('') === '11' && rshape.join('') !== '11'){
         return rshape //常数和矩阵的加法,例如1+A
     }
-    error(_loc, `左右操作数的shape未通过校验,左侧为${lshape},右侧为${rshape}`)
-    return [1,1]
+    throw new Error(error(_loc, `左右操作数的shape未通过校验,左侧为${lshape},右侧为${rshape}`))
 }

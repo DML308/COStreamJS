@@ -374,7 +374,7 @@ matrix_slice:
 /*            4.2 expression 其他节点                                     */
 /*************************************************************************/
 vector_expression:
-      '[' multi_expression ']'      { $$ = new matrix_constant(@$, $2) }
+      '[' multi_expression ']'      { $$ = new matrix_constant(@$, Array.isArray($2)? $2 : [$2]) }
     ;
 multi_expression:
       expression                    { $$ = $1 }
