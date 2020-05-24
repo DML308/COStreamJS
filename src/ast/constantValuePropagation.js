@@ -3,6 +3,7 @@ import { error } from "../utils"
 import { top } from "../FrontEnd/global"
 import { matrix_section } from "./node.js"
 import { matrix_constant } from "./node.js"
+import { checkShape } from "../FrontEnd/checkShape"
 
 /**
  * 加载常量传播插件后,表达式 node 可以计算数值
@@ -103,6 +104,15 @@ binopNode.prototype.getValue = function () {
 }
 
 callNode.prototype.getValue = function () {
+    if(typeof this.name === 'string'){
+        if(this.name === 'sin') return Math.sin(...this.arg_list)
+    }
+    else if(this.name instanceof binopNode){
+        if(this.name.op === '.' && ['rows','cols'].includes(this.name.right)){
+            const lshape = checkShape(this.name.left)
+            return this.name.right === "rows" ? lshape[0] : lshape[1]
+        }
+    }
     return NaN
 }
 

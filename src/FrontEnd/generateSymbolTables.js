@@ -48,7 +48,7 @@ function generateDeclareNode(/** @type{declareNode} */node){
         const name = init_node.identifier.name
         const variable = new Variable(node.type,name,init_node.initializer,node._loc);
         if(node.type === "Matrix"){
-            variable.shape = checkShape(init_node.initializer, init_node._loc)
+            variable.shape = checkShape(init_node.initializer, init_node._loc).map(x=>x.value)
             debugger;
         }
         top.InsertIdentifySymbol(variable);

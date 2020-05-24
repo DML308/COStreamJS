@@ -229,6 +229,11 @@ export class callNode extends expNode {
     arg_list: expNode[]
     constructor(loc, name: expNode|string, arg_list: expNode[])
 }
+export class lib_binopNode extends Node{
+    lib_name: string
+    function_name: string
+    constructor(loc, lib_name:string,function_name:string)
+}
 export class constantNode extends expNode {
     /** 表示常量的原字符串,例如0x10是数字16的原字符串 */
     source: string

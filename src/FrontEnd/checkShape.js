@@ -4,9 +4,8 @@ import { top } from "./global"
 import { ternaryNode } from "../ast/node";
 import { matrix_section, callNode } from "../ast/node";
 import { matrix_constant } from "../ast/node";
-import { BUILTIN_FUNCTIONS, BUILTIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG, getMostNearName, BUILTIN_MATRIX_FUNCTIONS_ARG } from "./built-in-function";
-import { constantNode } from "../ast/node";
-import { parenNode } from "../ast/node";
+import { BUILTIN_FUNCTIONS, BUILTIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG, getMostNearName, BUILTIN_MATRIX_FUNCTIONS_ARG, BUILTIN_MATRIX_STATIC_FUNCTIONS_ARG } from "./built-in-function";
+import { constantNode, parenNode, lib_binopNode } from "../ast/node";
 
 let lastLoc  = 0; //标记最近检查中处理到的最后一个行号,用于识别只有一个string的场景, 由于string类型无法得知自己的行号,因此需要从外部记忆
 
@@ -83,16 +82,8 @@ function checkDotShape(/** @type {binopNode} */stmt){
  */
 function checkUnaryShape(/** @type {Node} */stmt){
     if(stmt instanceof matrix_section){
-        const result = top.searchName(stmt.exp)
-        if(!result) throw new Error(error(stmt._loc,`找不到变量名${stmt.exp}在符号表中的定义`))
-        const { type, origin } = result
-        if(type === "stream"){
-            origin.streamTable[stmt.exp].strType.id_list
-        }else if(type === "variable"){
-            return checkSliceShape(origin.variableTable[stmt.exp].shape, stmt)
-        }else{
-            throw new Error("暂未支持stream以外的top searchName type")
-        }
+        const lshape = checkShape(stmt.exp)
+        return checkSliceShape(lshape, stmt, stmt._loc)
     }else if(stmt instanceof matrix_constant){
         return stmt.shape
     }else if(typeof stmt === 'string'){
@@ -124,68 +115,85 @@ function checkCallNodeShape(/** @type {callNode} */node){
             const wanted_args = BUILTIN_FUNCTIONS_ARG[node.name].length
             if(wanted_args !== 'any' && wanted_args !== node.arg_list.length){
                 const hint = BUILTIN_FUNCTIONS_ARG[node.name].hint
-                throw new Error(error(stmt._loc, `调用函数${node.name}传参数量错误,当前传参为${node.arg_list},期待传参为${hint}`)) 
+                throw new Error(error(node._loc, `调用函数${node.name}传参数量错误,当前传参为${node.arg_list},期待传参为${hint}`)) 
             }
             return [1,1] //全部检查通过, 因此该数学计算得到的值的结果是个数字, 返回数字的shape [1,1]
         }
         else{
             const msg = `你是否想使用函数 ${getMostNearName(BUILTIN_FUNCTIONS,node.name)} ?`
-            throw new Error(error(stmt._loc, `不支持的函数调用 ${node.name},${msg} `))
+            throw new Error(error(node._loc, `不支持的函数调用 ${node.name},${msg} `))
         }
     }
-    else if(node.name instanceof binopNode){
-        const lshape = checkShape(node.name.left), funcName = node.name.right
+    else if(node.name instanceof binopNode){ // S.exp() 此类矩阵实例上执行函数
+        const funcName = node.name.right
         debugger;
         if(typeof funcName === 'string' && BUILTIN_MATRIX_FUNCTIONS.includes(funcName)){
             const wanted_args = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].length
             if(wanted_args !== 'any' && wanted_args !== node.arg_list.length){
                 const hint = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].hint
-                throw new Error(error(stmt._loc, `调用矩阵函数${funcName}传参数量错误,当前传参为(${node.arg_list}),提示: ${hint}`)) 
+                throw new Error(error(node._loc, `调用矩阵函数${funcName}传参数量错误,当前传参为(${node.arg_list}),提示: ${hint}`)) 
             }
             const returnShape = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].returnShape
             if(Array.isArray(returnShape)) return returnShape
             else if(typeof returnShape === 'function'){
+                const lshape = checkShape(node.name.left)
                 return returnShape(lshape,node.arg_list,node._loc)
             }
         }else{
             const mostNearName = getMostNearName(BUILTIN_MATRIX_FUNCTIONS,funcName)
-            const msg = `你是否想使用函数 ${mostNearName} ? hint:${BUILTIN_MATRIX_FUNCTIONS_ARG[mostNearName]}`
-            throw new Error(error(stmt._loc, `不支持的矩阵函数调用 ${funcName},${msg}`))
+            const msg = `你是否想使用函数 ${mostNearName} ? hint:${BUILTIN_MATRIX_FUNCTIONS_ARG[mostNearName].hint}`
+            throw new Error(error(node._loc, `不支持的矩阵函数调用 ${funcName},${msg}`))
         }
 
+    }else if(node.name instanceof lib_binopNode){ // Matrix.zeros(1,1) 矩阵生成函数调用
+        const funcName = node.name.function_name
+        const wanted = BUILTIN_MATRIX_STATIC_FUNCTIONS_ARG[funcName]
+        if(wanted){
+            if(wanted.length !== node.arg_list.length){
+                const hint = BUILTIN_MATRIX_STATIC_FUNCTIONS_ARG[funcName].hint
+                throw new Error(error(node._loc, `调用矩阵函数${funcName}传参数量错误,当前传参为(${node.arg_list}),提示: ${hint}`))
+            }
+            return wanted.returnShape(node.arg_list).map(x=>x.value)
+        }else{
+            const mostNearName = getMostNearName(BUILTIN_MATRIX_STATIC_FUNCTIONS,funcName)
+            const msg = `你是否想使用矩阵构造函数 ${mostNearName} ? hint:${BUILTIN_MATRIX_STATIC_FUNCTIONS_ARG[mostNearName].hint}`
+            throw new Error(error(node._loc, `不支持的矩阵函数调用 ${funcName},${msg}`))
+        }
     }else{
-        throw new Error(error(stmt._loc, `未识别的callNode类型`))
+        throw new Error(error(node._loc, `未识别的callNode类型`))
     }
 }
 /** 
  * 获取右侧矩阵或数组表达式的shape
  * @returns {[number,number]} 
  */
-function checkSliceShape(shape, /** @type {matrix_section} */matrix_s){
+export function checkSliceShape(shape, /** @type {matrix_section} */matrix_s){
     const slice_pair_list = matrix_s.slice_pair_list
-    //1.简单情况, S[0]直接降维
-    if(slice_pair_list.length === 1 && !slice_pair_list[0].op){
-        if(slice_pair_list[0].start >= shape[0] || slice_pair_list[0].start < 0) {
-            throw new Error(error(matrix_s._loc,`取下标操作非法, 当前值为${slice_pair_list[0].start},该值允许的范围为0:${shape[0]}`))
-        }
-        const slice_result = shape.slice(1); // [8,2,2]降维后为[2,2], [5,6]降维后得[6,1], [6,1]降维后得[1,1]
-        return slice_result.length === 1 ? [slice_result[0],1] : slice_result
-    }//2. S[0:1] 或S[0:1,0:10] 切片
-    else{
-        let resShape = [],i
-        for(i=0;i<slice_pair_list.length;i++){
+
+    let resShape = [], i
+    for(i=0;i<slice_pair_list.length; i++){
+        if(! slice_pair_list[i].op){
+            // 没有冒号:的情况, 即 S[0] 或 S[i,j], 直接降维
+            resShape.push(1)
+        }else{
+            // 有冒号的情况 , S[start:end]
             let start = (slice_pair_list[i].start || 0).value
             let end = (slice_pair_list[i].end || shape[i]).value
             if(start < 0) throw new Error(error(matrix_s._loc,`切片操作第${i}维的起始坐标不能小于0`))
             if(end > shape[i]) throw new Error(error(matrix_s._loc,`切片操作的第${i}维终止坐标不能大于最大值${shape[i]},当前为${end}`))
-            resShape[i] = end - start
+            resShape.push(end - start)
         }
-        // 考虑对[5,6]矩阵取S[0:1]的情况,需保留尾部
-        if(i<shape.length){
-            resShape = resShape.concat(shape.slice(i))
-        }
-        return resShape
     }
+    // 考虑对[5,6]矩阵取S[0:1]的情况,需保留尾部
+    if(i<shape.length){
+        resShape = resShape.concat(shape.slice(i))
+    }
+    // 移除左侧多余的1
+    while(resShape.length > 2 && resShape[0] === 1){
+        resShape = resShape.slice(1)
+    }
+    
+    return resShape
 }
 function checkTernaryNode(/** @type {ternaryNode} */stmt){
 
@@ -228,12 +236,14 @@ function checkAssignmentShape(left,right){
                     }
                 }else if(result.type === "member"){
                     // this.coeff[0][1] = 1 的情况
+                    debugger
                     const lshape = result.origin.memberTable[left.exp].shape
-                    return checkEqualShape(lshape, checkShape(right))
+                    return checkEqualShape(checkSliceShape(lshape,left), checkShape(right), left._loc)
                 }else if(result.type === "variable"){
                     // A[0] = 1 的情况
+                    debugger
                     const lshape = result.origin.variableTable[left.exp].shape
-                    return checkEqualShape(lshape, checkShape(right))
+                    return checkEqualShape(checkSliceShape(lshape,left), checkShape(right), left._loc)
                 }
                 throw new Error(error(left._loc,`该行操作不合法`));
             }else{

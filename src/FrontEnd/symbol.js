@@ -12,7 +12,11 @@ export class Variable {
     constructor(valType, name, i, _loc) {
         this.type = valType
         if(valType !== 'Matrix'){
-            this.shape = [1,1]
+            if(Array.isArray(i)){
+                this.shape = [i.length,1]
+            }else{
+                this.shape = [1,1]
+            }
         }
         this.name = name
         this._loc = _loc

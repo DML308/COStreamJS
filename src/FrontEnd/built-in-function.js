@@ -21,11 +21,13 @@ export const BUILTIN_FUNCTIONS_ARG = {
     random: { length:0, hint:'无需传参'    }
 }
 
-export const BUILTIN_MATRIX_STATIC_FUNCTIONS = ['random','constant','identity']
+export const BUILTIN_MATRIX_STATIC_FUNCTIONS = ['random','constant','zeros','ones','identity']
 export const BUILTIN_MATRIX_STATIC_FUNCTIONS_ARG = {
-    random: { length:2, hint: '随机矩阵的初始(行数,列数)' },
-    constant: { length:3, hint: '常数矩阵的初始(行数,列数,常数值)' },
-    identity: { length:1, hint: '单位矩阵的(行列数)' },
+    random:     { length:2, hint: '随机矩阵的初始(行数,列数)' , returnShape: args=>[args[0],args[1]] },
+    constant:   { length:3, hint: '常数矩阵的初始(行数,列数,常数值)', returnShape: args=>[args[0],args[1]]},
+    zeros:      { length:2, hint: '全零矩阵(行数,列数)', returnShape: args=>[args[0],args[1]]},
+    ones:       { length:2, hint: '全1矩阵(行数,列数)', returnShape: args=>[args[0],args[1]]},
+    identity:   { length:1, hint: '单位矩阵的(行列数)', returnShape: args=>[args[0],args[0]] },
 }
 export const BUILTIN_MATRIX_FUNCTIONS = ['rank','trace','det','sum','rows','cols','shape','reshape','transpose','cwiseProduct','exp','pow','log','sin','cos']
 
