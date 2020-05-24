@@ -313,6 +313,16 @@ var COStreamJS = (function () {
             ];
             this.op2 = '>';
         }
+        copy(){
+            const copy = new strdclNode(this._loc);
+            //为每个object申请了一块新的内存
+            copy.id_list = this.id_list.map(({type,identifier})=>{
+                const idWithShape = { type,identifier };
+                definePrivate(idWithShape,'shape');  //定义一个不可枚举的shape属性
+                return idWithShape
+            }); 
+            return copy
+        }
     }
     class compBodyNode extends Node {
         constructor(loc, param, stmt_list) {
@@ -592,9 +602,10 @@ var COStreamJS = (function () {
     /********************************************************/
     /* 矩阵相关 node                       */
     /********************************************************/
-    class matrix_constant extends Node{
+    class matrix_constant extends expNode{
         constructor(loc, rawData){
             super(loc);
+            definePrivate(this,'shape');
             this.rawData = rawData.map(x => (
                 x instanceof matrix_constant ? x.rawData : x
             ));
@@ -839,6 +850,201 @@ var COStreamJS = (function () {
 
     var version = "0.9.4";
 
+    class FlatNode {
+        constructor(/** @type {operatorNode} */ node, params = []) {
+            this.name = node.operName;       // opeator名字
+            this.PreName = node.operName;    // cwb记录Operator被重命名前的名字
+            this.visitTimes = 0;             // 表示该结点是否已经被访问过,与dumpdot有关
+
+            this._symbol_table = undefined; // 存储对应 operator 所在的 composite 的符号表. 主要目的是获取 paramNames
+
+            /** @type {operatorNode} 指向operator(经常量传播后的) */
+            this.contents = node;
+
+            /** @type {number[]}*/
+            this.params = params;
+
+            this.nOut = 0; // 输 出 边个数
+            this.nIn = 0;  // 输 入 边个数
+
+            //两级划分算法中,actor所在的place号、thread号、thread中的序列号
+            this.place_id = 0;
+            this.thread_id = 0;
+            this.post_thread_id = 0;
+            this.serial_id = 0;
+
+            //节点work函数的静态工作量
+            this.work_estimate = 0;
+            // opeator在ssg的flatnodes中的顺序编号
+            this.num = 0;
+
+            /** @type {FlatNode[]} 输出边各operator */
+            this.outFlatNodes = [];  
+            /** @type {FlatNode[]} 输入边各operator */
+            this.inFlatNodes = [];
+
+            /** @type {number[]} */
+            this.outPushWeights = []; // 输 出 边各权重
+            this.inPopWeights = [];   // 输 入 边各权重
+            this.inPeekWeights = [];  // 输 入 边各权重
+
+            /** init调度次数 */
+            this.initCount = 0;
+            /** 稳态调度次数 */
+            this.steadyCount = 0;
+            /** 阶段号 */
+            this.stageNum = 0;
+        }
+
+        AddOutEdges(/*FlatNode */ dest) {
+            this.outFlatNodes.push(dest);
+            this.nOut++;
+        }
+        AddInEdges(/*FlatNode */ src) {
+            this.inFlatNodes.push(src);
+            this.nIn++;
+        }
+        // 访问该结点
+        VisitNode() {
+            this.visitTimes++;
+        }
+        ResetVisitTimes() {
+            this.visitTimes = 0;
+        }
+
+    }
+
+    const MAX_SCOPE_DEPTH = 100; //定义最大嵌套深度为100
+
+    /** @type {SymbolTable[]} */
+    let runningStack = [];
+    const current_version = Array.from({length:MAX_SCOPE_DEPTH}).fill(0);
+    const symbolTableList = /** @type{SymbolTable[]}*/[];
+
+    class Variable {
+        constructor(valType, name, i, _loc) {
+            this.type = valType;
+            if(valType !== 'Matrix'){
+                this.shape = [1,1];
+            }
+            this.name = name;
+            this._loc = _loc;
+            /** @type {Node} */
+            this.value = i;
+        }
+    }
+
+    class CompositeSymbol {
+        constructor(/** @type {compositeNode} */ comp) {
+            this.composite = comp;
+            this.count = 0; // 用于区分多次调用同一 composite
+        }
+    }
+    class SymbolTable {
+        constructor(prev, loc) {
+            this.count = 0; // FIXME: 不确定有什么用
+            this.root = prev ? prev.root : this; // 标记全局最根部的符号表
+            this.loc = loc;
+            /** @type {SymbolTable} */
+            this.prev = prev;
+            symbolTableList.push(this);
+            this.sid = SymbolTable.sid++;
+
+            this.funcTable = {};
+            /** @type {Dict<{strType: strdclNode, fromIndex: number, fromFlatNode:FlatNode, toIndex: number, toFlatNode: FlatNode}>} */
+            this.streamTable = {};  
+            
+            /** @type {Dict<Variable>} */
+            this.memberTable = {}; // 专门用来存储一个operator的成员变量字段
+            this.paramNames = [];
+            /** @type {Dict<Variable>} */
+            this.variableTable = {}; //变量
+            this.compTable = {}; // composite
+            this.optTable = {}; //operator
+        };
+        getPrev() {
+            return this.prev;
+        }
+        /** @returns { {type: 'variable'|'stream' |'func'|'oper'|'member', origin: SymbolTable}}  */
+        searchName(name){
+            if(this.variableTable.hasOwnProperty(name)) return { type: 'variable', origin: this}
+            if(this.streamTable.hasOwnProperty(name))   return { type: 'stream', origin: this}
+            if(this.funcTable.hasOwnProperty(name))     return { type: 'func', origin: this}
+            if(this.optTable.hasOwnProperty(name))      return { type: 'oper', origin: this}
+            if(this.memberTable.hasOwnProperty(name))   return { type: 'member', origin: this}
+            if(this.prev)                return this.prev.searchName(name)
+            return undefined;
+        }
+        getVariableValue(name){
+            return this.LookupIdentifySymbol(name).value;
+        }
+        setVariableValue(name,val){
+            return this.LookupIdentifySymbol(name).value = val
+        }
+        getExactSymbolTable(name){
+            if(this.variableTable[name]) return this
+            return this.prev && this.prev.getExactSymbolTable(name)
+        }
+        /** @returns{Variable} */
+        LookupIdentifySymbol(name){
+            if(this.variableTable[name]) return this.variableTable[name]
+            if(this.prev){
+                return this.prev.LookupIdentifySymbol(name)
+            }else {
+                console.warn(`在符号表中查找不到该变量的值: ${name}`);
+            }
+        }
+        InsertCompositeSymbol(/** @type {compositeNode} */comp){
+            this.compTable[comp.compName] = new CompositeSymbol(comp);
+        }
+        InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
+            const name = inOutNode.id;
+            if(this.streamTable[name]){
+                throw new Error(error(inOutNode._loc,`stream ${name} has been declared`))
+            }else {
+                this.streamTable[name]= { strType: inOutNode.strType.copy() };
+            }
+        }
+        InsertOperatorSymbol(name, operatorNode){
+            this.optTable[name] = operatorNode;
+        }
+        InsertMemberSymbol(/** @type {declareNode} */ decl){
+            decl.init_declarator_list.forEach((/** @type {declarator} */de) =>{
+                let name = de.identifier.name;
+                let { initializer, arg_list } = de.identifier;
+                if(de.identifier.arg_list.length){
+                    var variable = new Variable(de.type,name,undefined, de._loc);
+                    variable.shape = arg_list.map(_=>_.value);
+                }else {
+                    var variable = new Variable(de.type,name,initializer, de._loc);
+                }
+                this.memberTable[name] = variable;
+            });
+        }
+        LookupFunctionSymbol(name){
+            if(this.funcTable[name]) return this.funcTable[name]
+            if(this.prev){
+                return this.prev.LookupFunctionSymbol(name)
+            }else {
+                console.warn(`在符号表中查找不到该函数: ${name}`);
+            }
+        }
+    }
+    SymbolTable.sid = 0; // 类的静态类型, 类似 vue 的 cid, 用来区分生成的符号表的顺序
+
+    SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(/** @type {Variable} */ node){
+        if(node instanceof Variable){
+            let name = node.name;
+            if(this.variableTable[name]) {
+                throw new Error(error(node._loc,`${name} 重复定义`))
+            }else {
+                this.variableTable[name]= node;
+            }
+        }else {
+            throw new Error("插入 IndetifySymbol 时出错, node 类型错误")
+        }
+    };
+
     //对外的包装对象
     var COStreamJS = {
         S : null,
@@ -849,6 +1055,10 @@ var COStreamJS = (function () {
         version
     }; 
     COStreamJS.__proto__ = {};
+
+    /** @type {SymbolTable} */
+    let top;
+    function setTop(newTop){ top = newTop; }
 
     /* parser generated by jison 0.4.18 */
     /*
@@ -1169,7 +1379,7 @@ var COStreamJS = (function () {
      this.$ = this.$.concat($$[$0]); 
     break;
     case 103:
-     this.$ = new matrix_constant(this._$, $$[$0-1]); 
+     this.$ = new matrix_constant(this._$, Array.isArray($$[$0-1])? $$[$0-1] : [$$[$0-1]]); 
     break;
     case 105:
      this.$ = Array.isArray($$[$0-2]) ? $$[$0-2].concat($$[$0]) : [$$[$0-2],$$[$0]]; 
@@ -1850,587 +2060,6 @@ var COStreamJS = (function () {
     return new Parser;
     })();
 
-    class FlatNode {
-        constructor(/** @type {operatorNode} */ node, params = []) {
-            this.name = node.operName;       // opeator名字
-            this.PreName = node.operName;    // cwb记录Operator被重命名前的名字
-            this.visitTimes = 0;             // 表示该结点是否已经被访问过,与dumpdot有关
-
-            this._symbol_table = undefined; // 存储对应 operator 所在的 composite 的符号表. 主要目的是获取 paramNames
-
-            /** @type {operatorNode} 指向operator(经常量传播后的) */
-            this.contents = node;
-
-            /** @type {number[]}*/
-            this.params = params;
-
-            this.nOut = 0; // 输 出 边个数
-            this.nIn = 0;  // 输 入 边个数
-
-            //两级划分算法中,actor所在的place号、thread号、thread中的序列号
-            this.place_id = 0;
-            this.thread_id = 0;
-            this.post_thread_id = 0;
-            this.serial_id = 0;
-
-            //节点work函数的静态工作量
-            this.work_estimate = 0;
-            // opeator在ssg的flatnodes中的顺序编号
-            this.num = 0;
-
-            /** @type {FlatNode[]} 输出边各operator */
-            this.outFlatNodes = [];  
-            /** @type {FlatNode[]} 输入边各operator */
-            this.inFlatNodes = [];
-
-            /** @type {number[]} */
-            this.outPushWeights = []; // 输 出 边各权重
-            this.inPopWeights = [];   // 输 入 边各权重
-            this.inPeekWeights = [];  // 输 入 边各权重
-
-            /** init调度次数 */
-            this.initCount = 0;
-            /** 稳态调度次数 */
-            this.steadyCount = 0;
-            /** 阶段号 */
-            this.stageNum = 0;
-        }
-
-        AddOutEdges(/*FlatNode */ dest) {
-            this.outFlatNodes.push(dest);
-            this.nOut++;
-        }
-        AddInEdges(/*FlatNode */ src) {
-            this.inFlatNodes.push(src);
-            this.nIn++;
-        }
-        // 访问该结点
-        VisitNode() {
-            this.visitTimes++;
-        }
-        ResetVisitTimes() {
-            this.visitTimes = 0;
-        }
-
-    }
-
-    const MAX_SCOPE_DEPTH = 10; //定义最大嵌套深度为100
-
-    /** @type {SymbolTable[]} */
-    let runningStack = [];
-    const current_version = Array.from({length:MAX_SCOPE_DEPTH}).fill(0);
-    const symbolTableList = /** @type{SymbolTable[]}*/[];
-
-
-    class Constant {
-        constructor(/* string */ type, val) {
-            this.type = type;
-            /** @type{number} */
-            this.val = val;
-        }
-        print(/* boolean */ isArray) {
-            console.log(`[Constant] type: ${this.type} val: ${this.val}`);
-        }
-
-    }
-    class ArrayConstant {
-        constructor(type /* string */, values, arg_list) {
-            this.type = type;
-            /** @type {Array<Constant>} */
-            this.values = values;
-            /** @type {number[]} */
-            this.arg_list = arg_list || [];
-        }
-        print() { };
-    }
-    class Variable {
-        constructor(valType, name, i, _loc) {
-            this.type = valType;
-            this.name = name;
-            this._loc = _loc;
-            if (i instanceof Constant) {
-                this.value = i;
-            }
-            else if (i instanceof ArrayConstant) {
-                this.array = i;
-            }
-            else {
-                this.value = new Constant(valType, i);
-            }
-        }
-    }
-
-    class CompositeSymbol {
-        constructor(/** @type {compositeNode} */ comp) {
-            this.composite = comp;
-            this.count = 0; // 用于区分多次调用同一 composite
-        }
-    }
-    class SymbolTable {
-        constructor(prev, loc) {
-            this.count = 0; // FIXME: 不确定有什么用
-            this.root = prev ? prev.root : this; // 标记全局最根部的符号表
-            this.loc = loc;
-            /** @type {SymbolTable} */
-            this.prev = prev;
-            symbolTableList.push(this);
-            this.sid = SymbolTable.sid++;
-
-            this.funcTable = {};
-            /** @type {Dict<{strType: strdclNode, fromIndex: number, fromFlatNode:FlatNode, toIndex: number, toFlatNode: FlatNode}>} */
-            this.streamTable = {};  
-            
-            /** @type {Dict<Variable>} */
-            this.memberTable = {}; // 专门用来存储一个operator的成员变量字段
-            this.paramNames = [];
-            this.variableTable = {}; //变量
-            this.compTable = {}; // composite
-            this.optTable = {}; //operator
-        };
-        getPrev() {
-            return this.prev;
-        }
-        /** @returns { {type: 'variable'|'stream' |'func'|'oper'|'member', origin: SymbolTable}}  */
-        searchName(name){
-            if(this.variableTable.hasOwnProperty(name)) return { type: 'variable', origin: this}
-            if(this.streamTable.hasOwnProperty(name))   return { type: 'stream', origin: this}
-            if(this.funcTable.hasOwnProperty(name))     return { type: 'func', origin: this}
-            if(this.optTable.hasOwnProperty(name))      return { type: 'oper', origin: this}
-            if(this.memberTable.hasOwnProperty(name))   return { type: 'member', origin: this}
-            if(this.prev)                return this.prev.searchName(name)
-            return undefined;
-        }
-        getVariableValue(name){
-            return this.LookupIdentifySymbol(name).value.val;
-        }
-        setVariableValue(name,val){
-            return this.LookupIdentifySymbol(name).value.val = val
-        }
-        getExactSymbolTable(name){
-            if(this.variableTable[name]) return this
-            return this.prev && this.prev.getExactSymbolTable(name)
-        }
-        /** @returns{Variable} */
-        LookupIdentifySymbol(name){
-            if(this.variableTable[name]) return this.variableTable[name]
-            if(this.prev){
-                return this.prev.LookupIdentifySymbol(name)
-            }else {
-                console.warn(`在符号表中查找不到该变量的值: ${name}`);
-            }
-        }
-        InsertCompositeSymbol(/** @type {compositeNode} */comp){
-            this.compTable[comp.compName] = new CompositeSymbol(comp);
-        }
-        InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
-            const name = inOutNode.id;
-            this.streamTable[name] ? console.log(`stream ${name} has been declared`)
-            : this.streamTable[name]= { strType: inOutNode.strType };
-        }
-        InsertOperatorSymbol(name, operatorNode){
-            this.optTable[name] = operatorNode;
-        }
-        InsertMemberSymbol(/** @type {declareNode} */ decl){
-            decl.init_declarator_list.forEach((/** @type {declarator} */de) =>{
-                let name = de.identifier.name;
-                let { initializer, arg_list } = de.identifier;
-                if(de.identifier.arg_list.length){
-                    let array_c = new ArrayConstant(de.type,initializer, arg_list.map(_=>_.value));
-                    var variable = new Variable(de.type,name,array_c, de._loc);
-                }else {
-                    var variable = new Variable(de.type,name,initializer, de._loc);
-                }
-                variable._loc = decl._loc;
-                this.memberTable[name] = variable;
-            });
-        }
-        LookupFunctionSymbol(name){
-            if(this.funcTable[name]) return this.funcTable[name]
-            if(this.prev){
-                return this.prev.LookupFunctionSymbol(name)
-            }else {
-                console.warn(`在符号表中查找不到该函数: ${name}`);
-            }
-        }
-    }
-    SymbolTable.sid = 0; // 类的静态类型, 类似 vue 的 cid, 用来区分生成的符号表的顺序
-
-    SymbolTable.prototype.InsertIdentifySymbol = function InsertIdentifySymbol(node, /** @type {Constant} */ constant){
-        if(node instanceof Node){
-            if(node instanceof declarator){
-                let name = node.identifier.name;
-                let variable = new Variable(node.type, name, constant, node._loc); // 无论传入的是常量还是变量, 归一为 Variable 结构
-
-                this.variableTable[name] ? console.log(`${name} had been declared`)
-                                     : this.variableTable[name]= variable;
-            }else if(node instanceof inOutdeclNode){
-                let name = node.id;
-                this.variableTable[name] ? console.log(`${name} had been declared`)
-                                     : this.variableTable[name]= null;
-            }
-        }else if(node instanceof Variable){
-            let name = node.name;
-            this.variableTable[name] ? console.log(`${name} had been declared`)
-                                     : this.variableTable[name]= node;
-        }else {
-            throw new Error("插入 IndetifySymbol 时出错, node 类型错误")
-        }
-    };
-
-    const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','round','ceil','abs','log','sqrt','exp', 'random'];
-    const BUILTIN_FUNCTIONS = ['print','println','Native'].concat(BUILTIN_MATH);
-    const BUILDIN_MATRIX_FUNCTIONS = ['transpose','cwiseProduct'];
-
-    /** @type {SymbolTable} */
-    let top;
-    function setTop(newTop){ top = newTop; }
-
-    let saved = [];
-
-    function EnterScopeFn(/** @type {YYLTYPE}*/loc){ 
-        saved.push(top);
-        top = new SymbolTable(top,loc);
-    }
-
-    function ExitScopeFn(){
-        top = saved.pop();
-    }
-
-    /**
-     * 生成符号表
-     */
-    function generateSymbolTables(program){
-        let S = new SymbolTable();
-        S.loc = {first_line:0,last_line:Infinity};
-        symbolTableList.length = 0; // 清空旧的符号表(当程序重复执行时可能会遇到符号表 List 不为空的情况)
-        symbolTableList.push(S); 
-        top = S;
-        
-        program.forEach(node => {
-            if(node instanceof declareNode){
-                generateDeclareNode(node);
-            }
-            else if(node instanceof compositeNode){
-                top.InsertCompositeSymbol(node);
-                EnterScopeFn(node._loc);/* 进入 composite 块级作用域 */ 
-                generateComposite(node);
-                ExitScopeFn(); /* 退出 composite 块级作用域 */ 
-            } 
-            else if(node instanceof function_definition){
-                console.warn("目前未支持函数符号表");
-            }       
-        });
-        return symbolTableList;
-    }
-
-    function generateDeclareNode(/** @type{declareNode} */node){
-        node.init_declarator_list.forEach(init_node=>{
-            if(Array.isArray(init_node.initializer)){ //是数组
-                let array = new ArrayConstant(node.type);
-                array.values = (init_node.initializer||[]).map(init => new Constant(node.type, init.value));
-                const variable = new Variable("array",init_node.identifier.name,array);
-                top.InsertIdentifySymbol(variable);
-
-            }else {
-                // 不是数组的情况
-                const constant = new Constant(node.type, (init_node.initializer || {}).value);
-                top.InsertIdentifySymbol(init_node,constant);
-            }
-        });
-    }
-
-    // 解析 Composite 节点 
-    function generateComposite(/** @type{compositeNode} */composite) {
-        composite._symbol_table = top;
-        let inout = composite.inout || {}; //输入输出参数
-        let body = composite.body; //body
-        // 第一步, 解析输入输出流 inout
-        (inout.input_list || []).forEach(input => {
-            const copy = deepCloneWithoutCircle(input);
-            top.InsertStreamSymbol(copy);
-        });
-        (inout.output_list || []).forEach(output => {
-            const copy = deepCloneWithoutCircle(output);
-            top.InsertStreamSymbol(copy);
-        });
-        // 第二步 解析 param
-        if(body.param && body.param.param_list){
-            (body.param.param_list|| []).forEach(decl => { 
-                top.InsertIdentifySymbol(decl);
-                top.paramNames.push(decl.identifier.name);
-            });
-        }
-        // 第三步 解析 body
-        body.stmt_list.forEach(stmt => generateStmt(stmt));
-    }
-
-    // 解析 语句
-    const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section, fileReaderNode, fileWriterNode];
-    function generateStmt(/** @type {Node} */stmt) {
-        switch (stmt.constructor) {
-            case Number: break;
-            case String: {
-                if (!top.searchName(stmt)) error$1(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top);
-                break;
-            }
-            case declareNode: {
-                if (stmt.type instanceof strdclNode) {
-                    generateStrDlcNode(stmt);
-                } else {
-                    generateDeclareNode(stmt);
-                }
-                break;
-            }
-            case binopNode: {
-                /** 常见的 binop 节点有2种情况, 
-                 * 1. Out = Method(In){ ... } 这样右边是 operator 的, 则分别左右两边 generatStmt 即可进入流程
-                 * 2. c = a+b+c 对于这种尝试进行常量传播
-                 * 3. Out[0].x = In[0].x 对这种情况要校验流变量类型成员中是否有 x 字段 */
-                if(stmt.op === '.'){
-                    if(stmt.left instanceof matrix_section){
-                        let streamName = stmt.left.exp;
-                        let memberName = stmt.right;
-                        const current = top.searchName(streamName).origin;
-                        const type_list = current.streamTable[streamName].strType.id_list;
-                        if(type_list.every(obj=> obj.identifier!=memberName)){
-                            error$1(stmt._loc, `流 ${streamName} 上不存在成员 ${memberName}`);
-                        }
-                        
-                    }
-                }else {
-                    if (stmt.op === '=' && stmt.left instanceof String && stmt.right instanceof expNode) {
-                        let variable = top.LookupIdentifySymbol(stmt.left);
-                        variable.value = right.value;
-                    }
-                    generateStmt(stmt.left);
-                    generateStmt(stmt.right);
-                }
-                break;
-            }
-            case operatorNode: {
-                top.InsertOperatorSymbol(stmt.operName, stmt);
-                EnterScopeFn(stmt._loc);
-                generateOperatorNode(stmt);  //解析 operator 节点
-                ExitScopeFn();
-                break;
-            }
-            case blockNode: {
-                stmt.stmt_list.forEach(st => generateStmt(st)); // 深入 { 代码块 } 内部进行遍历
-                break;
-            }
-            case whileNode: {
-                EnterScopeFn(stmt._loc);
-                generateStmt(stmt.exp);
-                generateStmt(stmt.statement);
-                ExitScopeFn();
-                break;
-            }
-            case forNode: {
-                EnterScopeFn(stmt._loc);
-                const { init, cond, next, statement } = stmt;
-                [init, cond, next, statement].forEach(generateStmt);
-                ExitScopeFn();
-                break;
-            }
-            case doNode: {
-                EnterScopeFn(stmt);
-                generateStmt(stmt.exp);
-                generateStmt(stmt.statement);
-                ExitScopeFn();
-                break;
-            }
-            case selection_statement: {
-                /** FIXME 暂未处理分支预测 */
-                break;
-            }
-            case callNode: {
-                /** FIXME: 函数调用这一块不够完美 */
-                if(BUILTIN_FUNCTIONS.includes(stmt.name)) return 
-                if(stmt.name instanceof binopNode){
-                    { // FIXME:如果这里判断左边的类型是矩阵, 那么检查该调用是否合规
-                        if(BUILDIN_MATRIX_FUNCTIONS.includes(stmt.name.right)){
-                            return
-                        }else {
-                            error$1(stmt._loc, "不支持的函数调用:",stmt.name.right);
-                        }
-                    }
-                }
-                
-
-                let func = top.LookupFunctionSymbol(stmt.name);
-                stmt.actual_callnode = func;
-                // 检查传入的参数是否存在
-                break;
-            }
-            case splitjoinNode: generateSplitjoin(stmt); break;
-            case pipelineNode: generatePipeline(stmt); break;
-            case sequentialNode: generateSequential(stmt); break;
-            case addNode: generateStmt(stmt.content); break
-            case compositeCallNode: {
-                /** 检查传入的参数是否存在 以及 获得参数值 FIXME */
-                if(! symbolTableList[0].compTable[stmt.compName]){
-                    error$1(stmt._loc, `此处调用的 composite 未定义:${stmt.compName}`);
-                }
-                break
-            }
-            case Array: stmt.forEach(stmt => generateStmt(stmt)); break;
-            default: {
-                if (ignoreTypes.some(ignoreType => stmt instanceof ignoreType)) ; else {
-                    console.warn(`[generateStmt] FIXME: 暂未识别的 stmt 类型 ${stmt.constructor.name}`);
-                }
-            }
-        }
-    }
-
-    // 处理 stream 声明变量的语句
-    function generateStrDlcNode(/** @type {declareNode}*/ decl){  //stream "<int x,int y>" 这部分
-        decl.init_declarator_list.forEach( identifier_name => {
-            let stream_dlc = new inOutdeclNode();
-            stream_dlc.strType = decl.type;
-            stream_dlc.id = identifier_name;
-            top.InsertStreamSymbol(stream_dlc);
-        });
-    }
-    function generateOperatorNode(/** @type {operatorNode}*/oper){
-        oper._symbol_table = top;
-        let inputs = oper.inputs;
-        let outputs = oper.outputs;
-        let body = oper.operBody;
-        
-        const checkStreamId = name => {
-            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
-                throw new Error(`当前 operator: ${oper.operName} 相关的流 ${name} 在作用域中未声明`)
-            }
-        };
-
-        inputs && inputs.forEach(checkStreamId);
-        outputs && outputs.forEach(checkStreamId);
-
-        if(body){
-            if(body.stmt_list){
-                body.stmt_list.forEach(decl=>{
-                    decl instanceof declareNode ? top.InsertMemberSymbol(decl)
-                        :console.warn("[generateOperatorNode] 目前 operator 内部仅支持声明成员变量");
-                });
-            }
-            if(body.init){
-                EnterScopeFn(body.init._loc);
-                generateStmt(body.init);
-                body.init._symbol_table = top;
-                ExitScopeFn();
-            }
-            if(body.work){
-                EnterScopeFn(body.work._loc);
-                generateStmt(body.work);
-                body.work._symbol_table = top;
-                ExitScopeFn();
-            }
-            if(body.window){
-                body.window.forEach(winStmt =>checkStreamId(winStmt.winName));
-            }
-        }
-    }
-
-    // 解析 splitjoin
-    function generateSplitjoin(/** @type {splitjoinNode} */ splitjoin){
-        const checkStreamId = name => {
-            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
-                throw new Error(`当前 operator: ${splitjoin.compName} 相关的流 ${name} 在作用域中未声明`)
-            }
-        }
-
-        ;(splitjoin.inputs||[]).forEach(checkStreamId)
-        ;(splitjoin.outputs||[]).forEach(checkStreamId)
-        ;(splitjoin.stmt_list||[]).forEach(generateStmt)
-        ;(splitjoin.body_stmts||[]).forEach(generateStmt);
-
-        if(splitjoin.split){
-            // 保证参数列表中不出现未声明的字符
-            (splitjoin.split.arg_list||[]).forEach(generateStmt);
-        }
-     
-        if(splitjoin.join){
-            (splitjoin.join.arg_list||[]).forEach(generateStmt);
-        }
-    }
-
-    // 解析 pipeline 节点 
-    function generatePipeline(/** @type {pipelineNode} */pipe){
-        const checkStreamId = name => {
-            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
-                throw new Error(`当前 operator: ${pipe.compName} 相关的流 ${name} 在作用域中未声明`)
-            }
-        }
-
-        ;(pipe.inputs||[]).forEach(checkStreamId)
-        ;(pipe.outputs||[]).forEach(checkStreamId)
-        ;(pipe.body_stmts||[]).forEach(generateStmt);
-    }
-
-    // 解析 sequential
-    function generateSequential(/** @type {sequentialNode} */ sequential){
-        const checkStreamId = name => {
-            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
-                throw new Error(`当前 operator: ${splitjoin.compName} 相关的流 ${name} 在作用域中未声明`)
-            }
-        }
-
-        ;(sequential.inputs||[]).forEach(checkStreamId)
-        ;(sequential.outputs||[]).forEach(checkStreamId)
-        ;(sequential.body_stmts||[]).forEach(add =>{
-            if(add instanceof addNode && add.content instanceof layerNode){
-                return // 正确的情况
-            }else {
-                error$1(add._loc, "sequential 结构内部仅能添加以下几种 layerNode之一: Dense Conv2D MaxPooling2D AveragePooling2D");
-            }
-        });
-        if(sequential.body_stmts && sequential.body_stmts.length < 2){
-            error$1(sequential._loc, "sequential 结构中必须至少有 2 个 layer");
-        }
-    }
-
-    /**
-     * 
-     * @param {operNode} call 
-     * @param {compositeNode} composite 
-     * @param {number[]} params
-     */
-    function generateCompositeRunningContext(call,composite,params=[]){
-        top = new SymbolTable(top, composite._loc);
-
-        generateComposite(composite);
-
-        if(!composite.body) return top
-        // 处理 param
-        if(composite.body.param){
-            composite.body.param.param_list.forEach((decla, index)=>{
-                const variable = top.variableTable[decla.identifier.name];
-                variable.value = new Constant(decla.type, params[index]);
-            });
-        }
-
-        // 处理 inputs 和 outputs
-        // 例子 composite Test(input stream<int x>In1, output stream<int x>Out1, stream<int x>Out2)
-        if(composite.inout){
-            composite.inout.input_list.forEach((inDecl, inIndex) => {
-                let prevStream = top.prev.streamTable[call.inputs[inIndex]];
-                let currentStream = top.streamTable[inDecl.id];
-                const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(currentStream.strType);
-                isTypeOK ? top.streamTable[inDecl.id] = prevStream
-                         : error$1(call._loc, `调用${composite.compName}时输入流类型与定义不吻合`);
-            });
-            composite.inout.output_list.forEach((outDecl, outIndex) => {
-                let prevStream = top.prev.streamTable[call.outputs[outIndex]];
-                let currentStream = top.streamTable[outDecl.id];
-                const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(currentStream.strType);
-                isTypeOK ? top.streamTable[outDecl.id] = prevStream
-                         : error$1(call._loc, `调用${composite.compName}时输出流类型与定义不吻合`);
-            });
-        }
-
-        return top
-    }
-
     /**
      * 加载常量传播插件后,表达式 node 可以计算数值
      */
@@ -2485,7 +2114,7 @@ var COStreamJS = (function () {
             if(!Number.isNaN(parseFloat(this))){
                 return parseFloat(this); // 如果这个字符串本身就是一个数字, 则直接返回, 例如'0;
             }
-            return top.LookupIdentifySymbol(this).value.val; 
+            return top.LookupIdentifySymbol(this).value; 
         }
     });
     Object.defineProperty(Number.prototype,'value',{
@@ -2547,6 +2176,104 @@ var COStreamJS = (function () {
             throw new Error("FIXME 目前只处理了数组取地址, 未处理矩阵取址")
         }
     };
+    matrix_constant.prototype.getValue = function(){
+        return this
+    };
+
+    const BUILTIN_MATH = ['pow', 'sin','cos','tan','floor','round','ceil','abs','log','sqrt','exp', 'random'];
+    const BUILTIN_FUNCTIONS = ['print','println','Native'].concat(BUILTIN_MATH);
+    const BUILTIN_FUNCTIONS_ARG = {
+        print:  { length:'any', hint:'输出函数' },
+        println:{ length:'any', hint:'输出函数' },
+        Native: { length:'any', hint:'内置函数' },
+        pow:    { length:2, hint:'(底数,指数)' },
+        sin:    { length:1, hint:'(弧度)'     },
+        cos:    { length:1, hint:'(弧度)'     },
+        tan:    { length:1, hint:'(弧度)'     },
+        floor:  { length:1, hint:'(数字)'     },
+        round:  { length:1, hint:'(数字)'     },
+        ceil:   { length:1, hint:'(数字)'     },
+        abs:    { length:1, hint:'(数字)'     },
+        log:    { length:1, hint:'(数字), 以e为底数' },
+        sqrt:   { length:1, hint:'(数字)'     },
+        exp:    { length:1, hint:'(数字)'     },
+        random: { length:0, hint:'无需传参'    }
+    };
+    const BUILTIN_MATRIX_FUNCTIONS = ['rank','trace','det','sum','rows','cols','shape','reshape','transpose','cwiseProduct','exp','pow','log','sin','cos'];
+
+    const BUILTIN_MATRIX_FUNCTIONS_ARG = {
+        rank:   { length:0, hint:'矩阵的秩', returnShape: [1,1] },
+        trace:  { length:0, hint:'矩阵的迹', returnShape: [1,1] },
+        det:    { length:0, hint:'矩阵的行列式值',returnShape: [1,1] },
+        sum:    { length:0, hint:'矩阵全元素求和',returnShape: [1,1] },
+        rows:   { length:0, hint:'矩阵的行数',returnShape: [1,1] },
+        cols:   { length:0, hint:'矩阵的列数',returnShape: [1,1] },
+        shape:  { length:0, hint:'矩阵的[行数,列数]',returnShape: [2,1] },
+        reshape:{ 
+            length:2, 
+            hint:'(行数,列数)', 
+            returnShape: (lshape,args,_loc) =>{
+                if(args[0] * args[1] !== lshape[0] * lshape[1]){
+                    throw new Error(error$1(_loc || lshape._loc, `不能将${lshape[0]}x${lshape[1]}的矩阵reshape为${args[0]}x${args[1]}`))
+                }
+                return [args[0],arg[1]]
+            }
+        },
+        transpose:{
+            length:0,
+            hint:'矩阵转置',
+            returnShape: (lshape) =>{
+                return [lshape[1], lshape[0]]
+            }
+        },
+        cwiseProduct:{
+            length:1,
+            hint:'矩阵各元素位置对应相乘',
+            returnShape:(lshape,args,_loc) =>{
+                if(lshape[0] !== args[0] || lshape[1] !== args[1]){
+                    throw new Error(error$1(_loc || lshape._loc, `不能将${lshape[0]}x${lshape[1]}的矩阵与${args[0]}x${args[1]}的矩阵对位相乘`))
+                }
+                return [args[0],arg[1]]
+            }
+        },
+        exp:    { length: 'any', hint:'矩阵各元素以e为底数的指数映射' ,returnShape: (lshape)=> lshape },
+        pow:    { length: 1, hint:'矩阵各元素以该元素为底数的指数映射' ,returnShape: (lshape)=> lshape },
+        log:    { length: 1, hint:'矩阵各元素以e为底数的对数映射' ,returnShape: (lshape)=> lshape },
+        sin:    { length: 1, hint:'矩阵各的正弦映射' ,returnShape: (lshape)=> lshape },
+        cos:    { length: 1, hint:'矩阵各的余弦映射' ,returnShape: (lshape)=> lshape }
+    };
+
+
+    function getMostNearName(/** @type {string[]} */names, /** @type {string} */name){
+        let min = 9999, minName = '';
+        for(let i=0;i<names.length;i++){
+            const distance = minDistance(names[i] , name);
+            if(distance <= 1 ) return names[i]
+            if(distance < min){
+                min = distance;
+                minName = names[i];
+            }
+        }
+        return minName
+    }
+    /** 最小编辑距离 
+     * @return {number} */
+    function minDistance(/** @type {string} */word1, /** @type {string} */word2) {
+        let n = word1.length;
+        let m = word2.length;
+        let dp = [];
+        for(let i = 0;i <= n;i++){
+            dp.push([]);
+            for(let j = 0;j <= m;j++){
+                if(i*j){
+                    dp[i][j] = word1[i-1] == word2[j-1]? dp[i-1][j-1]: (Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]) + 1);
+                }else {
+                    dp[i][j] = i + j;
+                }
+            }
+        }
+        return dp[n][m];
+    }
 
     function ast2String(root) {
         var result = '';
@@ -2936,6 +2663,615 @@ var COStreamJS = (function () {
             }
         }
     };
+
+    let lastLoc  = 0; //标记最近检查中处理到的最后一个行号,用于识别只有一个string的场景, 由于string类型无法得知自己的行号,因此需要从外部记忆
+
+    /** 该文件的函数同时执行两项工作: 对被操作数据的 shape 进行校验, 并将计算后的结果的 shape 缓存下来 */
+    function checkShape(/** @type {Node | string} */stmt, _loc){
+        lastLoc = _loc || stmt._loc;
+        if(Array.isArray(stmt)){
+            const itemShape = checkShape(stmt[0]);
+            return [stmt.length].concat(itemShape == "1,1" ? 1 : itemShape)
+        }else if(stmt instanceof binopNode){
+            return checkBinopShape(stmt)//二元节点
+        }else if(stmt instanceof ternaryNode){
+            return checkTernaryNode()//三元节点
+        }else {
+            return checkUnaryShape(stmt) //一元节点
+        }
+    }
+    function checkBinopShape(/** @type {binopNode} */stmt){
+        if(stmt.op === '.'){
+            return checkDotShape(stmt);
+        }
+        if(stmt.op === '='){ // A = m 或 S[0].x = 1
+            return checkAssignmentShape(stmt.left, stmt.right)
+        }else if(['+','-','/','%','|','&','^','<','>','<=','==','>=','<<=','>>=','!='].includes(stmt.op)){
+            const lshape = checkShape(stmt.left), rshape = checkShape(stmt.right);
+            return checkEqualShape(lshape,rshape,stmt._loc)
+        }else if(stmt.op.length === 2 && stmt.op.right == '='){ // += -= *= /= %= 的情况
+            return checkAssignmentShape(stmt.left,checkEqualShape(lshape,rshape,stmt._loc))
+        }else if(stmt.op === '*'){
+            return checkMultiShape(stmt)
+        }
+        debugger;
+        return lshape
+    }
+    function checkMultiShape(/** @type {binopNode} */stmt){
+        const lshape = checkShape(stmt.left), rshape = checkShape(stmt.right);
+        if(lshape == "1,1") return rshape
+        if(rshape == "1,1") return lshape
+        if(lshape.length == 2 && rshape.length == 2 && lshape[1] == rshape[0]){
+            return [lshape[0], rshape[1]]
+        }else {
+            throw new Error(error$1(stmt._loc,`乘法类型检查出错,左侧shape为${lshape}右侧shape为${rshape}`))
+        }
+    }
+    function checkDotShape(/** @type {binopNode} */stmt){
+        // S[0].x的情况
+        debugger;
+        if(stmt.left instanceof matrix_section && typeof stmt.right === "string"){
+            const result = top.searchName(stmt.left.exp);
+            // 数据流 S[0].x的情况
+            if(result && result.type === 'stream'){
+                const id_list = result.origin.streamTable[stmt.left.exp].strType.id_list;
+                const member = id_list.find(record => record.identifier === stmt.right);
+                debugger;
+                if(!member){
+                    throw new Error(error$1(stmt._loc,`数据流${stmt.left.exp}上不存在成员${stmt.right}`));
+                }
+                if(member.type !== 'Matrix'){
+                    return [1,1]
+                }else {
+                    return member.shape || undefined
+                }
+            }
+            if(!result || result.type !== 'stream'){
+                error$1(stmt._loc,`在符号表中找不到流${stmt.left.exp}`);
+            } 
+            
+        }else {
+            debugger;
+        }
+    }
+    /**
+     * @returns {Array<{type:string,identifier:string,shape?:[1,1]}>} 
+     */
+    function checkUnaryShape(/** @type {Node} */stmt){
+        if(stmt instanceof matrix_section){
+            const result = top.searchName(stmt.exp);
+            if(!result) throw new Error(error$1(stmt._loc,`找不到变量名${stmt.exp}在符号表中的定义`))
+            const { type, origin } = result;
+            if(type === "stream"){
+                origin.streamTable[stmt.exp].strType.id_list;
+            }else if(type === "variable"){
+                return checkSliceShape(origin.variableTable[stmt.exp].shape, stmt)
+            }else {
+                throw new Error("暂未支持stream以外的top searchName type")
+            }
+        }else if(stmt instanceof matrix_constant){
+            return stmt.shape
+        }else if(typeof stmt === 'string'){
+            const result = top.searchName(stmt);
+            if(!result) throw new Error(error$1(lastLoc,`找不到变量名${stmt}在符号表中的定义`))
+            const { type, origin } = result;
+            if(type === "variable"){
+                return origin.variableTable[stmt].shape
+            }else if(type === "member"){
+                return origin.memberTable[stmt].shape
+            }else {
+                throw new Error(error$1(lastLoc,`获取符号表中${stmt}的shape出错`))
+            }
+        }else if(stmt instanceof callNode){
+            return checkCallNodeShape(stmt)
+        }else if(stmt instanceof parenNode){
+            return checkShape(stmt.exp)
+        }else if(stmt instanceof constantNode){
+            return [1,1] //常数节点
+        }else {
+            debugger
+            console.warn("返回了一个shape [1,1]", stmt);
+            return [1,1]
+        }
+    }
+    function checkCallNodeShape(/** @type {callNode} */node){
+        if(typeof node.name === "string"){ //若为直接执行一个函数, 一般为数学函数
+            if(BUILTIN_FUNCTIONS.includes(node.name)){
+                const wanted_args = BUILTIN_FUNCTIONS_ARG[node.name].length;
+                if(wanted_args !== 'any' && wanted_args !== node.arg_list.length){
+                    const hint = BUILTIN_FUNCTIONS_ARG[node.name].hint;
+                    throw new Error(error$1(stmt._loc, `调用函数${node.name}传参数量错误,当前传参为${node.arg_list},期待传参为${hint}`)) 
+                }
+                return [1,1] //全部检查通过, 因此该数学计算得到的值的结果是个数字, 返回数字的shape [1,1]
+            }
+            else {
+                const msg = `你是否想使用函数 ${getMostNearName(BUILTIN_FUNCTIONS,node.name)} ?`;
+                throw new Error(error$1(stmt._loc, `不支持的函数调用 ${node.name},${msg} `))
+            }
+        }
+        else if(node.name instanceof binopNode){
+            const lshape = checkShape(node.name.left), funcName = node.name.right;
+            debugger;
+            if(typeof funcName === 'string' && BUILTIN_MATRIX_FUNCTIONS.includes(funcName)){
+                const wanted_args = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].length;
+                if(wanted_args !== 'any' && wanted_args !== node.arg_list.length){
+                    const hint = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].hint;
+                    throw new Error(error$1(stmt._loc, `调用矩阵函数${funcName}传参数量错误,当前传参为(${node.arg_list}),提示: ${hint}`)) 
+                }
+                const returnShape = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].returnShape;
+                if(Array.isArray(returnShape)) return returnShape
+                else if(typeof returnShape === 'function'){
+                    return returnShape(lshape,node.arg_list,node._loc)
+                }
+            }else {
+                const mostNearName = getMostNearName(BUILTIN_MATRIX_FUNCTIONS,funcName);
+                const msg = `你是否想使用函数 ${mostNearName} ? hint:${BUILTIN_MATRIX_FUNCTIONS_ARG[mostNearName]}`;
+                throw new Error(error$1(stmt._loc, `不支持的矩阵函数调用 ${funcName},${msg}`))
+            }
+
+        }else {
+            throw new Error(error$1(stmt._loc, `未识别的callNode类型`))
+        }
+    }
+    /** 
+     * 获取右侧矩阵或数组表达式的shape
+     * @returns {[number,number]} 
+     */
+    function checkSliceShape(shape, /** @type {matrix_section} */matrix_s){
+        const slice_pair_list = matrix_s.slice_pair_list;
+        //1.简单情况, S[0]直接降维
+        if(slice_pair_list.length === 1 && !slice_pair_list[0].op){
+            if(slice_pair_list[0].start >= shape[0] || slice_pair_list[0].start < 0) {
+                throw new Error(error$1(matrix_s._loc,`取下标操作非法, 当前值为${slice_pair_list[0].start},该值允许的范围为0:${shape[0]}`))
+            }
+            const slice_result = shape.slice(1); // [8,2,2]降维后为[2,2], [5,6]降维后得[6,1], [6,1]降维后得[1,1]
+            return slice_result.length === 1 ? [slice_result[0],1] : slice_result
+        }//2. S[0:1] 或S[0:1,0:10] 切片
+        else {
+            let resShape = [],i;
+            for(i=0;i<slice_pair_list.length;i++){
+                let start = (slice_pair_list[i].start || 0).value;
+                let end = (slice_pair_list[i].end || shape[i]).value;
+                if(start < 0) throw new Error(error$1(matrix_s._loc,`切片操作第${i}维的起始坐标不能小于0`))
+                if(end > shape[i]) throw new Error(error$1(matrix_s._loc,`切片操作的第${i}维终止坐标不能大于最大值${shape[i]},当前为${end}`))
+                resShape[i] = end - start;
+            }
+            // 考虑对[5,6]矩阵取S[0:1]的情况,需保留尾部
+            if(i<shape.length){
+                resShape = resShape.concat(shape.slice(i));
+            }
+            return resShape
+        }
+    }
+    function checkTernaryNode(/** @type {ternaryNode} */stmt){
+
+    }
+    function checkAssignmentShape(left,right){
+        // x = 1 的情况
+        if(typeof left === 'string'){
+            const rshape = checkShape(right);
+            const result = top.searchName(left);
+            if(!result){
+                throw new Error(error$1(right._loc,`在符号表中找不到变量名${left}`));
+            }else if(result.type === 'member'){
+                // member成员只支持非矩阵数据
+                if(rshape.join('') !== '11'){
+                    throw new Error(error$1(right._loc,`oper的成员${left}不支持赋值为${rshape.join('x')}大小的矩阵`));
+                }
+                return [1,1]
+            }else if(result.type === 'variable'){
+                const originVariable = result.origin.variableTable[left];
+                if(originVariable.shape.join() !== rshape.join()){
+                    throw new Error(error$1(right._loc,`赋值语句左右两侧的shape不符,左侧为${originVariable.shape}右侧为${rshape}`));
+                }
+                return rshape; // 赋值表达式的shape检查通过, 返回该shape
+            }else {
+                throw new Error(error$1(right._loc,`该字段${left}不支持赋值`));
+            }
+        }else if(left instanceof matrix_section){
+            if(typeof left.exp === 'string'){
+                const result = top.searchName(left.exp);
+                if(result){
+                    // 少见的一种情况, S[0] = In[0] 用于数据流的拷贝
+                    if(result.type === 'stream' && right instanceof matrix_constant){
+                        if(typeof right.exp === 'string'){
+                            const right_result = top.searchName(right.exp);
+                            if(right_result && right_result.type === 'stream'){
+                                return [1,1] // 两侧均为数据流, 检查通过. 返回一个无意义的[1,1]
+                            }
+                        }else {
+                            throw new Error(error$1(left._loc,`该行操作不合法`));
+                        }
+                    }else if(result.type === "member"){
+                        // this.coeff[0][1] = 1 的情况
+                        const lshape = result.origin.memberTable[left.exp].shape;
+                        return checkEqualShape(lshape, checkShape(right))
+                    }else if(result.type === "variable"){
+                        // A[0] = 1 的情况
+                        const lshape = result.origin.variableTable[left.exp].shape;
+                        return checkEqualShape(lshape, checkShape(right))
+                    }
+                    throw new Error(error$1(left._loc,`该行操作不合法`));
+                }else {
+                    throw new Error(error$1(_loc,`在符号表中找不到流${left.exp}`))
+                }
+                
+            }
+            else {
+                // S[0].x[0,0] = 1 的情况
+                throw new Error(error$1(left._loc,`暂未支持该左操作数格式${left}`));
+            }
+            
+        }else if(left instanceof binopNode && left.op == '.' && left.left instanceof matrix_section && typeof left.right ==='string'){
+            // S[0].x = 1 的情况
+            const matrix_s = left.left , _loc = left._loc;
+            const result = top.searchName(matrix_s.exp);
+            if(result && result.type === 'stream'){
+                const id_list = result.origin.streamTable[matrix_s.exp].strType.id_list;
+                const member = id_list.find(record => record.identifier === left.right);
+                if(!member){
+                    throw new Error(error$1(_loc,`数据流${matrix_s.exp}上不存在成员${left.right}`));
+                }
+                const rshape = checkShape(right);
+                if(member.type !== 'Matrix'){
+                    if(rshape.join('')!=='11') throw new Error(error$1(_loc,`不能给shape为1,1的值赋值新shape ${rshape}`));
+                    return [1,1]
+                }else {
+                    if(!member.shape){
+                        return member.shape = rshape // 若该数据流的该字段是矩阵类型且未定义shape,则为其定义shape
+                    }else {
+                        if(member.shape.join() !== rshape.join()){
+                            throw new Error(error$1(_loc,`不能给shape为${member.shape}的值赋值新shape ${rshape}`));
+                        }
+                        return member.shape // 若该数据流的该字段是矩阵类型且校验通过,则返回该shape
+                    }
+                }
+            }else {
+                throw new Error(error$1(_loc,`在符号表中找不到流${matrix_s.exp}`))
+            }
+        }
+        throw new Error(error$1(right._loc," = 左侧的表达式不支持赋值"))
+    }
+    function checkEqualShape(/** @type {[number,number]} */lshape,/** @type {[number,number]} */rshape,_loc){
+        if(lshape[0] === rshape[0] && lshape[1] === rshape[1]){
+            return lshape //检测左右两侧的shape相同,通过检查
+        }else if(lshape.join('') !== '11' && rshape.join('') == '11'){
+            return lshape //矩阵和常数的加法,例如A+1
+        }else if(lshape.join('') === '11' && rshape.join('') !== '11'){
+            return rshape //常数和矩阵的加法,例如1+A
+        }
+        throw new Error(error$1(_loc, `左右操作数的shape未通过校验,左侧为${lshape},右侧为${rshape}`))
+    }
+
+    let saved = [];
+    let isInOperator = false; // 判断当前处理的二元节点是否正处于operator体内的上下文中, 若处于, 则检查shape且不修改符号表中的值. 若不处于, 则允许修改符号表中的值
+
+    function EnterScopeFn(/** @type {YYLTYPE}*/loc){ 
+        saved.push(top);
+        setTop(new SymbolTable(top,loc));
+    }
+
+    function ExitScopeFn(){
+        setTop(saved.pop());
+    }
+
+    /**
+     * 生成全局根符号表, 包括全局变量/composite表/函数表, 不深入composite内部(深入composite内部的符号表构建放在ast2ssg中完成)
+     */
+    function generateSymbolTables(program){
+        let S = new SymbolTable();
+        S.loc = {first_line:0,last_line:Infinity};
+        symbolTableList.length = 0; // 清空旧的符号表(当程序重复执行时可能会遇到符号表 List 不为空的情况)
+        symbolTableList.push(S); 
+        setTop(S);
+        
+        program.forEach(node => {
+            if(node instanceof declareNode){
+                generateDeclareNode(node);
+            }
+            else if(node instanceof compositeNode){
+                top.InsertCompositeSymbol(node);
+            } 
+            else if(node instanceof function_definition){
+                console.warn("目前未支持函数符号表");
+            }       
+        });
+        return symbolTableList;
+    }
+
+    function generateDeclareNode(/** @type{declareNode} */node){
+        node.init_declarator_list.forEach(init_node=>{
+            const name = init_node.identifier.name;
+            const variable = new Variable(node.type,name,init_node.initializer,node._loc);
+            if(node.type === "Matrix"){
+                variable.shape = checkShape(init_node.initializer, init_node._loc);
+                debugger;
+            }
+            top.InsertIdentifySymbol(variable);
+        });
+    }
+
+    // 解析 语句
+    const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section, fileReaderNode, fileWriterNode];
+    function generateStmt(/** @type {Node} */stmt) {
+        switch (stmt.constructor) {
+            case Number: break;
+            case String: {
+                if (!top.searchName(stmt)) error$1(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top);
+                break;
+            }
+            case declareNode: {
+                if (stmt.type instanceof strdclNode) {
+                    generateStrDlcNode(stmt);
+                } else {
+                    generateDeclareNode(stmt);
+                }
+                break;
+            }
+            case binopNode: {
+                /**
+                 * 对赋值语句有两种上下文需要处理
+                 * 1. operator内,此时数据的变化发生在运行时, 因此只做shape检查和变量名是否存在的校验
+                 * 2. composite内operator外, 此时变量名N的变化可能会影响到param数值,因此需要修改符号表内的数 */
+                if(isInOperator){
+                    if(COStreamJS.plugins.matrix){
+                        checkShape(stmt);
+                    }
+                }else {
+                    if (stmt.op === '=' && stmt.left instanceof String && stmt.right instanceof expNode) {
+                        let variable = top.LookupIdentifySymbol(stmt.left);
+                        variable.value = right.value;
+                    }
+                    generateStmt(stmt.left);
+                    generateStmt(stmt.right);
+                }
+                break;
+            }
+            case operatorNode: {
+                top.InsertOperatorSymbol(stmt.operName, stmt);
+                EnterScopeFn(stmt._loc);
+                isInOperator = true;
+                generateOperatorNode(stmt);  //解析 operator 节点
+                isInOperator = false;
+                ExitScopeFn();
+                break;
+            }
+            case blockNode: {
+                stmt.stmt_list.forEach(st => generateStmt(st)); // 深入 { 代码块 } 内部进行遍历
+                break;
+            }
+            case whileNode: {
+                EnterScopeFn(stmt._loc);
+                generateStmt(stmt.exp);
+                generateStmt(stmt.statement);
+                ExitScopeFn();
+                break;
+            }
+            case forNode: {
+                EnterScopeFn(stmt._loc);
+                const { init, cond, next, statement } = stmt;
+                [init, cond, next, statement].forEach(generateStmt);
+                ExitScopeFn();
+                break;
+            }
+            case doNode: {
+                EnterScopeFn(stmt);
+                generateStmt(stmt.exp);
+                generateStmt(stmt.statement);
+                ExitScopeFn();
+                break;
+            }
+            case selection_statement: {
+                /** FIXME 暂未处理分支预测 */
+                break;
+            }
+            case callNode: {
+                if(typeof stmt.name === "string"){
+                    if(BUILTIN_FUNCTIONS.includes(stmt.name)){
+                        const wanted_args = BUILTIN_FUNCTIONS_ARG[stmt.name].length;
+                        if(wanted_args !== 'any' && wanted_args !== stmt.arg_list.length){
+                            const hint = BUILTIN_FUNCTIONS_ARG[stmt.name].hint;
+                            throw new Error(error$1(stmt._loc, `调用函数${stmt.name}传参数量错误,当前传参为${stmt.arg_list},期待传参为${hint}`)) 
+                        }
+                    }
+                    else {
+                        const msg = `你是否想使用函数 ${getMostNearName(BUILTIN_FUNCTIONS,stmt.name)} ?`;
+                        throw new Error(error$1(stmt._loc, `不支持的函数调用 ${stmt.name},${msg} `))
+                    }
+                } 
+                else if(stmt.name instanceof binopNode){
+                    { // FIXME:如果这里判断左边的类型是矩阵, 那么检查该调用是否合规
+                        if(BUILTIN_MATRIX_FUNCTIONS.includes(stmt.name.right));else {
+                            
+                            throw new Error(error$1(stmt._loc, "不支持的函数调用:",stmt.name.right))
+                        }
+                    }
+                }
+                /**
+                 * 暂未支持用户自定义函数
+                 */
+                break;
+            }
+            case splitjoinNode: generateSplitjoin(stmt); break;
+            case pipelineNode: generatePipeline(stmt); break;
+            case sequentialNode: generateSequential(stmt); break;
+            case addNode: generateStmt(stmt.content); break
+            case compositeCallNode: {
+                /** 检查传入的参数是否存在 以及 获得参数值 FIXME */
+                if(! symbolTableList[0].compTable[stmt.compName]){
+                    throw new Error(error$1(stmt._loc, `此处调用的 composite 未定义:${stmt.compName}`))
+                }
+                break
+            }
+            case Array: stmt.forEach(stmt => generateStmt(stmt)); break;
+            default: {
+                if (ignoreTypes.some(ignoreType => stmt instanceof ignoreType)) ; else {
+                    console.warn(`[generateStmt] FIXME: 暂未识别的 stmt 类型 ${stmt.constructor.name}`);
+                }
+            }
+        }
+    }
+
+    // 处理 stream 声明变量的语句
+    function generateStrDlcNode(/** @type {declareNode}*/ decl){  //stream "<int x,int y>" 这部分
+        decl.init_declarator_list.forEach( identifier_name => {
+            let stream_dlc = new inOutdeclNode();
+            stream_dlc.strType = decl.type;
+            stream_dlc.id = identifier_name;
+            top.InsertStreamSymbol(stream_dlc);
+        });
+    }
+    function generateOperatorNode(/** @type {operatorNode}*/oper){
+        oper._symbol_table = top;
+        let inputs = oper.inputs;
+        let outputs = oper.outputs;
+        let body = oper.operBody;
+        
+        const checkStreamId = name => {
+            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+                throw new Error(`当前 operator: ${oper.operName} 相关的流 ${name} 在作用域中未声明`)
+            }
+        };
+
+        inputs && inputs.forEach(checkStreamId);
+        outputs && outputs.forEach(checkStreamId);
+
+        if(body){
+            if(body.stmt_list){
+                body.stmt_list.forEach(decl=>{
+                    decl instanceof declareNode ? top.InsertMemberSymbol(decl)
+                        :console.warn("[generateOperatorNode] 目前 operator 内部仅支持声明成员变量");
+                });
+            }
+            if(body.init){
+                EnterScopeFn(body.init._loc);
+                generateStmt(body.init);
+                body.init._symbol_table = top;
+                ExitScopeFn();
+            }
+            if(body.work){
+                EnterScopeFn(body.work._loc);
+                generateStmt(body.work);
+                body.work._symbol_table = top;
+                ExitScopeFn();
+            }
+            if(body.window){
+                body.window.forEach(winStmt =>checkStreamId(winStmt.winName));
+            }
+        }
+    }
+
+    // 解析 splitjoin
+    function generateSplitjoin(/** @type {splitjoinNode} */ splitjoin){
+        const checkStreamId = name => {
+            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+                throw new Error(`当前 operator: ${splitjoin.compName} 相关的流 ${name} 在作用域中未声明`)
+            }
+        }
+
+        ;(splitjoin.inputs||[]).forEach(checkStreamId)
+        ;(splitjoin.outputs||[]).forEach(checkStreamId)
+        ;(splitjoin.stmt_list||[]).forEach(generateStmt)
+        ;(splitjoin.body_stmts||[]).forEach(generateStmt);
+
+        if(splitjoin.split){
+            // 保证参数列表中不出现未声明的字符
+            (splitjoin.split.arg_list||[]).forEach(generateStmt);
+        }
+     
+        if(splitjoin.join){
+            (splitjoin.join.arg_list||[]).forEach(generateStmt);
+        }
+    }
+
+    // 解析 pipeline 节点 
+    function generatePipeline(/** @type {pipelineNode} */pipe){
+        const checkStreamId = name => {
+            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+                throw new Error(`当前 operator: ${pipe.compName} 相关的流 ${name} 在作用域中未声明`)
+            }
+        }
+
+        ;(pipe.inputs||[]).forEach(checkStreamId)
+        ;(pipe.outputs||[]).forEach(checkStreamId)
+        ;(pipe.body_stmts||[]).forEach(generateStmt);
+    }
+
+    // 解析 sequential
+    function generateSequential(/** @type {sequentialNode} */ sequential){
+        const checkStreamId = name => {
+            if(! top.searchName(name) || top.searchName(name).type !== 'stream'){
+                throw new Error(`当前 operator: ${splitjoin.compName} 相关的流 ${name} 在作用域中未声明`)
+            }
+        }
+
+        ;(sequential.inputs||[]).forEach(checkStreamId)
+        ;(sequential.outputs||[]).forEach(checkStreamId)
+        ;(sequential.body_stmts||[]).forEach(add =>{
+            if(add instanceof addNode && add.content instanceof layerNode){
+                return // 正确的情况
+            }else {
+                error$1(add._loc, "sequential 结构内部仅能添加以下几种 layerNode之一: Dense Conv2D MaxPooling2D AveragePooling2D");
+            }
+        });
+        if(sequential.body_stmts && sequential.body_stmts.length < 2){
+            error$1(sequential._loc, "sequential 结构中必须至少有 2 个 layer");
+        }
+    }
+
+    /**
+     * 
+     * @param {operNode} call 
+     * @param {compositeNode} composite 
+     * @param {number[]} params
+     */
+    function generateCompositeRunningContext(call,composite,params=[]){
+        setTop(new SymbolTable(top, composite._loc));
+
+        if(!composite.body) throw new Error(error$1(call._loc, `调用的${composite.compName}没有body,编译中止`))
+
+        composite._symbol_table = top;
+        isInOperator = false;
+
+        // 第一步 解析 param
+        let param = composite.body.param;
+        if(param && param.param_list){
+            (param.param_list|| []).forEach((decl,index) => { 
+                const name = decl.identifier.name;
+                const variable = new Variable(decl.type,name,params[index],decl._loc);
+                top.InsertIdentifySymbol(variable);
+                top.paramNames.push(decl.identifier.name);
+            });
+        }
+
+        // 第二步, 处理 inputs 和 outputs
+        // 例子 composite Test(input stream<int x>In1, output stream<int x>Out1, stream<int x>Out2)
+        if(composite.inout){
+            composite.inout.input_list.forEach((inDecl, inIndex) => {
+                let prevStream = top.prev.streamTable[call.inputs[inIndex]];
+                const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(inDecl.strType);
+                if(isTypeOK){
+                    top.streamTable[inDecl.id] = prevStream;
+                }else {
+                    throw new Error(error$1(call._loc, `调用${composite.compName}时输入流类型与定义不吻合`))
+                }
+            });
+            composite.inout.output_list.forEach((outDecl, outIndex) => {
+                let prevStream = top.prev.streamTable[call.outputs[outIndex]];
+                const isTypeOK = JSON.stringify(prevStream.strType) == JSON.stringify(outDecl.strType);
+                if(isTypeOK){
+                    top.streamTable[outDecl.id] = prevStream;
+                }else {
+                    throw new Error(error$1(call._loc, `调用${composite.compName}时输出流类型与定义不吻合`))
+                }
+            });
+        }
+
+        // 第三步, 确认该composite的param和输入输出流都没问题后, 开始解析其body
+        composite.body.stmt_list.forEach(stmt => generateStmt(stmt));
+
+        return top
+    }
 
     /*
      *  功能：将抽象语法树转为平面图
@@ -3588,7 +3924,9 @@ var COStreamJS = (function () {
                     const declare = COStreamJS.parser.parse(declStr)[0]; // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
 
                     COStreamJS.ast.unshift(declare);
-                    COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'));
+                    const variable = new Variable('double', weightName, undefined);
+                    variable.shape = [layer.rows, layer.cols];
+                    COStreamJS.S.variableTable[weightName] = variable;
                     break
                 }
                 case conv2DLayerNode: {
@@ -3599,7 +3937,9 @@ var COStreamJS = (function () {
                     const declare = COStreamJS.parser.parse(declStr)[0]; // 这里使用了parse字符串的方式来创建了语法树节点. 在 c++ 对应的地方要手动构建
 
                     COStreamJS.ast.unshift(declare);
-                    COStreamJS.S.variableTable[weightName] = new Variable('double', weightName, new ArrayConstant('double'));
+                    const variable = new Variable('double', weightName);
+                    variable.shape = [layer.filters,depth,rows,cols];
+                    COStreamJS.S.variableTable[weightName] = variable;
                     break;
                 }
             }
@@ -6432,20 +6772,12 @@ class FileReader{
             for(let name of Object.keys(oper._symbol_table.memberTable)){
                 let variable = oper._symbol_table.memberTable[name];
                 // 若该成员变量被声明为数组类型
-                if(variable.array){
-                    let { length } = variable.array.arg_list;
-                    if(length > 2){
-                        error$1(variable._loc,"暂不支持二维以上的数组");
-                    }else if(length === 2){
-                        const firstDim = variable.array.arg_list[0];
-                        var initializer = `Array.from({length:${firstDim}}).map(_=>[])`;
-                    }else if(length === 1){
-                        var initializer = `[]`;
-                    }
+                if(variable.shape && variable.shape.join('') !== '11'){
+                    var initializer = `getNDArray(${variable.shape.join(',')})`;
                 }
                 // 非数组类型
                 else {
-                    var initializer = variable.value.val;
+                    var initializer = variable.value;
                 }
                 buf += `this.${name} = ${initializer};\n`;
             }

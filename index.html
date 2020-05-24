@@ -155,8 +155,9 @@
         }
 
         editor.selection.on('changeCursor', function (e) {
-            if (window.app.status != 2 && editor.getValue() != str) {
+            if (window.app.status != 2 && editor.getValue() != old_code) {
                 window.app.status = 0;
+                editor.renderer.setAnnotations([]) // 清空报错的内容
             }
             /* 符号表相关代码 */
             /*
@@ -199,7 +200,12 @@
                         })
                         this.status = 1
                     } catch (err) {
-                        console.warn(err)
+                        console.warn(errors)
+                        editor.renderer.setAnnotations(errors.map(x => ({
+                            row: x.loc.first_line-1,
+                            type:'error',
+                            text: x.msg
+                        })))
                         this.snackBarMessage = err
                         this.showSnackbar = true
                     }
