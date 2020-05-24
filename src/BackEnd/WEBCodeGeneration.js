@@ -396,16 +396,8 @@ WEBCodeGeneration.prototype.CGactorsConstructor = function(/** @type {operatorNo
         for(let name of Object.keys(oper._symbol_table.memberTable)){
             let variable = oper._symbol_table.memberTable[name];
             // 若该成员变量被声明为数组类型
-            if(variable.array){
-                let { length } = variable.array.arg_list
-                if(length > 2){
-                    error(variable._loc,"暂不支持二维以上的数组")
-                }else if(length === 2){
-                    const firstDim = variable.array.arg_list[0]
-                    var initializer = `Array.from({length:${firstDim}}).map(_=>[])`
-                }else if(length === 1){
-                    var initializer = `[]`;
-                }
+            if(variable.shape && variable.shape.join('') !== '11'){
+                var initializer = `getNDArray(${variable.shape.join(',')})`
             }
             // 非数组类型
             else{

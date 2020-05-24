@@ -30,14 +30,13 @@ function checkBinopShape(/** @type {binopNode} */stmt){
     }
     if(stmt.op === '='){ // A = m 或 S[0].x = 1
         return checkAssignmentShape(stmt.left, stmt.right)
+    }else if(['+','-','/','%','|','&','^','<','>','<=','==','>=','<<=','>>=','!='].includes(stmt.op)){
+        const lshape = checkShape(stmt.left), rshape = checkShape(stmt.right)
+        return checkEqualShape(lshape,rshape,stmt._loc)
     }else if(stmt.op.length === 2 && stmt.op.right == '='){ // += -= *= /= %= 的情况
         return checkAssignmentShape(stmt.left,checkEqualShape(lshape,rshape,stmt._loc))
     }else if(stmt.op === '*'){
         return checkMultiShape(stmt)
-    }else if(['+','-','/'].includes(stmt.op)){
-        const lshape = checkShape(stmt.left), rshape = checkShape(stmt.right)
-        debugger;
-        return checkEqualShape(lshape,rshape,stmt._loc)
     }
     debugger;
     return lshape
@@ -203,6 +202,7 @@ function checkAssignmentShape(left,right){
             if(rshape.join('') !== '11'){
                 throw new Error(error(right._loc,`oper的成员${left}不支持赋值为${rshape.join('x')}大小的矩阵`));
             }
+            return [1,1]
         }else if(result.type === 'variable'){
             const originVariable = result.origin.variableTable[left]
             if(originVariable.shape.join() !== rshape.join()){
@@ -213,7 +213,39 @@ function checkAssignmentShape(left,right){
             throw new Error(error(right._loc,`该字段${left}不支持赋值`));
         }
     }else if(left instanceof matrix_section){
-        // A[0] = 1 的情况
+        if(typeof left.exp === 'string'){
+            const result = top.searchName(left.exp)
+            if(result){
+                // 少见的一种情况, S[0] = In[0] 用于数据流的拷贝
+                if(result.type === 'stream' && right instanceof matrix_constant){
+                    if(typeof right.exp === 'string'){
+                        const right_result = top.searchName(right.exp)
+                        if(right_result && right_result.type === 'stream'){
+                            return [1,1] // 两侧均为数据流, 检查通过. 返回一个无意义的[1,1]
+                        }
+                    }else{
+                        throw new Error(error(left._loc,`该行操作不合法`));
+                    }
+                }else if(result.type === "member"){
+                    // this.coeff[0][1] = 1 的情况
+                    const lshape = result.origin.memberTable[left.exp].shape
+                    return checkEqualShape(lshape, checkShape(right))
+                }else if(result.type === "variable"){
+                    // A[0] = 1 的情况
+                    const lshape = result.origin.variableTable[left.exp].shape
+                    return checkEqualShape(lshape, checkShape(right))
+                }
+                throw new Error(error(left._loc,`该行操作不合法`));
+            }else{
+                throw new Error(error(_loc,`在符号表中找不到流${left.exp}`))
+            }
+            
+        }
+        else{
+            // S[0].x[0,0] = 1 的情况
+            throw new Error(error(left._loc,`暂未支持该左操作数格式${left}`));
+        }
+        
     }else if(left instanceof binopNode && left.op == '.' && left.left instanceof matrix_section && typeof left.right ==='string'){
         // S[0].x = 1 的情况
         const matrix_s = left.left , _loc = left._loc

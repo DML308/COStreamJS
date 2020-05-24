@@ -5,7 +5,7 @@ import { matrix_section } from "../ast/node";
 import { BUILTIN_FUNCTIONS, BUILTIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG, getMostNearName } from "./built-in-function";
 import { fileWriterNode } from "../ast/node";
 import { checkShape } from "./checkShape"
-import { top,setTop } from './global'
+import { top,setTop, COStreamJS } from './global'
 
 let saved = [];
 let isInOperator = false; // 判断当前处理的二元节点是否正处于operator体内的上下文中, 若处于, 则检查shape且不修改符号表中的值. 若不处于, 则允许修改符号表中的值
@@ -77,9 +77,12 @@ function generateStmt(/** @type {Node} */stmt) {
              * 对赋值语句有两种上下文需要处理
              * 1. operator内,此时数据的变化发生在运行时, 因此只做shape检查和变量名是否存在的校验
              * 2. composite内operator外, 此时变量名N的变化可能会影响到param数值,因此需要修改符号表内的数 */
-            debugger;
             if(isInOperator){
-                checkShape(stmt)
+                if(COStreamJS.plugins.matrix){
+                    checkShape(stmt)
+                }else{
+
+                }
             }else{
                 if (stmt.op === '=' && stmt.left instanceof String && stmt.right instanceof expNode) {
                     let variable = top.LookupIdentifySymbol(stmt.left);

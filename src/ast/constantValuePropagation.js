@@ -58,7 +58,7 @@ Object.defineProperty(String.prototype,'value',{
         if(!Number.isNaN(parseFloat(this))){
             return parseFloat(this); // 如果这个字符串本身就是一个数字, 则直接返回, 例如'0;
         }
-        return top.LookupIdentifySymbol(this).value.val; 
+        return top.LookupIdentifySymbol(this).value; 
     }
 })
 Object.defineProperty(Number.prototype,'value',{

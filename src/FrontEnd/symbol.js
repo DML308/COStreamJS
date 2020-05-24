@@ -64,10 +64,10 @@ export class SymbolTable {
         return undefined;
     }
     getVariableValue(name){
-        return this.LookupIdentifySymbol(name).value.val;
+        return this.LookupIdentifySymbol(name).value;
     }
     setVariableValue(name,val){
-        return this.LookupIdentifySymbol(name).value.val = val
+        return this.LookupIdentifySymbol(name).value = val
     }
     getExactSymbolTable(name){
         if(this.variableTable[name]) return this
