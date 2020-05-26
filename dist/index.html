@@ -110,6 +110,54 @@
     <script src="https://cdn.bootcss.com/viz.js/2.1.2/lite.render.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@2.3.2/dist/signature_pad.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/numjs/0.16.0/numjs.min.js"></script>
+    <script>
+        // 改写numjs库的toString方法来适配网页显示效果
+        const old_numjs_toString = nj.NdArray.prototype.toString
+        nj.NdArray.prototype.toString = function(){
+            var nChars = formatNumber(this.max()).length;
+
+            var reg1 = /\]\,(\s*)\[/g;
+            var spacer1 = '],\n$1 [';
+            var reg3 = /\]\,(\s+)...\,(\s+)\[/g;
+            var spacer3 = '],\n$2 ...\n$2 [';
+            var reg2 = /\[\s+\[/g;
+            var spacer2 = '[[';
+
+            function formatNumber (v) {
+                return String(Number((v || 0).toFixed(nj.config.nFloatingValues)));
+            }
+            function formatArray(k, v) {
+                if (typeof v === 'string') { return v; }
+                if (Number.isFinite(v)) {
+                    var s = formatNumber(v);
+                    return new Array(Math.max(0, nChars - s.length + 2)).join(' ') + s;
+                }
+                k = k || 0;
+                var arr;
+                var th = nj.config.printThreshold;
+                var hth = th / 2 | 0;
+                if (v.length > th) {
+                    arr = [].concat(v.slice(0, hth), [' ...'], v.slice(v.length - hth));
+                } else {
+                    arr = v;
+                }
+                return new Array(k + 1).join(' ') + '[' + arr.map(function (i, ii) {
+                    return formatArray(ii === 0 && k === 0 ? 1 : k + 1, i);
+                }).join(',') + ']';
+            }
+
+            var base = JSON
+                .stringify(this.tolist(), formatArray)
+                .replace(reg1, spacer1)
+                .replace(reg2, spacer2)
+                .replace(reg2, spacer2)
+                .replace(reg3, spacer3)
+                .slice(2, -1);
+            return '[' + base;
+        };
+
+    </script>
 
     <script>
         window.renderDot = async function (str) {
