@@ -18,13 +18,13 @@ composite Main(){
         init{ }
         work{
             S[0].x = matrixs[0];
-            Matrix m = [ [1,0,0], [1,0,0] ];
+            Matrix m = [ [1,0], [1,0] ];
             Matrix s = S[0].x * m;
             Matrix s1 = s.transpose();
             S[0].x = s1.exp() + 2;
         }
         window{
-            S tumbling(8);
+            S tumbling(1);
         }
     };
     Sink(S){

@@ -53,6 +53,7 @@ export class SymbolTable {
         this.variableTable = {}; //变量
         this.compTable = {}; // composite
         this.optTable = {}; //operator
+        this.shapeCache = new Map();
     };
     getPrev() {
         return this.prev;

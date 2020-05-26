@@ -1,11 +1,11 @@
-import { COStreamJS } from "../FrontEnd/global"
+import { COStreamJS, setTop } from "../FrontEnd/global"
 import { declareNode, function_definition, compositeNode, strdclNode, blockNode, operatorNode, fileReaderNode } from "../ast/node";
 import { FlatNode } from "../FrontEnd/FlatNode"
 import { StaticStreamGraph } from "../FrontEnd/StaticStreamGraph";
 import { Partition } from "./Partition"
-import Plugins from "../plugins"
 import { error } from "../utils";
 import { fileWriterNode } from "../ast/node";
+import "../ast/toJS"
 
 export class WEBCodeGeneration {
 
@@ -54,10 +54,9 @@ WEBCodeGeneration.prototype.CGGlobalvar = function () {
     `;
     for (let node of COStreamJS.ast) {
         if (node instanceof declareNode) {
-            buf += node.toString() + ';\n'
+            buf += node.toJS() + ';\n'
         }
     }
-    buf = Plugins.after('CGGlobalvar', buf, COStreamJS.ast)
     COStreamJS.files['GlobalVar.cpp'] = buf.beautify()
 }
 
@@ -583,9 +582,10 @@ WEBCodeGeneration.prototype.CGactorsWork = function (work, flat){
     }
 
     // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
-    let innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
+    debugger;
+    setTop(work._symbol_table)
+    let innerWork = work.toJS().replace(/^\s*{/, '').replace(/}\s*$/, '') 
     String.prototype.toString = originToString;
-
     return `work(){
         ${innerWork}
         this.pushToken();

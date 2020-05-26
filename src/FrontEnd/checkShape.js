@@ -1,4 +1,4 @@
-import { binopNode, expNode } from "../ast/node"
+import { binopNode } from "../ast/node"
 import { error } from "../utils"
 import { top } from "./global"
 import { ternaryNode } from "../ast/node";
@@ -12,16 +12,19 @@ let lastLoc  = 0; //标记最近检查中处理到的最后一个行号,用于�
 /** 该文件的函数同时执行两项工作: 对被操作数据的 shape 进行校验, 并将计算后的结果的 shape 缓存下来 */
 export function checkShape(/** @type {Node | string} */stmt, _loc){
     lastLoc = _loc || stmt._loc
+    let returnShape
     if(Array.isArray(stmt)){
         const itemShape = checkShape(stmt[0])
-        return [stmt.length].concat(itemShape == "1,1" ? 1 : itemShape)
+        returnShape =  [stmt.length].concat(itemShape == "1,1" ? 1 : itemShape)
     }else if(stmt instanceof binopNode){
-        return checkBinopShape(stmt)//二元节点
+        returnShape = checkBinopShape(stmt)//二元节点
     }else if(stmt instanceof ternaryNode){
-        return checkTernaryNode(stmt)//三元节点
+        returnShape = checkTernaryNode(stmt)//三元节点
     }else{
-        return checkUnaryShape(stmt) //一元节点
+        returnShape = checkUnaryShape(stmt) //一元节点
     }
+    top.shapeCache.set(stmt, returnShape)
+    return returnShape
 }
 function checkBinopShape(/** @type {binopNode} */stmt){
     if(stmt.op === '.'){
@@ -37,7 +40,6 @@ function checkBinopShape(/** @type {binopNode} */stmt){
     }else if(stmt.op === '*'){
         return checkMultiShape(stmt)
     }
-    debugger;
     return lshape
 }
 function checkMultiShape(/** @type {binopNode} */stmt){
@@ -52,14 +54,12 @@ function checkMultiShape(/** @type {binopNode} */stmt){
 }
 function checkDotShape(/** @type {binopNode} */stmt){
     // S[0].x的情况
-    debugger;
     if(stmt.left instanceof matrix_section && typeof stmt.right === "string"){
         const result = top.searchName(stmt.left.exp)
         // 数据流 S[0].x的情况
         if(result && result.type === 'stream'){
             const id_list = result.origin.streamTable[stmt.left.exp].strType.id_list
             const member = id_list.find(record => record.identifier === stmt.right)
-            debugger;
             if(!member){
                 throw new Error(error(stmt._loc,`数据流${stmt.left.exp}上不存在成员${stmt.right}`));
             }
@@ -74,7 +74,6 @@ function checkDotShape(/** @type {binopNode} */stmt){
         } 
         
     }else{
-        debugger;
     }
 }
 /**
@@ -104,7 +103,6 @@ function checkUnaryShape(/** @type {Node} */stmt){
     }else if(stmt instanceof constantNode){
         return [1,1] //常数节点
     }else{
-        debugger
         console.warn("返回了一个shape [1,1]", stmt)
         return [1,1]
     }
@@ -126,7 +124,6 @@ function checkCallNodeShape(/** @type {callNode} */node){
     }
     else if(node.name instanceof binopNode){ // S.exp() 此类矩阵实例上执行函数
         const funcName = node.name.right
-        debugger;
         if(typeof funcName === 'string' && BUILTIN_MATRIX_FUNCTIONS.includes(funcName)){
             const wanted_args = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].length
             if(wanted_args !== 'any' && wanted_args !== node.arg_list.length){
@@ -236,12 +233,10 @@ function checkAssignmentShape(left,right){
                     }
                 }else if(result.type === "member"){
                     // this.coeff[0][1] = 1 的情况
-                    debugger
                     const lshape = result.origin.memberTable[left.exp].shape
                     return checkEqualShape(checkSliceShape(lshape,left), checkShape(right), left._loc)
                 }else if(result.type === "variable"){
                     // A[0] = 1 的情况
-                    debugger
                     const lshape = result.origin.variableTable[left.exp].shape
                     return checkEqualShape(checkSliceShape(lshape,left), checkShape(right), left._loc)
                 }
