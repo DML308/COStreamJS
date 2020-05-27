@@ -1,7 +1,7 @@
 {
   "name": "costreamjs",
   "description": "A high-performance streaming programming language for parallel architecture. This repo (js-version) is created for better using & reading & debugging.",
-  "version": "0.9.4",
+  "version": "0.10.0",
   "main": "main.js",
   "repository": "git@github.com:DML308/COStreamJS.git",
   "author": "lxx.imac <lxx2013@mail.ustc.edu.cn>",
