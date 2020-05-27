@@ -20,8 +20,8 @@ String.prototype.beautify = function (space_num = 2) {
     var space = (x) => Array(x).fill(' ').join('')
     var stage = 0, result = ''
     var str = this.replace(/\{(?![ \t]*\n)/g, '{\n') // 在 { 右侧添加换行符
-    str = str.replace(/(?<!\n[ \t]*)\}/g, '\n\}').replace(/\}(?![ \t;]*\n)/g, '}\n') // 在 } 的左右两侧都添加换行符,除非右侧已经有换行符或者右侧有个紧挨着的';'(全局 declareNode 的特例)
-    var stmts = str.split('\n').map(x => x.trim())
+    str = str.replace(/\}/g, '\n\}').replace(/\}(?![ \t;]*\n)/g, '}\n') // 在 } 的左右两侧都添加换行符,除非右侧已经有换行符或者右侧有个紧挨着的';'(全局 declareNode 的特例)
+    var stmts = str.split('\n').map(x => x.trim()).filter((str,idx,arr)=>str || arr[idx+1] !== '}') // 移除右花括号}前的空行(若该行trim为空且下一行为}则删去)
     for (var s of stmts) {
         if (/\}/.test(s)) stage--
         result += space(stage * space_num) + s + '\n'

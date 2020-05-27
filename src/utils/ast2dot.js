@@ -9,8 +9,8 @@ export function ast2dot(node){
     //应 dot 文件格式的要求, 对中间部分的 [] {} "" < > |这些特殊符号进行转义
     body = body.replace(/\[(?!label|shape)/g, "\\[").replace(/](?!;)/g, "\\]")
     body = body.replace(/(\{|\})/g, "\\$1")
-    body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`)
-    body = body.replace(/<(?!\d+>)/g,"\\<").replace(/(?<!<\d+|-)>/g,"\\>")
+    body = body.replace(/"/g,`\\"`).replace(/\[label = \\"/g,`\[label = "`).replace(/\\"];/g,`"];`)   // 左侧三重替换为右侧反向预查正则的降级写法 body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`)
+    body = body.replace(/<(?!\d+>)/g,"\\<").replace(/>/g,`\\>`).replace(/(<\d+|-)\\>/g,"$1>") // 左侧表达式为右侧反向预查的降级写法 body = body.replace(/<(?!\d+>)/g,"\\<").replace(/(?<!<\d+|-)>/g,"\\>") 
     body = body.replace(/\|(?!<)/g,"\\|")
     header += body + `}`
     return header 

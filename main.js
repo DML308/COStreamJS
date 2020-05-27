@@ -35,6 +35,8 @@ Object.assign(COStreamJS.__proto__, {
 
 COStreamJS.main = function(str, options = { coreNum:4 }){
     debugger
+    // 初始化
+    COStreamJS.plugins.matrix = false
     COStreamJS.global.errors = utils.errors;
     COStreamJS.global.errors.length = 0; // 清空错误统计列表
     this.options.platform = options.platform || this.options.platform
