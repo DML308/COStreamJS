@@ -36,6 +36,7 @@ export class SymbolTable {
     constructor(prev, loc) {
         this.count = 0; // FIXME: 不确定有什么用
         this.root = prev ? prev.root : this // 标记全局最根部的符号表
+        
         this.loc = loc;
         /** @type {SymbolTable} */
         this.prev = prev
@@ -48,7 +49,7 @@ export class SymbolTable {
         
         /** @type {Dict<Variable>} */
         this.memberTable = {} // 专门用来存储一个operator的成员变量字段
-        this.paramNames = []
+        this.paramNames = prev && prev.paramNames.length > 0 ? prev.paramNames : [] // 子符号表继承父符号表的paramNames
         /** @type {Dict<Variable>} */
         this.variableTable = {}; //变量
         this.compTable = {}; // composite

@@ -304,14 +304,16 @@ export function generateCompositeRunningContext(call,composite,params=[]){
 
     // 第一步 解析 param
     let param = composite.body.param;
+    const paramNames = []
     if(param && param.param_list){
         (param.param_list|| []).forEach((decl,index) => { 
             const name = decl.identifier.name
             const variable = new Variable(decl.type,name,params[index],decl._loc);
             top.InsertIdentifySymbol(variable)
-            top.paramNames.push(decl.identifier.name)
+            paramNames.push(decl.identifier.name)
         })
     }
+    top.paramNames = paramNames
 
     // 第二步, 处理 inputs 和 outputs
     // 例子 composite Test(input stream<int x>In1, output stream<int x>Out1, stream<int x>Out2)
