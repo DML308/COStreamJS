@@ -12,4 +12,5 @@ test.js
 /*.png
 /src/config/parser.js
 /dist/**/
+!/dist/weight2.js
 /benchmarks/matrix/**/
