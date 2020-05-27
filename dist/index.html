@@ -156,6 +156,8 @@
                 .slice(2, -1);
             return '[' + base;
         };
+        nj.NdArray.prototype.rows = function(){ return this.shape[0] }
+        nj.NdArray.prototype.cols = function(){ return this.shape[1] }
 
     </script>
 
