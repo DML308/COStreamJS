@@ -1,7 +1,6 @@
 import { jump_statement, blockNode, idNode, ternaryNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode, splitjoinNode, addNode, splitNode, joinNode } from "./node.js"
 import { COStreamJS } from "../FrontEnd/global"
 import { error } from "../utils/color.js";
-import { BUILTIN_MATH } from "../FrontEnd/built-in-function.js";
 
 export function ast2String(root) {
     var result = ''
@@ -27,43 +26,21 @@ function list2String(list, split, start, end) {
 /**
 * 执行下列代码后, statement 类型的节点可以执行 toString 用于代码生成或调试
 */
-
 declarator.prototype.toString = function () {
-    switch(COStreamJS.options.platform){
-        case 'default':
-        case 'X86':
-            var str = this.identifier.toString() + ''
-            str += this.op ? this.op : ''
-            if (this.initializer instanceof Array) {
-                str += list2String(this.initializer, ',', '{', '}')
-            } else {
-                str += this.initializer ? this.initializer.toString() : ''
-            }
-            return str
-            break;
-        case 'WEB':
-            var str = this.identifier.name
-            str += this.op ? this.op : ''
-            if(this.identifier.arg_list.length && !this.initializer){
-                str += `= getNDArray(${this.identifier.arg_list.map(_=>_.toString()).join(',')})`
-
-            }else if (this.initializer instanceof Array) {
-                str += list2String(this.initializer, ',', '[', ']')
-            } else {
-                str += this.initializer ? this.initializer.toString() : ''
-            }
-            return str
-            break
-        default: return '';
+    var str = this.identifier.toString() + ''
+    str += this.op ? this.op : ''
+    if (this.initializer instanceof Array) {
+        str += list2String(this.initializer, ',', '{', '}')
+    } else {
+        str += this.initializer ? this.initializer.toString() : ''
     }
-    
+    return str
 }
 idNode.prototype.toString = function(){
     return this.name.toString() + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
 }
 declareNode.prototype.toString = function () {
-    let type = COStreamJS.options.platform === 'WEB' ? 'let' : this.type
-    return type + ' ' + list2String(this.init_declarator_list, ', ')
+    return this.type + ' ' + list2String(this.init_declarator_list, ', ')
 }
 compositeNode.prototype.toString = function () {
     var str = 'composite ' + this.compName + '('
@@ -133,10 +110,6 @@ constantNode.prototype.toString = function () {
     return Number.isNaN(value) ? escaped : value.toString()
 }
 castNode.prototype.toString = function () {
-    if(COStreamJS.options.platform === "WEB"){
-        if(this.type === 'int') return `Math.floor(${this.exp})`
-        else return this.exp.toString()
-    }
     return '(' + this.type + ')' + this.exp
 }
 parenNode.prototype.toString = function () {
@@ -222,8 +195,6 @@ callNode.prototype.toString = function () {
         return differentPlatformPrint[platform](this.arg_list)
     } else if (this.name === "println") {
         return differentPlatformPrintln[platform](this.arg_list)
-    } else if (BUILTIN_MATH.includes(this.name) && platform === 'WEB'){
-        return 'Math.'+this.name + '(' + list2String(this.arg_list, ',') + ')'
     } else if(this.name === "Native"){
         if(this.arg_list[1].source.slice(1,-1) !== platform){
             error(this._loc, `该 Native 函数与当前的执行平台不符`);

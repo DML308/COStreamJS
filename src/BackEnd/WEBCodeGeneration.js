@@ -485,67 +485,21 @@ WEBCodeGeneration.prototype.CGactorsPushToken = function (oper) {
  */
 WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list, oper){
     // 基于符号表来把 变量名 转化为 string
-    const originToString = String.prototype.toString;
-    String.prototype.toString = function (){
-        let searchResult = oper._symbol_table.searchName(this)
-        if(oper._symbol_table.prev.paramNames.includes(this)){
-            return 'this.'+this
-        }else if(searchResult){
-            // 替换符号表中的成员变量和流变量的访问 
-            if(searchResult.type === 'stream' || searchResult.type === 'member'){
-                return 'this.'+this
-            }else if(searchResult.type === 'variable'){
-                // 替换 oper 对上层符号表的数据的访问
-                if(searchResult.origin !== oper._symbol_table){
-                    return oper._symbol_table.getVariableValue(this)
-                }
-            }
-        }
-        return this
-    }
+    setTop(oper._symbol_table)
     var result = 'initVarAndState() {'
     stmt_list.forEach( declare =>{
         declare.init_declarator_list.forEach(item =>{
             if(item.initializer){
-                result += item.identifier + '=' + item.initializer +';\n'
+                result += item.identifier.toJS() + '=' + item.initializer.toJS() +';\n'
             }
         })
     })
-    String.prototype.toString = originToString;
     return result+'}';
 }
 WEBCodeGeneration.prototype.CGactorsInit = function(init, flat){
     // 基于符号表来把 init 转化为 string
-    const originToString = String.prototype.toString;
-    String.prototype.toString = function (){
-        if(!init) return this;
-        let searchResult = init._symbol_table.searchName(this)
-        if(flat._symbol_table.paramNames.includes(this)){
-            return 'this.'+this
-        }else if(searchResult){
-            // 替换符号表中的成员变量和流变量的访问 
-            if(searchResult.type === 'stream' || searchResult.type === 'member'){
-                return 'this.'+this
-            }else if(searchResult.type === 'variable'){
-                // 如果该变量是属于根符号表中的全局变量
-                if(searchResult.origin === init._symbol_table.root){
-                    return this
-                }
-                // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
-                else if(searchResult.origin !== init._symbol_table){
-                    if(!init._symbol_table.LookupIdentifySymbol(this).value){
-                        debugger;
-                    }
-                    return init._symbol_table.getVariableValue(this)
-                }
-            }
-        }
-        return this
-    }
-
-    let buf = (init||'{ }').toString();
-    String.prototype.toString = originToString;
-
+    if(init) setTop(init._symbol_table)
+    let buf = (init||'{ }').toJS();
     return `init() ${buf} \n`
 }
 
@@ -555,37 +509,9 @@ WEBCodeGeneration.prototype.CGactorsInit = function(init, flat){
  */
 WEBCodeGeneration.prototype.CGactorsWork = function (work, flat){
     // 基于符号表来把 work 转化为 string
-    const originToString = String.prototype.toString;
-    String.prototype.toString = function (){
-        let searchResult = work._symbol_table.searchName(this)
-        if(flat._symbol_table.paramNames.includes(this)){
-            return 'this.'+this
-        }else if(searchResult){
-            // 替换符号表中的成员变量和流变量的访问 
-            if(searchResult.type === 'stream' || searchResult.type === 'member'){
-                return 'this.'+this
-            }else if(searchResult.type === 'variable'){
-                // 如果该变量是属于根符号表中的全局变量
-                if(searchResult.origin === work._symbol_table.root){
-                    return this
-                }
-                // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
-                else if(searchResult.origin !== work._symbol_table){
-                    if(!work._symbol_table.LookupIdentifySymbol(this).value){
-                        debugger;
-                    }
-                    return work._symbol_table.getVariableValue(this)
-                }
-            }
-        }
-        return this
-    }
-
     // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
-    debugger;
     setTop(work._symbol_table)
     let innerWork = work.toJS().replace(/^\s*{/, '').replace(/}\s*$/, '') 
-    String.prototype.toString = originToString;
     return `work(){
         ${innerWork}
         this.pushToken();
