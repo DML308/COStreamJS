@@ -59,5 +59,6 @@ class B{
     pushToken();
     popToken();
   }
+  
 };
 #endif

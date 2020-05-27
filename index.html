@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/vue-material.min.css">
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
     <link rel="stylesheet" type="text/css" href="./main.css">
-    <title>COStreamJS-v0.10.0</title>
+    <title>COStreamJS-v0.10.1</title>
     <style> .md-snackbar{ max-height: none!important;} </style>
 </head>
 
@@ -90,11 +90,11 @@
     </div>
 
     <!-- 右边 dot 图部分 -->
-    <div id="container" style="position: absolute;top: 0; bottom: 0;left: 900px;">
+    <div id="container" style="position: absolute;top: 0; bottom: 0;left: 930px;">
         <div id="ast-svg"></div>
     </div>
     <!-- 右边 canvas 部分 -->
-    <div class="canvas-container" style="display:none;position: absolute;top: 0; bottom: 0;left: 900px;">
+    <div class="canvas-container" style="display:none;position: absolute;top: 0; bottom: 0;left: 930px;">
         <canvas id="canvas" width="280" height="280" style="background: grey;"></canvas>
         <button id="log" style="display:none">log</button>
         <button id="clear">clear</button>
@@ -188,10 +188,10 @@
             window.app.isDOT = /^\s*digraph/.test(str)
         });
         if (!window.str) {
-            var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/multiOutputs.cos'
+            var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/activation-query.cos'
             editor.session.setValue(`//...正在加载` + url);
             window.onload = function () {
-                axios.get('https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/multiOutputs.cos').then(res => {
+                axios.get('https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/activation-query.cos').then(res => {
                     window.str = res.data
                     showCode(window.str);
                 })

@@ -39,8 +39,8 @@ var COStreamJS = (function () {
         //应 dot 文件格式的要求, 对中间部分的 [] {} "" < > |这些特殊符号进行转义
         body = body.replace(/\[(?!label|shape)/g, "\\[").replace(/](?!;)/g, "\\]");
         body = body.replace(/(\{|\})/g, "\\$1");
-        body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`);
-        body = body.replace(/<(?!\d+>)/g,"\\<").replace(/(?<!<\d+|-)>/g,"\\>");
+        body = body.replace(/"/g,`\\"`).replace(/\[label = \\"/g,`\[label = "`).replace(/\\"];/g,`"];`);   // 左侧三重替换为右侧反向预查正则的降级写法 body = body.replace(/(?<!\[label = )\"(?!];)/g,`\\"`)
+        body = body.replace(/<(?!\d+>)/g,"\\<").replace(/>/g,`\\>`).replace(/(<\d+|-)\\>/g,"$1>"); // 左侧表达式为右侧反向预查的降级写法 body = body.replace(/<(?!\d+>)/g,"\\<").replace(/(?<!<\d+|-)>/g,"\\>") 
         body = body.replace(/\|(?!<)/g,"\\|");
         header += body + `}`;
         return header 
@@ -210,8 +210,8 @@ var COStreamJS = (function () {
         var space = (x) => Array(x).fill(' ').join('');
         var stage = 0, result = '';
         var str = this.replace(/\{(?![ \t]*\n)/g, '{\n'); // 在 { 右侧添加换行符
-        str = str.replace(/(?<!\n[ \t]*)\}/g, '\n\}').replace(/\}(?![ \t;]*\n)/g, '}\n'); // 在 } 的左右两侧都添加换行符,除非右侧已经有换行符或者右侧有个紧挨着的';'(全局 declareNode 的特例)
-        var stmts = str.split('\n').map(x => x.trim());
+        str = str.replace(/\}/g, '\n\}').replace(/\}(?![ \t;]*\n)/g, '}\n'); // 在 } 的左右两侧都添加换行符,除非右侧已经有换行符或者右侧有个紧挨着的';'(全局 declareNode 的特例)
+        var stmts = str.split('\n').map(x => x.trim()).filter((str,idx,arr)=>str || arr[idx+1] !== '}'); // 移除右花括号}前的空行(若该行trim为空且下一行为}则删去)
         for (var s of stmts) {
             if (/\}/.test(s)) stage--;
             result += space(stage * space_num) + s + '\n';
@@ -848,7 +848,7 @@ var COStreamJS = (function () {
         activationLayerNode: activationLayerNode
     });
 
-    var version = "0.10.0";
+    var version = "0.10.1";
 
     class FlatNode {
         constructor(/** @type {operatorNode} */ node, params = []) {
@@ -7272,6 +7272,8 @@ class FileReader{
 
     COStreamJS.main = function(str, options = { coreNum:4 }){
         debugger
+        // 初始化
+        COStreamJS.plugins.matrix = false;
         COStreamJS.global.errors = errors;
         COStreamJS.global.errors.length = 0; // 清空错误统计列表
         this.options.platform = options.platform || this.options.platform;
