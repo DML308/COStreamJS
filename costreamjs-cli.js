@@ -848,7 +848,7 @@ var COStreamJS = (function () {
         activationLayerNode: activationLayerNode
     });
 
-    var version = "0.9.4";
+    var version = "0.10.0";
 
     class FlatNode {
         constructor(/** @type {operatorNode} */ node, params = []) {
@@ -948,6 +948,7 @@ var COStreamJS = (function () {
         constructor(prev, loc) {
             this.count = 0; // FIXME: 不确定有什么用
             this.root = prev ? prev.root : this; // 标记全局最根部的符号表
+            
             this.loc = loc;
             /** @type {SymbolTable} */
             this.prev = prev;
@@ -960,11 +961,12 @@ var COStreamJS = (function () {
             
             /** @type {Dict<Variable>} */
             this.memberTable = {}; // 专门用来存储一个operator的成员变量字段
-            this.paramNames = [];
+            this.paramNames = prev && prev.paramNames.length > 0 ? prev.paramNames : []; // 子符号表继承父符号表的paramNames
             /** @type {Dict<Variable>} */
             this.variableTable = {}; //变量
             this.compTable = {}; // composite
             this.optTable = {}; //operator
+            this.shapeCache = new Map();
         };
         getPrev() {
             return this.prev;
@@ -2171,16 +2173,19 @@ var COStreamJS = (function () {
     /** 该文件的函数同时执行两项工作: 对被操作数据的 shape 进行校验, 并将计算后的结果的 shape 缓存下来 */
     function checkShape(/** @type {Node | string} */stmt, _loc){
         lastLoc = _loc || stmt._loc;
+        let returnShape;
         if(Array.isArray(stmt)){
             const itemShape = checkShape(stmt[0]);
-            return [stmt.length].concat(itemShape == "1,1" ? 1 : itemShape)
+            returnShape =  [stmt.length].concat(itemShape == "1,1" ? 1 : itemShape);
         }else if(stmt instanceof binopNode){
-            return checkBinopShape(stmt)//二元节点
+            returnShape = checkBinopShape(stmt);//二元节点
         }else if(stmt instanceof ternaryNode){
-            return checkTernaryNode()//三元节点
+            returnShape = checkTernaryNode();//三元节点
         }else {
-            return checkUnaryShape(stmt) //一元节点
+            returnShape = checkUnaryShape(stmt); //一元节点
         }
+        top.shapeCache.set(stmt, returnShape);
+        return returnShape
     }
     function checkBinopShape(/** @type {binopNode} */stmt){
         if(stmt.op === '.'){
@@ -2196,7 +2201,6 @@ var COStreamJS = (function () {
         }else if(stmt.op === '*'){
             return checkMultiShape(stmt)
         }
-        debugger;
         return lshape
     }
     function checkMultiShape(/** @type {binopNode} */stmt){
@@ -2211,14 +2215,12 @@ var COStreamJS = (function () {
     }
     function checkDotShape(/** @type {binopNode} */stmt){
         // S[0].x的情况
-        debugger;
         if(stmt.left instanceof matrix_section && typeof stmt.right === "string"){
             const result = top.searchName(stmt.left.exp);
             // 数据流 S[0].x的情况
             if(result && result.type === 'stream'){
                 const id_list = result.origin.streamTable[stmt.left.exp].strType.id_list;
                 const member = id_list.find(record => record.identifier === stmt.right);
-                debugger;
                 if(!member){
                     throw new Error(error$1(stmt._loc,`数据流${stmt.left.exp}上不存在成员${stmt.right}`));
                 }
@@ -2232,8 +2234,6 @@ var COStreamJS = (function () {
                 error$1(stmt._loc,`在符号表中找不到流${stmt.left.exp}`);
             } 
             
-        }else {
-            debugger;
         }
     }
     /**
@@ -2263,7 +2263,6 @@ var COStreamJS = (function () {
         }else if(stmt instanceof constantNode){
             return [1,1] //常数节点
         }else {
-            debugger
             console.warn("返回了一个shape [1,1]", stmt);
             return [1,1]
         }
@@ -2285,7 +2284,6 @@ var COStreamJS = (function () {
         }
         else if(node.name instanceof binopNode){ // S.exp() 此类矩阵实例上执行函数
             const funcName = node.name.right;
-            debugger;
             if(typeof funcName === 'string' && BUILTIN_MATRIX_FUNCTIONS.includes(funcName)){
                 const wanted_args = BUILTIN_MATRIX_FUNCTIONS_ARG[funcName].length;
                 if(wanted_args !== 'any' && wanted_args !== node.arg_list.length){
@@ -2395,12 +2393,10 @@ var COStreamJS = (function () {
                         }
                     }else if(result.type === "member"){
                         // this.coeff[0][1] = 1 的情况
-                        debugger
                         const lshape = result.origin.memberTable[left.exp].shape;
                         return checkEqualShape(checkSliceShape(lshape,left), checkShape(right), left._loc)
                     }else if(result.type === "variable"){
                         // A[0] = 1 的情况
-                        debugger
                         const lshape = result.origin.variableTable[left.exp].shape;
                         return checkEqualShape(checkSliceShape(lshape,left), checkShape(right), left._loc)
                     }
@@ -2609,41 +2605,21 @@ var COStreamJS = (function () {
     /**
     * 执行下列代码后, statement 类型的节点可以执行 toString 用于代码生成或调试
     */
-
     declarator.prototype.toString = function () {
-        switch(COStreamJS.options.platform){
-            case 'default':
-            case 'X86':
-                var str = this.identifier.toString() + '';
-                str += this.op ? this.op : '';
-                if (this.initializer instanceof Array) {
-                    str += list2String(this.initializer, ',', '{', '}');
-                } else {
-                    str += this.initializer ? this.initializer.toString() : '';
-                }
-                return str
-            case 'WEB':
-                var str = this.identifier.name;
-                str += this.op ? this.op : '';
-                if(this.identifier.arg_list.length && !this.initializer){
-                    str += `= getNDArray(${this.identifier.arg_list.map(_=>_.toString()).join(',')})`;
-
-                }else if (this.initializer instanceof Array) {
-                    str += list2String(this.initializer, ',', '[', ']');
-                } else {
-                    str += this.initializer ? this.initializer.toString() : '';
-                }
-                return str
-            default: return '';
+        var str = this.identifier.toString() + '';
+        str += this.op ? this.op : '';
+        if (this.initializer instanceof Array) {
+            str += list2String(this.initializer, ',', '{', '}');
+        } else {
+            str += this.initializer ? this.initializer.toString() : '';
         }
-        
+        return str
     };
     idNode.prototype.toString = function(){
         return this.name.toString() + (this.arg_list.length > 0? list2String(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
     };
     declareNode.prototype.toString = function () {
-        let type = COStreamJS.options.platform === 'WEB' ? 'let' : this.type;
-        return type + ' ' + list2String(this.init_declarator_list, ', ')
+        return this.type + ' ' + list2String(this.init_declarator_list, ', ')
     };
     compositeNode.prototype.toString = function () {
         var str = 'composite ' + this.compName + '(';
@@ -2713,10 +2689,6 @@ var COStreamJS = (function () {
         return Number.isNaN(value) ? escaped : value.toString()
     };
     castNode.prototype.toString = function () {
-        if(COStreamJS.options.platform === "WEB"){
-            if(this.type === 'int') return `Math.floor(${this.exp})`
-            else return this.exp.toString()
-        }
         return '(' + this.type + ')' + this.exp
     };
     parenNode.prototype.toString = function () {
@@ -2800,8 +2772,6 @@ var COStreamJS = (function () {
             return differentPlatformPrint[platform](this.arg_list)
         } else if (this.name === "println") {
             return differentPlatformPrintln[platform](this.arg_list)
-        } else if (BUILTIN_MATH.includes(this.name) && platform === 'WEB'){
-            return 'Math.'+this.name + '(' + list2String(this.arg_list, ',') + ')'
         } else if(this.name === "Native"){
             if(this.arg_list[1].source.slice(1,-1) !== platform){
                 error$1(this._loc, `该 Native 函数与当前的执行平台不符`);
@@ -3016,7 +2986,6 @@ var COStreamJS = (function () {
             const variable = new Variable(node.type,name,init_node.initializer,node._loc);
             if(node.type === "Matrix"){
                 variable.shape = checkShape(init_node.initializer, init_node._loc).map(x=>x.value);
-                debugger;
             }
             top.InsertIdentifySymbol(variable);
         });
@@ -3266,14 +3235,16 @@ var COStreamJS = (function () {
 
         // 第一步 解析 param
         let param = composite.body.param;
+        const paramNames = [];
         if(param && param.param_list){
             (param.param_list|| []).forEach((decl,index) => { 
                 const name = decl.identifier.name;
                 const variable = new Variable(decl.type,name,params[index],decl._loc);
                 top.InsertIdentifySymbol(variable);
-                top.paramNames.push(decl.identifier.name);
+                paramNames.push(decl.identifier.name);
             });
         }
+        top.paramNames = paramNames;
 
         // 第二步, 处理 inputs 和 outputs
         // 例子 composite Test(input stream<int x>In1, output stream<int x>Out1, stream<int x>Out2)
@@ -6414,6 +6385,267 @@ class FileReader{
         }
     };
 
+    //对于未实现toJS函数的节点, 降级执行toString
+    Node.prototype.toJS = function(){
+        return this.toString()
+    };
+    Number.prototype.toJS = function(){ return this.toString() };
+    String.prototype.toJS = function(){ return this.toString() };
+
+    /**
+     * 输入一个 list 返回它转化后的 string, 可以配置分隔符 split 例如','
+     * 也可以配置 start 和 end 例如'{' '}'
+     */
+    function list2String$1(list, split, start, end) {
+        if (!list || list.length == 0) return ''
+        var str = start ? start : '';
+        list.forEach((x, idx) => {
+            str += x.toJS();
+            str += split && idx < list.length - 1 ? split : '';
+        });
+        return end ? str + end : str
+    }
+
+    matrix_constant.prototype.toJS = function(){
+        if(this.shape[1] === 1){
+            return `nj.array([${this.rawData.join(',')}])`
+        }else {
+            return `nj.array([${this.rawData.map(arr => '['+arr.join(',')+']').join(',')}])`
+        }
+    };
+    declarator.prototype.toJS = function () {
+        var str = this.identifier.name;
+        str += this.op ? this.op : '';
+        if(this.identifier.arg_list.length && !this.initializer){
+            str += `= getNDArray(${this.identifier.arg_list.map(_=>_.toJS()).join(',')})`;
+
+        }else if (this.initializer instanceof Array) {
+            str += list2String$1(this.initializer, ',', '[', ']');
+        } else {
+            str += this.initializer ? this.initializer.toJS() : '';
+        }
+        return str
+    };
+    declareNode.prototype.toJS = function () {
+        if(this.type === 'Matrix'){
+            var res = '';
+            for(let decla of this.init_declarator_list){
+                if(Array.isArray(decla.initializer)){
+                    const name = decla.identifier.name;
+                    res += `let ${name} = [] \n`;
+                    for(let i=0; i< decla.initializer.length;i++){
+                        res += `${name}[${i}] = ${decla.initializer[i].toJS()} \n`;
+                    }
+                }else {
+                    res += `let ${decla.identifier.name} = ${decla.initializer.toJS()} \n`;
+                }
+            }
+            return res
+        }else {
+            return 'let ' + list2String$1(this.init_declarator_list, ', ')
+        }
+    };
+    idNode.prototype.toJS = function(){
+        return this.name.toJS() + (this.arg_list.length > 0? list2String$1(this.arg_list, '][','[',']') :'').replace(/\[0]/g,'[]')
+    };
+
+    //将每一行 statement 的';'上提至 blockNode 处理
+    blockNode.prototype.toJS = function () {
+        if (!this.stmt_list || this.stmt_list.length == 0) return '{ }'
+        var str = '{\n';
+        this.stmt_list.forEach(x => {
+            str += x.toJS() + '\n';
+        });
+        return str + '}\n'
+    };
+
+    function getNdConstantMatrix(shape, number){
+        return `nj.zeros([${shape[0]},${shape[1]}]).assign(${number})`
+    }
+
+    function resolveNumber(node, shape, mainShape){
+        if(shape.join() !== mainShape.join()){
+            return getNdConstantMatrix(mainShape,node)
+        }else {
+            return node.toJS()
+        }
+    }
+
+    //expNode 的子类
+    binopNode.prototype.toJS = function () {
+        if(COStreamJS.plugins.matrix){
+            if('=' === this.op && this.left instanceof matrix_section && this.left.slice_pair_list.length > 1){
+                return matrixAssignmentToJS(this.left, this.right)
+            }
+            const lshape = top.shapeCache.get(this.left), rshape = top.shapeCache.get(this.right);
+            if(lshape && lshape != "1,1" || rshape && rshape != "1,1"){
+                if(['+','-','*','/'].includes(this.op)){
+                    const mainShape = lshape != "1,1" ? lshape : rshape;
+                    const lString = resolveNumber(this.left,lshape,mainShape);
+                    const rString = resolveNumber(this.right, rshape, mainShape);
+                    const handlers = {
+                        '+': 'add',
+                        '-': 'substract',
+                        '*': 'dot',
+                        '/': 'divide'
+                    };
+                    return lString + `.` + handlers[this.op] + `(${rString})`
+
+                }else if(['+=','-=','*=','/='].includes(this.op)){
+                    const rightNode = new binopNode(null,this.left,this.op[0],this.right);
+                    const assignNode = new binopNode(null, this.left,'=', rightNode);
+                    return assignNode.toJS()
+                }
+            }
+        }
+        if(this.op === '.'){
+            return this.left.toJS() + this.op + this.right.toString() // 点操作符的右侧不需要加this
+        }
+        return this.left.toJS() + this.op + this.right.toJS()
+    };
+
+    function matrixAssignmentToJS(/** @type {matrix_section}*/left, right){
+        if(left.slice_pair_list.some(x => x.op)){
+            throw new Error(error$1(left._loc,"WEB端代码生成左侧暂不支持使用冒号:"))
+        }
+        const list = left.slice_pair_list.map(s => s.start);
+        return `${left.exp.toJS()}.set(${list[0]},${list[1]}, ${right.toJS()})`
+    }
+
+    callNode.prototype.toJS = function(){
+        if(this.name instanceof binopNode){
+            if(this.name.right === 'cwiseProduct'){
+                return this.name.left.toJS() + '.multiply(' + list2String$1(this.arg_list) + ')'
+            }else {
+                return this.name.left.toJS() + `.${this.name.right}(` + list2String$1(this.arg_list) + ')'
+            }
+        }else if(this.name instanceof lib_binopNode){
+            if(this.name.function_name === 'constant'){
+                return getNdConstantMatrix(this.arg_list, this.arg_list[2])
+            }
+            return `nj.${this.name.function_name}([${this.arg_list}])`
+        }else {
+            if (this.name === "print") {
+                return 'console.log(' + list2String$1(this.arg_list, ",") + ')'
+            }else if (this.name === "println") {
+                return 'console.log(' + list2String$1(this.arg_list, ',') + `,'\\n')`
+            }else if (BUILTIN_MATH.includes(this.name)){
+                return 'Math.'+this.name + '(' + list2String$1(this.arg_list, ',') + ')'
+            }else if(this.name === "Native"){
+                if(this.arg_list[1].source.slice(1,-1) !== 'WEB'){
+                    throw new Error(error$1(this._loc, `该 Native 函数与当前的执行平台不符`))
+                }
+                return this.arg_list[0].source.slice(1,-1) //通过 slice 来移除左右两侧的引号
+            }else {
+                return this.name.toJS() + '(' + list2String$1(this.arg_list, ',') + ')'
+            }
+        }
+    };
+
+    forNode.prototype.toJS = function () {
+        var str = 'for(';
+        str += this.init ? this.init.toJS() + ';' : ';';
+        str += this.cond ? this.cond.toJS() + ';' : ';';
+        str += this.next ? this.next.toJS() : '';
+        str += ')' + this.statement.toJS();
+        str += this.statement instanceof blockNode ? '' : ';'; // 若该 for 只有一条语句, 则补充一个分号
+        return str
+    };
+    matrix_section.prototype.toJS = function(){
+        const shape = top.shapeCache.get(this.exp);
+        if(shape && shape.join('') > '11'){
+            // 若为S.x[i,j]获取指定位置元素
+            if(this.slice_pair_list.every(p => p.op !== ':')){
+                const indexs = this.slice_pair_list.map(p=>p.start);
+                return `${this.exp.toJS()}.get(${indexs[0]},${indexs[1]})`
+            }
+            // 若为S.x[i:i+m,j:j+n]切片
+            const args = this.slice_pair_list.map(getNumJSSliceString);
+            return `${this.exp.toJS()}.slice(${args})`
+        }else {
+            // 不是矩阵的情况
+            debugger;
+            return this.exp.toJS() + '[' + list2String$1(this.slice_pair_list, ',') + ']'
+        }
+    };
+
+    // 根据numjs库的复杂切片规则生成其切片字符串
+    function getNumJSSliceString(/** @type {{ start?: string, op?: ':', end?: string}} */ pair){
+        const { start, op, end } = pair;
+        if(!op){
+            return `[${start},${start}+1]`
+        }else {
+            if(!start && end){
+                return `[${end}]`
+            }else if(start && !end){
+                return `${start}`
+            }else if(start && end){
+                return `[${start},${end}]`
+            }else if(!start && !end){
+                return `0`
+            }
+        }
+    } 
+
+    // 对string进行特殊处理, 必要时在前方添加this
+    String.prototype.toJS = function toJS(){
+        // 对string进行特殊处理, 必要时在前方添加this
+        if(!/[A-z_][A-z0-9_]*/.test(this)) return this // 若不是标识符则不处理
+        let searchResult = top.searchName(this);
+        if(top.paramNames.includes(this)){
+                return 'this.'+this
+        }else if(searchResult){
+            // 替换符号表中的成员变量和流变量的访问 
+            if(searchResult.type === 'stream' || searchResult.type === 'member'){
+                return 'this.'+this
+            }else if(searchResult.type === 'variable'){
+                // 如果该变量是属于根符号表中的全局变量
+                if(searchResult.origin === top.root){
+                    return this
+                }
+                // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
+                else if(searchResult.origin !== top){
+                    return top.getVariableValue(this)
+                }
+            }
+        }
+        return this
+    };
+
+    ternaryNode.prototype.toJS = function (){
+        return this.first.toJS() + '?' + this.second.toJS() + ':' + this.third.toJS();
+    };
+
+    castNode.prototype.toJS = function () {
+        if(this.type === 'int') return `Math.floor(${this.exp.toJS()})`
+        else return this.exp.toJS()
+    };
+
+    parenNode.prototype.toJS = function () {
+        return '(' + this.exp.toJS() + ')'
+    };
+
+    unaryNode.prototype.toJS = function () {
+        return '' + this.first.toJS() + this.second.toJS()
+    };
+    whileNode.prototype.toJS = function (){
+        return 'while(' + this.exp.toJS() + ')' + this.statement.toJS();
+    };
+    doNode.prototype.toString = function (){
+        return 'do' + this.statement.toJS() + 'while(' + this.exp.toJS() + ')'
+    };
+    selection_statement.prototype.toJS = function () {
+        if (this.op1 === 'if') {
+            var str = 'if(' + this.exp.toJS() + ')' + this.statement.toJS();
+            str += this.op4 === 'else' ? ('else ' + this.else_statement.toJS()) : '';
+            return str
+        } else if (this.op1 == 'switch') ;
+    };
+    matrix_slice_pair.prototype.toJS = function (){
+        if(!this.op)    return this.start.toJS()
+        return (this.start || '').toJS()+':'+(this.end||'').toJS()
+    };
+
     class WEBCodeGeneration {
 
         constructor(nCpucore, ssg, mp) {
@@ -6461,10 +6693,9 @@ class FileReader{
     `;
         for (let node of COStreamJS.ast) {
             if (node instanceof declareNode) {
-                buf += node.toString() + ';\n';
+                buf += node.toJS() + ';\n';
             }
         }
-        buf = Plugins.after('CGGlobalvar', buf, COStreamJS.ast);
         COStreamJS.files['GlobalVar.cpp'] = buf.beautify();
     };
 
@@ -6893,67 +7124,21 @@ class FileReader{
      */
     WEBCodeGeneration.prototype.CGactorsinitVarAndState = function (stmt_list, oper){
         // 基于符号表来把 变量名 转化为 string
-        const originToString = String.prototype.toString;
-        String.prototype.toString = function (){
-            let searchResult = oper._symbol_table.searchName(this);
-            if(oper._symbol_table.prev.paramNames.includes(this)){
-                return 'this.'+this
-            }else if(searchResult){
-                // 替换符号表中的成员变量和流变量的访问 
-                if(searchResult.type === 'stream' || searchResult.type === 'member'){
-                    return 'this.'+this
-                }else if(searchResult.type === 'variable'){
-                    // 替换 oper 对上层符号表的数据的访问
-                    if(searchResult.origin !== oper._symbol_table){
-                        return oper._symbol_table.getVariableValue(this)
-                    }
-                }
-            }
-            return this
-        };
+        setTop(oper._symbol_table);
         var result = 'initVarAndState() {';
         stmt_list.forEach( declare =>{
             declare.init_declarator_list.forEach(item =>{
                 if(item.initializer){
-                    result += item.identifier + '=' + item.initializer +';\n';
+                    result += item.identifier.toJS() + '=' + item.initializer.toJS() +';\n';
                 }
             });
         });
-        String.prototype.toString = originToString;
         return result+'}';
     };
     WEBCodeGeneration.prototype.CGactorsInit = function(init, flat){
         // 基于符号表来把 init 转化为 string
-        const originToString = String.prototype.toString;
-        String.prototype.toString = function (){
-            if(!init) return this;
-            let searchResult = init._symbol_table.searchName(this);
-            if(flat._symbol_table.paramNames.includes(this)){
-                return 'this.'+this
-            }else if(searchResult){
-                // 替换符号表中的成员变量和流变量的访问 
-                if(searchResult.type === 'stream' || searchResult.type === 'member'){
-                    return 'this.'+this
-                }else if(searchResult.type === 'variable'){
-                    // 如果该变量是属于根符号表中的全局变量
-                    if(searchResult.origin === init._symbol_table.root){
-                        return this
-                    }
-                    // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
-                    else if(searchResult.origin !== init._symbol_table){
-                        if(!init._symbol_table.LookupIdentifySymbol(this).value){
-                            debugger;
-                        }
-                        return init._symbol_table.getVariableValue(this)
-                    }
-                }
-            }
-            return this
-        };
-
-        let buf = (init||'{ }').toString();
-        String.prototype.toString = originToString;
-
+        if(init) setTop(init._symbol_table);
+        let buf = (init||'{ }').toJS();
         return `init() ${buf} \n`
     };
 
@@ -6963,36 +7148,9 @@ class FileReader{
      */
     WEBCodeGeneration.prototype.CGactorsWork = function (work, flat){
         // 基于符号表来把 work 转化为 string
-        const originToString = String.prototype.toString;
-        String.prototype.toString = function (){
-            let searchResult = work._symbol_table.searchName(this);
-            if(flat._symbol_table.paramNames.includes(this)){
-                return 'this.'+this
-            }else if(searchResult){
-                // 替换符号表中的成员变量和流变量的访问 
-                if(searchResult.type === 'stream' || searchResult.type === 'member'){
-                    return 'this.'+this
-                }else if(searchResult.type === 'variable'){
-                    // 如果该变量是属于根符号表中的全局变量
-                    if(searchResult.origin === work._symbol_table.root){
-                        return this
-                    }
-                    // 如果该变量名是 composite 中定义的过程变量, 则替换 oper 对上层符号表的数据的访问
-                    else if(searchResult.origin !== work._symbol_table){
-                        if(!work._symbol_table.LookupIdentifySymbol(this).value){
-                            debugger;
-                        }
-                        return work._symbol_table.getVariableValue(this)
-                    }
-                }
-            }
-            return this
-        };
-
         // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
-        let innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, ''); 
-        String.prototype.toString = originToString;
-
+        setTop(work._symbol_table);
+        let innerWork = work.toJS().replace(/^\s*{/, '').replace(/}\s*$/, ''); 
         return `work(){
         ${innerWork}
         this.pushToken();
