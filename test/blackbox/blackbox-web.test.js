@@ -39,7 +39,7 @@ describe("blackbox 黑盒测试: 代码生成结果是否可运行 -- WEB 后端
         "scheduler.test.cos",
         "splitjoinTest.cos",
         "param.cos",
-        "FFT6.cos"
+        "FFT.cos"
         ]
 
     files.forEach(file => {
