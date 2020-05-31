@@ -22,6 +22,25 @@
     <div id="app" style="position:absolute;top:0;left:420px;width:530px;" data-app
         class="application application--light">
         <section class="buttons">
+            <span>示例程序</span>
+            <select v-model="file" class="select">
+                <option value="DCT">DCT.cos</option>
+                <option value="FFT">FFT.cos</option>
+                <option value="Matrix">Matrix.cos</option>
+                <option value="showErrors">showErrors.cos</option>
+                <option value="mnist">mnist.cos</option>
+            </select>
+            <span>划分核数</span>
+            <select v-model="core" class="select">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+            </select>
             <md-button class="md-raised md-primary" @click="updateSVG">打印语法树</md-button>
             <md-button class="md-raised md-primary" disabled>AST->SSG</md-button>
             <md-button class="md-raised md-primary" disabled>工作量估计</md-button>
@@ -187,15 +206,39 @@
             var str = editor.getValue();
             window.app.isDOT = /^\s*digraph/.test(str)
         });
-        if (!window.str) {
-            var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/activation-query.cos'
+        // 异步加载一个文件, 读取优先级为: 1.缓存(24h内) 2. github 3. gitte
+        function LoadFileAsync(fileName){
+            var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/' + fileName +'.cos'
             editor.session.setValue(`//...正在加载` + url);
-            window.onload = function () {
-                axios.get('https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/activation-query.cos').then(res => {
-                    window.str = res.data
-                    showCode(window.str);
+            const hit = localStorage.getItem(fileName)
+            if(hit){
+                const obj = JSON.parse(hit)
+                if((new Date() - new Date(hit.time)) < 1000*3600*24){
+                    // 若缓存未过期24h
+                    old_code = obj.content
+                    showCode(content)
+                }
+            }else{
+                new Promise((resolve,reject)=>{
+                    axios.get(url).then(res =>{
+                            old_code = res.data
+                            showCode(old_code)
+                            resolve()
+                    })
+                    setTimeout(reject,3000)
+                }).catch(()=>{
+                    editor.session.setValue(`//...github加载超时, 从gitee加载`+fileName+'.cos' );
+                    axios.get('https://gitee.com/lxx2013/COStreamJS/raw/master/examples/'+fileName+'.cos').then(res =>{
+                            old_code = res.data
+                            showCode(old_code)
+                    })//有时候访问github会出问题, 则使用gitee作为备用方案
+                }).then(()=>{
+                    localStorage.setItem(fileName, JSON.stringify({ content: old_code, time: (new Date()).toGMTString()}))
                 })
             }
+        }
+        if (!window.str) {
+            LoadFileAsync('DCT')
         } else {
             showCode(str);
         }
@@ -234,6 +277,8 @@
                     showSnackbar: false,
                     snackBarMessage: '',
                     symbol_table: {},
+                    file: "DCT", // 默认的示例文件名,
+                    core: 4, // 默认的划分核数
                     status: 0 // 0: 未编译, 1: 已编译的源码状态 2:已编译的目标代码状态
                 }
             },
@@ -242,7 +287,7 @@
                     var str = editor.getValue()
                     old_code = str;
                     try {
-                        window.COStreamJS.main(str, { platform: 'WEB', coreNum:4 })
+                        window.COStreamJS.main(str, { platform: 'WEB', coreNum:this.core || 4 })
                         this.flats = COStreamJS.ssg.flatNodes
                         this.flats.forEach(flat => {
                             Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat))
@@ -265,7 +310,8 @@
                     await window.renderDot(dotStr)
                 },
                 coreNum2Color(num) {
-                    return ['#f2f8ff', '#f6ebd8', '#aaca3e', '#b1fbd5'][num]
+                    const colors = ["aliceblue", "antiquewhite", "yellowgreen", "aquamarine","azure", "magenta", "maroon", "mediumaquamarine", "mediumblue", "mediumorchid"]
+                    return colors[num]
                 },
                 async updateSVG() {
                     try {
@@ -305,7 +351,13 @@
                         this.showSnackbar = true
                     }
                     hackerConsoleLog.isDebugging = false
-                }
+                },
+                watch: {
+                    // 如果 `file` 发生改变(更换示例文件)，这个函数就会运行
+                    file: function (newFile, oldFIle) {
+                        this.debouncedGetAnswer()
+                    }
+                },
             }
         })
 
