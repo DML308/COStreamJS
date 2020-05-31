@@ -355,7 +355,11 @@
                 watch: {
                     // 如果 `file` 发生改变(更换示例文件)，这个函数就会运行
                     file: function (newFile, oldFIle) {
-                        this.debouncedGetAnswer()
+                        LoadFileAsync(newFile)
+                        this.status = 0
+                    },
+                    core: function (newCore){
+                        this.status = 0
                     }
                 },
             }
