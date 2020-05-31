@@ -26,7 +26,7 @@
             <select v-model="file" class="select">
                 <option value="DCT">DCT.cos</option>
                 <option value="FFT">FFT.cos</option>
-                <option value="Matrix">Matrix.cos</option>
+                <option value="matrix">matrix.cos</option>
                 <option value="showErrors">showErrors.cos</option>
                 <option value="mnist">mnist.cos</option>
             </select>
@@ -211,31 +211,31 @@
             var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/' + fileName +'.cos'
             editor.session.setValue(`//...正在加载` + url);
             const hit = localStorage.getItem(fileName)
-            if(hit){
+            if(hit && hit != "[object Object]"){
                 const obj = JSON.parse(hit)
-                if((new Date() - new Date(hit.time)) < 1000*3600*24){
+                if((new Date() - new Date(obj.time)) < 1000*3600*24){
                     // 若缓存未过期24h
                     old_code = obj.content
-                    showCode(content)
+                    showCode(old_code)
+                    return
                 }
-            }else{
-                new Promise((resolve,reject)=>{
-                    axios.get(url).then(res =>{
-                            old_code = res.data
-                            showCode(old_code)
-                            resolve()
-                    })
-                    setTimeout(reject,3000)
-                }).catch(()=>{
-                    editor.session.setValue(`//...github加载超时, 从gitee加载`+fileName+'.cos' );
-                    axios.get('https://gitee.com/lxx2013/COStreamJS/raw/master/examples/'+fileName+'.cos').then(res =>{
-                            old_code = res.data
-                            showCode(old_code)
-                    })//有时候访问github会出问题, 则使用gitee作为备用方案
-                }).then(()=>{
-                    localStorage.setItem(fileName, JSON.stringify({ content: old_code, time: (new Date()).toGMTString()}))
-                })
             }
+            new Promise((resolve,reject)=>{
+                axios.get(url).then(res =>{
+                        old_code = res.data
+                        showCode(old_code)
+                        localStorage.setItem(fileName, JSON.stringify({ content: old_code, time: (new Date()).toGMTString()}))
+                        resolve()
+                })
+                setTimeout(reject,3000)
+            }).catch(()=>{
+                editor.session.setValue(`//...github加载超时, 从其它服务器加载`+fileName+'.cos' );
+                axios.get('https://i.setsuna.wang/COStreamJS/examples/'+fileName+'.cos').then(res =>{
+                        old_code = res.data
+                        showCode(old_code)
+                        localStorage.setItem(fileName, JSON.stringify({ content: old_code, time: (new Date()).toGMTString()}))
+                })//有时候访问github会出问题, 则使用我的阿里云主机(支持跨域)作为备用方案
+            })
         }
         if (!window.str) {
             LoadFileAsync('DCT')
@@ -351,18 +351,18 @@
                         this.showSnackbar = true
                     }
                     hackerConsoleLog.isDebugging = false
+                }
+            },
+            watch: {
+                // 如果 `file` 发生改变(更换示例文件)，这个函数就会运行
+                file: function (newFile, oldFIle) {
+                    LoadFileAsync(newFile)
+                    this.status = 0
                 },
-                watch: {
-                    // 如果 `file` 发生改变(更换示例文件)，这个函数就会运行
-                    file: function (newFile, oldFIle) {
-                        LoadFileAsync(newFile)
-                        this.status = 0
-                    },
-                    core: function (newCore){
-                        this.status = 0
-                    }
-                },
-            }
+                core: function (newCore){
+                    this.status = 0
+                }
+            },
         })
 
         hackerConsoleLog.isDebugging = false
