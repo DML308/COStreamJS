@@ -5,7 +5,7 @@ import { ternaryNode } from "../ast/node";
 import { matrix_section, callNode } from "../ast/node";
 import { matrix_constant } from "../ast/node";
 import { BUILTIN_FUNCTIONS, BUILTIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG, getMostNearName, BUILTIN_MATRIX_FUNCTIONS_ARG, BUILTIN_MATRIX_STATIC_FUNCTIONS_ARG } from "./built-in-function";
-import { constantNode, parenNode, lib_binopNode } from "../ast/node";
+import { constantNode, parenNode, lib_binopNode, unaryNode } from "../ast/node";
 
 let lastLoc  = 0; //标记最近检查中处理到的最后一个行号,用于识别只有一个string的场景, 由于string类型无法得知自己的行号,因此需要从外部记忆
 
@@ -102,6 +102,25 @@ function checkUnaryShape(/** @type {Node} */stmt){
         return checkShape(stmt.exp)
     }else if(stmt instanceof constantNode){
         return [1,1] //常数节点
+    }else if(stmt instanceof unaryNode){
+        if(typeof stmt.first === 'string'){
+            const rshape = checkShape(stmt.second)
+            const MatrixUnaryError = rshape.join('') !== '11' && stmt.first !== '+' && stmt.first !== '-'   // 矩阵变量使用+-以外的前缀均错误
+            const ConstantUnaryError = stmt.second instanceof constantNode && (stmt.first === '++' || stmt.first === '--') // ++1 错误
+            if(MatrixUnaryError || ConstantUnaryError){
+                throw new Error(error(stmt._loc,`该变量${stmt.second}不能使用前缀操作符${stmt.first}`))
+            }
+            debugger;
+            return rshape
+        }else if(typeof stmt.second === 'string'){ 
+            const lshape = checkShape(stmt.first)
+            const MatrixUnaryError = lshape.join('') !== '11' // 该情况右侧只能为 ++ 或 --, 而矩阵变量不能这样做
+            const ConstantUnaryError = stmt.first instanceof constantNode // 1++ 0-- 也不对
+            if(MatrixUnaryError || ConstantUnaryError){
+                throw new Error(error(stmt._loc,`该变量${stmt.first}不能使用后缀操作符${stmt.second}`))
+            }
+            return rshape
+        }
     }else{
         console.warn("返回了一个shape [1,1]", stmt)
         return [1,1]
@@ -247,7 +266,19 @@ function checkAssignmentShape(left,right){
             
         }
         else{
-            // S[0].x[0,0] = 1 的情况
+            if(left.exp instanceof binopNode && left.exp.left instanceof matrix_section){
+                // S[0].x[0,0] = 1 的情况
+                const lshape = checkShape(left.exp)
+                if(lshape.join('') !== '11'){
+                    if(left.slice_pair_list.length < 2){
+                        throw new Error(error(left._loc,`矩阵数据取下标需写全行列号`));
+                    }
+                    if(left.slice_pair_list[0].op || left.slice_pair_list[1].op){
+                        throw new Error(error(left._loc,`矩阵在等号左边时暂不支持切片赋值[:,:], 只支持定点赋值[i,j]`));
+                    }
+                }
+                return [1,1]
+            }
             throw new Error(error(left._loc,`暂未支持该左操作数格式${left}`));
         }
         

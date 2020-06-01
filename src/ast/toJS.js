@@ -83,7 +83,7 @@ function getNdConstantMatrix(shape, number){
 
 function resolveNumber(node, shape, mainShape){
     if(shape.join() !== mainShape.join()){
-        return getNdConstantMatrix(mainShape,node)
+        return `nj.constant(${mainShape[0]},${mainShape[1]},${node.toJS()})`
     }else{
         return node.toJS()
     }
@@ -98,12 +98,15 @@ binopNode.prototype.toJS = function () {
         const lshape = top.shapeCache.get(this.left), rshape = top.shapeCache.get(this.right)
         if(lshape && lshape != "1,1" || rshape && rshape != "1,1"){
             if(['+','-','*','/'].includes(this.op)){
+                if(this.op === '*' && lshape != "1,1" && rshape != "1,1"){
+                    return this.left.toJS()+'.dot('+this.right.toJS()+')' // 矩阵乘法
+                }
                 const mainShape = lshape != "1,1" ? lshape : rshape
                 const lString = resolveNumber(this.left,lshape,mainShape)
                 const rString = resolveNumber(this.right, rshape, mainShape)
                 const handlers = {
                     '+': 'add',
-                    '-': 'substract',
+                    '-': 'subtract',
                     '*': 'dot',
                     '/': 'divide'
                 }
@@ -171,7 +174,7 @@ forNode.prototype.toJS = function () {
 }
 matrix_section.prototype.toJS = function(){
     const shape = top.shapeCache.get(this.exp)
-    if(shape && shape.join('') > '11'){
+    if(shape && shape.join('') > '11' || this.slice_pair_list.length > 1){
         // 若为S.x[i,j]获取指定位置元素
         if(this.slice_pair_list.every(p => p.op !== ':')){
             const indexs = this.slice_pair_list.map(p=>p.start)
@@ -182,7 +185,6 @@ matrix_section.prototype.toJS = function(){
         return `${this.exp.toJS()}.slice(${args})`
     }else{
         // 不是矩阵的情况
-        debugger;
         return this.exp.toJS() + '[' + list2String(this.slice_pair_list, ',') + ']'
     }
 }
@@ -244,6 +246,13 @@ parenNode.prototype.toJS = function () {
 }
 
 unaryNode.prototype.toJS = function () {
+    if(this.first === '+' || this.first === '-'){
+        const shape = top.shapeCache.get(this)
+        if(shape && shape.join('') !== '11'){
+            const oper = this.first === '+' ? 'add' : 'subtract'
+            return `nj.constant(${shape[0]},${shape[1]},0).${oper}(${this.second.toJS()})`
+        }
+    }
     return '' + this.first.toJS() + this.second.toJS()
 }
 whileNode.prototype.toJS = function (){

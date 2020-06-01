@@ -60,7 +60,7 @@ function generateStmt(/** @type {Node} */stmt) {
     switch (stmt.constructor) {
         case Number: break;
         case String: {
-            if (!top.searchName(stmt)) error(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top)
+            if (!top.searchName(stmt)){ throw new Error(error(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top))}
             break;
         }
         case declareNode: {
