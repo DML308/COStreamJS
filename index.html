@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/vue-material.min.css">
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
     <link rel="stylesheet" type="text/css" href="./main.css">
-    <title>COStreamJS-v0.10.1</title>
+    <title>COStreamJS-v0.10.2</title>
     <style> .md-snackbar{ max-height: none!important;} </style>
 </head>
 
@@ -113,7 +113,7 @@
         <div id="ast-svg"></div>
     </div>
     <!-- 右边 canvas 部分 -->
-    <div class="canvas-container" style="display:none;position: absolute;top: 0; bottom: 0;left: 930px;">
+    <div class="canvas-container" style="display:none;position: absolute;top: 0; bottom: 0;left: 930px;min-width: 280px;">
         <canvas id="canvas" width="280" height="280" style="background: grey;"></canvas>
         <button id="log" style="display:none">log</button>
         <button id="clear">clear</button>
@@ -148,7 +148,7 @@
             }
             function formatArray(k, v) {
                 if (typeof v === 'string') { return v; }
-                if (Number.isFinite(v)) {
+                if (Number.isFinite(v) || Number.isNaN(v)) {
                     var s = formatNumber(v);
                     return new Array(Math.max(0, nChars - s.length + 2)).join(' ') + s;
                 }
@@ -177,6 +177,7 @@
         };
         nj.NdArray.prototype.rows = function(){ return this.shape[0] }
         nj.NdArray.prototype.cols = function(){ return this.shape[1] }
+        nj.constant = function(rows,cols,num){ return this.zeros([rows,cols]).assign(num) }
 
     </script>
 

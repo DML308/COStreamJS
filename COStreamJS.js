@@ -847,7 +847,7 @@ var COStreamJS = (function () {
         activationLayerNode: activationLayerNode
     });
 
-    var version = "0.10.1";
+    var version = "0.10.2";
 
     class FlatNode {
         constructor(/** @type {operatorNode} */ node, params = []) {
@@ -2261,6 +2261,25 @@ var COStreamJS = (function () {
             return checkShape(stmt.exp)
         }else if(stmt instanceof constantNode){
             return [1,1] //常数节点
+        }else if(stmt instanceof unaryNode){
+            if(typeof stmt.first === 'string'){
+                const rshape = checkShape(stmt.second);
+                const MatrixUnaryError = rshape.join('') !== '11' && stmt.first !== '+' && stmt.first !== '-';   // 矩阵变量使用+-以外的前缀均错误
+                const ConstantUnaryError = stmt.second instanceof constantNode && (stmt.first === '++' || stmt.first === '--'); // ++1 错误
+                if(MatrixUnaryError || ConstantUnaryError){
+                    throw new Error(error$1(stmt._loc,`该变量${stmt.second}不能使用前缀操作符${stmt.first}`))
+                }
+                debugger;
+                return rshape
+            }else if(typeof stmt.second === 'string'){ 
+                const lshape = checkShape(stmt.first);
+                const MatrixUnaryError = lshape.join('') !== '11'; // 该情况右侧只能为 ++ 或 --, 而矩阵变量不能这样做
+                const ConstantUnaryError = stmt.first instanceof constantNode; // 1++ 0-- 也不对
+                if(MatrixUnaryError || ConstantUnaryError){
+                    throw new Error(error$1(stmt._loc,`该变量${stmt.first}不能使用后缀操作符${stmt.second}`))
+                }
+                return rshape
+            }
         }else {
             console.warn("返回了一个shape [1,1]", stmt);
             return [1,1]
@@ -2406,7 +2425,19 @@ var COStreamJS = (function () {
                 
             }
             else {
-                // S[0].x[0,0] = 1 的情况
+                if(left.exp instanceof binopNode && left.exp.left instanceof matrix_section){
+                    // S[0].x[0,0] = 1 的情况
+                    const lshape = checkShape(left.exp);
+                    if(lshape.join('') !== '11'){
+                        if(left.slice_pair_list.length < 2){
+                            throw new Error(error$1(left._loc,`矩阵数据取下标需写全行列号`));
+                        }
+                        if(left.slice_pair_list[0].op || left.slice_pair_list[1].op){
+                            throw new Error(error$1(left._loc,`矩阵在等号左边时暂不支持切片赋值[:,:], 只支持定点赋值[i,j]`));
+                        }
+                    }
+                    return [1,1]
+                }
                 throw new Error(error$1(left._loc,`暂未支持该左操作数格式${left}`));
             }
             
@@ -2996,7 +3027,7 @@ var COStreamJS = (function () {
         switch (stmt.constructor) {
             case Number: break;
             case String: {
-                if (!top.searchName(stmt)) error$1(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top);
+                if (!top.searchName(stmt)){ throw new Error(error$1(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top))}
                 break;
             }
             case declareNode: {
@@ -4003,7 +4034,7 @@ var COStreamJS = (function () {
             const comp = MakeForwardComposite(layer, call_outputs.length == 1);
             const call = new compositeCallNode(null, comp.compName, call_inputs);
             call.outputs = call_outputs;
-            result.push(new binopNode(null, '('+call_outputs+')', '=', call));
+            result.push(new binopNode(null, new parenNode(null,call_outputs), '=', call));
         }
         debugger;
         // dl/dy的输入为y, y`
@@ -4039,7 +4070,7 @@ var COStreamJS = (function () {
             const back_comp = MakeBackComposite(layer);
             const back_call = new compositeCallNode(null, back_comp.compName, call_inputs);
             back_call.outputs = call_outputs;
-            result.push(new binopNode(null, '('+call_outputs+')', '=', back_call));
+            result.push(new binopNode(null, new parenNode(null,call_outputs), '=', back_call));
         }
 
         // 反向传播展开完毕
@@ -6464,7 +6495,7 @@ class FileReader{
 
     function resolveNumber(node, shape, mainShape){
         if(shape.join() !== mainShape.join()){
-            return getNdConstantMatrix(mainShape,node)
+            return `nj.constant(${mainShape[0]},${mainShape[1]},${node.toJS()})`
         }else {
             return node.toJS()
         }
@@ -6479,12 +6510,15 @@ class FileReader{
             const lshape = top.shapeCache.get(this.left), rshape = top.shapeCache.get(this.right);
             if(lshape && lshape != "1,1" || rshape && rshape != "1,1"){
                 if(['+','-','*','/'].includes(this.op)){
+                    if(this.op === '*' && lshape != "1,1" && rshape != "1,1"){
+                        return this.left.toJS()+'.dot('+this.right.toJS()+')' // 矩阵乘法
+                    }
                     const mainShape = lshape != "1,1" ? lshape : rshape;
                     const lString = resolveNumber(this.left,lshape,mainShape);
                     const rString = resolveNumber(this.right, rshape, mainShape);
                     const handlers = {
                         '+': 'add',
-                        '-': 'substract',
+                        '-': 'subtract',
                         '*': 'dot',
                         '/': 'divide'
                     };
@@ -6552,7 +6586,7 @@ class FileReader{
     };
     matrix_section.prototype.toJS = function(){
         const shape = top.shapeCache.get(this.exp);
-        if(shape && shape.join('') > '11'){
+        if(shape && shape.join('') > '11' || this.slice_pair_list.length > 1){
             // 若为S.x[i,j]获取指定位置元素
             if(this.slice_pair_list.every(p => p.op !== ':')){
                 const indexs = this.slice_pair_list.map(p=>p.start);
@@ -6563,7 +6597,6 @@ class FileReader{
             return `${this.exp.toJS()}.slice(${args})`
         }else {
             // 不是矩阵的情况
-            debugger;
             return this.exp.toJS() + '[' + list2String$1(this.slice_pair_list, ',') + ']'
         }
     };
@@ -6625,6 +6658,13 @@ class FileReader{
     };
 
     unaryNode.prototype.toJS = function () {
+        if(this.first === '+' || this.first === '-'){
+            const shape = top.shapeCache.get(this);
+            if(shape && shape.join('') !== '11'){
+                const oper = this.first === '+' ? 'add' : 'subtract';
+                return `nj.constant(${shape[0]},${shape[1]},0).${oper}(${this.second.toJS()})`
+            }
+        }
         return '' + this.first.toJS() + this.second.toJS()
     };
     whileNode.prototype.toJS = function (){
