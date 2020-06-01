@@ -178,7 +178,7 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
         const comp = MakeForwardComposite(layer, call_outputs.length == 1)
         const call = new compositeCallNode(null, comp.compName, call_inputs)
         call.outputs = call_outputs
-        result.push(new binopNode(null, '('+call_outputs+')', '=', call))
+        result.push(new binopNode(null, new parenNode(null,call_outputs), '=', call))
     }
     debugger;
     // dl/dy的输入为y, y`
@@ -214,7 +214,7 @@ UnfoldComposite.prototype.generateSequentialBodyStmts = function (compName, sequ
         const back_comp = MakeBackComposite(layer)
         const back_call = new compositeCallNode(null, back_comp.compName, call_inputs)
         back_call.outputs = call_outputs
-        result.push(new binopNode(null, '('+call_outputs+')', '=', back_call))
+        result.push(new binopNode(null, new parenNode(null,call_outputs), '=', back_call))
     }
 
     // 反向传播展开完毕
