@@ -6,8 +6,31 @@ composite Main() {
     (In, Y) = Start(Source) {
         int i = 0;
         work {
-            for(i = 0; i < 784; i++)
-                In[i].x = Source[i+1].x/255.0 + 0.01;
+            int i,j, rStart=0,rEnd=0,cStart=0,cEnd=0;
+            double threshold = 0.019; // 阈值, 高于这个阈值的都不被视为噪点, 0.019 = 5/255
+            for(i=0;i<28;i++){
+                for(j=0;j<28;j++){
+                    if(Source[i*28+j+1].x >= threshold){
+                        if(!rStart) rStart = i ;
+                        if(!cStart || cStart > j) cStart = j ;
+                        rEnd = i ;
+                        if(!cEnd || cEnd < j) cEnd = j ;
+                    }
+                }
+            }
+            int distance_i = ((rStart+rEnd)>>1) - 13; // [13,13]被视为画布的中心
+            int distance_j = ((cStart+cEnd)>>1) - 13; 
+
+            for(i=0;i<28;i++){
+                for(j=0;j<28;j++){
+                    int ii = i+distance_i, jj =j+distance_j;
+                    if(ii>=0&& ii<28 && jj>=0 && jj<28){
+                        In[i*28+j].x = Source[ii*28+jj+1].x/255.0+0.01;
+                    }else{
+                        In[i*28+j].x = 0.01;
+                    }
+                }
+            }
             for(i = 0; i < 10; i++){
                 Y[i].x = Source[0].x == i ? 1:0;
             }

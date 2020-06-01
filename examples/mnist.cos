@@ -1,0 +1,140 @@
+import Matrix;
+// 该文件使用了 Native 接口, 只能在 WEB 环境中运行
+Matrix _weight_3 = Matrix.random(100,10);
+Matrix _weight_1 = Matrix.random(784,100);
+
+composite Translate(input stream<Matrix x>In, output stream<Matrix x>Out){
+    Out = Translate(In){
+        work{
+            int i,j, rStart=0,rEnd=0,cStart=0,cEnd=0;
+            double threshold = 0.019; // 阈值, 高于这个阈值的都不被视为噪点, 0.019 = 5/255
+            for(i=0;i<28;i++){
+                for(j=0;j<28;j++){
+                    if(In[0].x[0,i*28+j] >= threshold){
+                        if(!rStart) rStart = i ;
+                        if(!cStart || cStart > j) cStart = j ;
+                        rEnd = i ;
+                        if(!cEnd || cEnd < j) cEnd = j ;
+                    }
+                }
+            }
+            int distance_i = ((rStart+rEnd)>>1) - 13; // [13,13]被视为画布的中心
+            int distance_j = ((cStart+cEnd)>>1) - 13; 
+
+            Out[0].x = Matrix.zeros(1,784);
+            for(i=0;i<28;i++){
+                for(j=0;j<28;j++){
+                    int ii = i+distance_i, jj =j+distance_j;
+                    if(ii>=0&& ii<28 && jj>=0 && jj<28){
+                        Out[0].x[0,i*28+j] = In[0].x[0, ii*28+jj] ;
+                    }else{
+                        Out[0].x[0,i*28+j] = 0.01 ;
+                    }
+                }
+            }
+        }
+        window{
+            In sliding(1,1);
+            Out tumbling(1);
+        }
+    };
+}
+composite dense_1(input stream<Matrix x>In, output stream<Matrix x>Out){
+  Out=dense_1(In){
+    init{
+      int i, j;
+      for(i=0;i<784;i++){
+        for(j=0;j<100;j++){
+          _weight_1[i,j]= Native("wih[i][j]", "WEB");
+        }
+      }
+    }
+    work{
+      Out[0].x=In[0].x * _weight_1;
+    }
+    window{
+      In sliding(1,1);
+      Out tumbling(1,1);
+    }
+  }
+  ;
+}
+composite Activation_2(input stream<Matrix x>In, output stream<Matrix x>out0){
+  out0=activation_sigmoid_2(In){
+    work{
+      out0[0].x = 1 / (1+(-In[0].x).exp());      
+    }
+    window{
+      In sliding(1,1);
+      out0 tumbling(1,1);
+    }
+  };
+}
+composite dense_3(input stream<Matrix x>In, output stream<Matrix x>Out){
+  Out=dense_3(In){
+    init{
+      int i, j;
+      for(i=0;i<100;i++){
+        for(j=0;j<10;j++){
+          _weight_3[i,j]=Native("who[i][j]", "WEB");
+        }
+      }
+    }
+    work{
+      Out[0].x = In[0].x * _weight_3;
+    }
+    window{
+      In sliding(1,1);
+      Out tumbling(1,1);
+    }
+  }
+  ;
+}
+composite Activation_4(input stream<Matrix x>In, output stream<double x>out0){
+  out0=activation_sigmoid_4(In){
+    init{
+    }
+    work{
+      int i;
+      double res;
+      for(i=0;i<10;i++){
+        res=1/(1+exp(-In[0].x[0,i]));
+        out0[i].x=res;
+      }
+    }
+    window{
+      In sliding(1,1);
+      out0 tumbling(10,10);
+    }
+  }
+  ;
+}
+
+composite squential_0(input stream<Matrix x>In, output stream<double x>Out){
+  stream<Matrix x> hidden_inputs,hidden_outputs, final_inputs, Center; // Center 用于输入28x28数据的预处理, 将图像轮廓水平垂直居中
+  Center = Translate(In)();
+  hidden_inputs=dense_1(Center)();
+  hidden_outputs=Activation_2(hidden_inputs)();
+  final_inputs=dense_3(hidden_outputs)();
+  Out=Activation_4(final_inputs)();
+}
+composite Main(){
+  stream<double x>RAW,Out;
+  stream<Matrix x> In;
+  RAW = FileReader()("canvas",784);
+  In=Start(RAW){
+    work{
+        int i,j;
+        In[0].x = Matrix.zeros(1,784);
+        for(i = 0; i < 784; i++)
+            In[0].x[0,i] = RAW[i].x/255.0 + 0.01;
+    }
+    window{
+      RAW sliding(784,784);
+      In tumbling(1);
+    }
+  }
+  ;
+  Out=squential_0(In,Y)();
+  FileWriter(Out)("chart",10);
+}
