@@ -46,7 +46,7 @@ export const BUILTIN_MATRIX_FUNCTIONS_ARG = {
             if(args[0] * args[1] !== lshape[0] * lshape[1]){
                 throw new Error(error(_loc || lshape._loc, `不能将${lshape[0]}x${lshape[1]}的矩阵reshape为${args[0]}x${args[1]}`))
             }
-            return [args[0],arg[1]]
+            return [args[0],args[1]]
         }
     },
     transpose:{

@@ -94,7 +94,7 @@ export class SymbolTable {
     InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
         const name = inOutNode.id
         if(this.streamTable[name]){
-            throw new Error(error(inOutNode._loc,`stream ${name} has been declared`))
+            error(inOutNode._loc,`数据流名 ${name} 重复定义, 已忽略该定义`)
         }else{
             this.streamTable[name]= { strType: inOutNode.strType.copy() };
         }

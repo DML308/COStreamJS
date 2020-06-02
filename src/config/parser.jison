@@ -510,7 +510,7 @@ assignment_expression:
               }else if(typeof $1 == "string"){
                   $3.outputs = [$1]
               }else{
-                  error("只支持 S = oper()() 或 (S1,S2) = oper()() 两种方式",$1,$3) 
+                  throw new Error(error($1._loc,"只支持 S = oper()() 或 (S1,S2) = oper()() 两种方式",$1,$3))
               }
           }
           $$ = new binopNode(@$,$1,$2,$3) 

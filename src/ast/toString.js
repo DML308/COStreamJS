@@ -247,6 +247,6 @@ lib_binopNode.prototype.toString = function (){
         }
         return 'Matrix::' + maps[this.function_name]
     }else{
-        error('暂不支持矩阵之外的库')
+        throw new Error(error(this._loc,'暂不支持矩阵之外的库'))
     }
 }

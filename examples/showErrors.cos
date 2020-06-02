@@ -1,0 +1,50 @@
+import Matrix;
+
+int i = (1+2)); //括号不匹配
+
+composite Main(){
+    stream<int x>In;
+    In = Source(){
+        work{
+            In[0].x = 1 //缺少分号
+        }
+        window{
+            In tumbling(1);
+        }
+    };
+    Print(In)();
+}
+
+//Print的输入流的成员类型double与Main中传入的In不符, 将double修改为int即可
+composite Print(input stream<double x>In){
+    stream<int x>In; //数据流名重复定义
+    
+    Print(In){
+        work{
+            //使用未定义的变量
+            int y = NAME; 
+            //调用内置函数名错误
+            int d = siin(3.14); 
+            //函数传参错误
+            int d = cos(1,2);
+            //对常数进行后缀++运算错误
+            int dp = 0++;  
+
+            //矩阵构造函数参数错误
+            Matrix data = Matrix.ones(784);
+            //矩阵reshape检查未通过
+            Matrix r = data.reshape(3,392);
+    
+            Matrix weight = Matrix.random(784,100);
+            //矩阵取下标越界
+            println(weight[0,101]);
+            println(weight[0:2,-1:2]);
+
+            //矩阵乘法左右操作数shape不符
+            Matrix result = data * weight; 
+        }
+        window{
+            In sliding(1,1);
+        }
+    };
+}

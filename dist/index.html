@@ -209,12 +209,13 @@
         });
         // 异步加载一个文件, 读取优先级为: 1.缓存(24h内) 2. github 3. gitte
         function LoadFileAsync(fileName){
-            var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/' + fileName +'.cos'
+            //var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/' + fileName +'.cos'
+            var url = './showErrors.cos'
             editor.session.setValue(`//...正在加载` + url);
             const hit = localStorage.getItem(fileName)
-            if(hit && hit != "[object Object]"){
+            if(0 && hit && hit != "[object Object]"){
                 const obj = JSON.parse(hit)
-                if((new Date() - new Date(obj.time)) < 1000*3600*24){
+                if((new Date() - new Date(obj.time)) < 0.1 || 1000*3600*24){
                     // 若缓存未过期24h
                     old_code = obj.content
                     showCode(old_code)
@@ -296,6 +297,9 @@
                         })
                         this.status = 1
                     } catch (err) {
+                        if(typeof err === 'object' && err.hash){
+                            error(err.hash.loc, err.message.split('\n')[3])
+                        }
                         console.warn(errors)
                         editor.renderer.setAnnotations(errors.map(x => ({
                             row: x.loc.first_line-1,

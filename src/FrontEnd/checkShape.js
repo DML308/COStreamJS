@@ -11,7 +11,7 @@ let lastLoc  = 0; //标记最近检查中处理到的最后一个行号,用于�
 
 /** 该文件的函数同时执行两项工作: 对被操作数据的 shape 进行校验, 并将计算后的结果的 shape 缓存下来 */
 export function checkShape(/** @type {Node | string} */stmt, _loc){
-    lastLoc = _loc || stmt._loc
+    lastLoc = _loc || stmt._loc || lastLoc
     let returnShape
     if(Array.isArray(stmt)){
         const itemShape = checkShape(stmt[0])
@@ -70,7 +70,7 @@ function checkDotShape(/** @type {binopNode} */stmt){
             }
         }
         if(!result || result.type !== 'stream'){
-            error(stmt._loc,`在符号表中找不到流${stmt.left.exp}`)
+            throw new Error(error(stmt._loc,`在符号表中找不到流${stmt.left.exp}`))
         } 
         
     }else{
@@ -86,6 +86,7 @@ function checkUnaryShape(/** @type {Node} */stmt){
     }else if(stmt instanceof matrix_constant){
         return stmt.shape
     }else if(typeof stmt === 'string'){
+        if(!/[_A-z0-9]+/.test(stmt)) return [1,1]//若非标识符,直接返回
         const result = top.searchName(stmt)
         if(!result) throw new Error(error(lastLoc,`找不到变量名${stmt}在符号表中的定义`))
         const { type, origin } = result
@@ -103,7 +104,7 @@ function checkUnaryShape(/** @type {Node} */stmt){
     }else if(stmt instanceof constantNode){
         return [1,1] //常数节点
     }else if(stmt instanceof unaryNode){
-        if(typeof stmt.first === 'string'){
+        if(['++','--','+','-','!','~'].includes(stmt.first)){
             const rshape = checkShape(stmt.second)
             const MatrixUnaryError = rshape.join('') !== '11' && stmt.first !== '+' && stmt.first !== '-'   // 矩阵变量使用+-以外的前缀均错误
             const ConstantUnaryError = stmt.second instanceof constantNode && (stmt.first === '++' || stmt.first === '--') // ++1 错误
@@ -112,14 +113,14 @@ function checkUnaryShape(/** @type {Node} */stmt){
             }
             debugger;
             return rshape
-        }else if(typeof stmt.second === 'string'){ 
+        }else if(['++','--'].includes(stmt.second)){ 
             const lshape = checkShape(stmt.first)
             const MatrixUnaryError = lshape.join('') !== '11' // 该情况右侧只能为 ++ 或 --, 而矩阵变量不能这样做
             const ConstantUnaryError = stmt.first instanceof constantNode // 1++ 0-- 也不对
             if(MatrixUnaryError || ConstantUnaryError){
-                throw new Error(error(stmt._loc,`该变量${stmt.first}不能使用后缀操作符${stmt.second}`))
+                throw new Error(error(stmt._loc,`不能对${stmt.first}使用后缀操作符${stmt.second}`))
             }
-            return rshape
+            return lshape
         }
     }else{
         console.warn("返回了一个shape [1,1]", stmt)
@@ -134,6 +135,7 @@ function checkCallNodeShape(/** @type {callNode} */node){
                 const hint = BUILTIN_FUNCTIONS_ARG[node.name].hint
                 throw new Error(error(node._loc, `调用函数${node.name}传参数量错误,当前传参为${node.arg_list},期待传参为${hint}`)) 
             }
+            node.arg_list.forEach(arg=>checkShape(arg,node._loc))
             return [1,1] //全部检查通过, 因此该数学计算得到的值的结果是个数字, 返回数字的shape [1,1]
         }
         else{
@@ -190,12 +192,16 @@ export function checkSliceShape(shape, /** @type {matrix_section} */matrix_s){
     for(i=0;i<slice_pair_list.length; i++){
         if(! slice_pair_list[i].op){
             // 没有冒号:的情况, 即 S[0] 或 S[i,j], 直接降维
+            let start = (slice_pair_list[i].start || 0).value
+            if(start < 0) throw new Error(error(matrix_s._loc,`切片操作第${i}维的坐标不能小于0`))
+            if(start >= shape[i]) throw new Error(error(matrix_s._loc,`切片操作的第${i}维坐标不能大于等于最大值${shape[i]},当前为${start}`))
             resShape.push(1)
         }else{
             // 有冒号的情况 , S[start:end]
             let start = (slice_pair_list[i].start || 0).value
             let end = (slice_pair_list[i].end || shape[i]).value
             if(start < 0) throw new Error(error(matrix_s._loc,`切片操作第${i}维的起始坐标不能小于0`))
+            if(start >= shape[i]) throw new Error(error(matrix_s._loc,`切片操作的第${i}维起始坐标不能大于等于最大值${shape[i]},当前为${start}`))
             if(end > shape[i]) throw new Error(error(matrix_s._loc,`切片操作的第${i}维终止坐标不能大于最大值${shape[i]},当前为${end}`))
             resShape.push(end - start)
         }
@@ -212,7 +218,7 @@ export function checkSliceShape(shape, /** @type {matrix_section} */matrix_s){
     return resShape
 }
 function checkTernaryNode(/** @type {ternaryNode} */stmt){
-
+    return checkEqualShape(checkShape(stmt.second), checkShape(stmt.third), stmt._loc)
 }
 function checkAssignmentShape(left,right){
     // x = 1 的情况

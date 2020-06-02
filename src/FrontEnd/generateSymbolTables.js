@@ -46,6 +46,7 @@ export function generateSymbolTables(program){
 function generateDeclareNode(/** @type{declareNode} */node){
     node.init_declarator_list.forEach(init_node=>{
         const name = init_node.identifier.name
+        generateStmt(init_node.initializer)
         const variable = new Variable(node.type,name,init_node.initializer,node._loc);
         if(node.type === "Matrix"){
             variable.shape = checkShape(init_node.initializer, init_node._loc).map(x=>x.value)
@@ -54,13 +55,15 @@ function generateDeclareNode(/** @type{declareNode} */node){
     })
 }
 
+let lastLoc = null
+const ignoreTypes = [ternaryNode, parenNode, castNode, constantNode, fileReaderNode, fileWriterNode]
 // 解析 语句
-const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section, fileReaderNode, fileWriterNode]
 function generateStmt(/** @type {Node} */stmt) {
+    lastLoc = stmt instanceof Node ? stmt._loc : lastLoc //记录最近一次处理的节点的loc信息
     switch (stmt.constructor) {
         case Number: break;
         case String: {
-            if (!top.searchName(stmt)){ throw new Error(error(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top))}
+            if (!top.searchName(stmt)){ throw new Error(error(lastLoc,`在当前符号表链中未找到${stmt}的定义`, top))}
             break;
         }
         case declareNode: {
@@ -71,6 +74,8 @@ function generateStmt(/** @type {Node} */stmt) {
             }
             break;
         }
+        case matrix_section: if(isInOperator && COStreamJS.plugins.matrix) checkShape(stmt); break
+        case unaryNode: if(isInOperator && COStreamJS.plugins.matrix) checkShape(stmt); break
         case binopNode: {
             /**
              * 对赋值语句有两种上下文需要处理
@@ -131,6 +136,10 @@ function generateStmt(/** @type {Node} */stmt) {
             break;
         }
         case callNode: {
+            if(isInOperator && COStreamJS.plugins.matrix){
+                checkShape(stmt);
+                return
+            }
             if(typeof stmt.name === "string"){
                 if(BUILTIN_FUNCTIONS.includes(stmt.name)){
                     const wanted_args = BUILTIN_FUNCTIONS_ARG[stmt.name].length
@@ -142,16 +151,6 @@ function generateStmt(/** @type {Node} */stmt) {
                 else{
                     const msg = `你是否想使用函数 ${getMostNearName(BUILTIN_FUNCTIONS,stmt.name)} ?`
                     throw new Error(error(stmt._loc, `不支持的函数调用 ${stmt.name},${msg} `))
-                }
-            } 
-            else if(stmt.name instanceof binopNode){
-                if(1){ // FIXME:如果这里判断左边的类型是矩阵, 那么检查该调用是否合规
-                    if(BUILTIN_MATRIX_FUNCTIONS.includes(stmt.name.right)){
-                        
-                    }else{
-                        
-                        throw new Error(error(stmt._loc, "不支持的函数调用:",stmt.name.right))
-                    }
                 }
             }
             /**
@@ -187,6 +186,7 @@ function generateStrDlcNode(/** @type {declareNode}*/ decl){  //stream "<int x,i
         let stream_dlc = new inOutdeclNode();
         stream_dlc.strType = decl.type
         stream_dlc.id = identifier_name
+        stream_dlc._loc = decl._loc
         top.InsertStreamSymbol(stream_dlc)
     })
 }

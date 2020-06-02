@@ -2,6 +2,7 @@ import { Node,blockNode, idNode, ternaryNode,forNode, declareNode, declarator, b
 import { BUILTIN_MATH } from "../FrontEnd/built-in-function"
 import { COStreamJS, top} from "../FrontEnd/global"
 import { error } from "../utils"
+import { checkShape } from "../FrontEnd/checkShape.js"
 
 //对于未实现toJS函数的节点, 降级执行toString
 Node.prototype.toJS = function(){
@@ -136,9 +137,9 @@ function matrixAssignmentToJS(/** @type {matrix_section}*/left, right){
 callNode.prototype.toJS = function(){
     if(this.name instanceof binopNode){
         if(this.name.right === 'cwiseProduct'){
-            return this.name.left.toJS() + '.multiply(' + list2String(this.arg_list) + ')'
+            return this.name.left.toJS() + '.multiply(' + list2String(this.arg_list,',') + ')'
         }else{
-            return this.name.left.toJS() + `.${this.name.right}(` + list2String(this.arg_list) + ')'
+            return this.name.left.toJS() + `.${this.name.right}(` + list2String(this.arg_list,',') + ')'
         }
     }else if(this.name instanceof lib_binopNode){
         if(this.name.function_name === 'constant'){

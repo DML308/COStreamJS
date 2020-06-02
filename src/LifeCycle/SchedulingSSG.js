@@ -43,7 +43,7 @@ function SteadyScheduling(ssg){
             }else{
                 //若 down 节点已进行稳态调度，检查SDF图是否存在稳态调度系列，一般不存在的话表明程序有误
                 if(nPush * up.steadyCount !== nPop * down.steadyCount){
-                    error("调度算法出错, 请检查")
+                    throw new Error(error("调度算法出错, 请检查"))
                 }
             }
             flats.push(down)
