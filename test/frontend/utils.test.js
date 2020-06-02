@@ -8,8 +8,10 @@ describe("测试 checkBraceMatching 函数", ()=>{
     it("()[]{}", ()=>{
         assert(checkBraceMatching("()[]{}"))
     })    
-    it("([)]",()=>{
-        assert(!checkBraceMatching("([)]"))
+    it("([)]会报错",()=>{
+        assert.throws(()=>{
+            checkBraceMatching("([)]")
+        })
     })
     it("code", ()=>{
         let content = fs.readFileSync(resolve(__dirname,"../../examples/wang.cos"), "utf8")

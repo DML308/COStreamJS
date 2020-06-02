@@ -3,13 +3,14 @@ const assert = require('assert')
 const fs = require("fs")
 const resolve = require('path').resolve
 
+console.log('/n!!!', Number.prototype.value )
 if(!Number.prototype.value){
     Object.defineProperty(String.prototype,'value',{
         get(){
             if(!Number.isNaN(parseFloat(this))){
                 return parseFloat(this); // 如果这个字符串本身就是一个数字, 则直接返回, 例如'0;
             }
-            return top.LookupIdentifySymbol(this).value; 
+            return 0;
         }
     })
     Object.defineProperty(Number.prototype,'value',{
@@ -21,18 +22,34 @@ if(!Number.prototype.value){
 
 
 describe("测试 checkShape 机制", ()=>{
-    it("checkSliceShape S[i,j]", ()=>{
-        var shape = checkSliceShape([2,2], { 
+    it("checkSliceShape S[0,2]", ()=>{
+        var shape = checkSliceShape([3,3], { 
             slice_pair_list: [
-                {start:'i'},
-                {start:'j'}
+                {start:'0'},
+                {start:'2'}
             ]})
         assert(shape.join() === '1,1')
     })  
-    it("checkSliceShape S[i,:]", ()=>{
+    it("checkSliceShape S[0,2]下标越界检错", ()=>{
+        assert.throws(()=>{
+            checkSliceShape([10,10], { 
+                slice_pair_list: [
+                    {start:'-1'},
+                    {start:'12'}
+                ]})
+        })
+        assert.throws(()=>{
+            checkSliceShape([2,2], { 
+                slice_pair_list: [
+                    {start:'0'},
+                    {start:'2'}
+                ]})
+        })
+    })
+    it("checkSliceShape S[3,:]", ()=>{
         var shape = checkSliceShape([10,10], { 
             slice_pair_list: [
-                {start:'i'},
+                {start:'3'},
                 {op:':'}
             ]})
             console.log(shape.join())
