@@ -175,6 +175,9 @@ forNode.prototype.toJS = function () {
 }
 matrix_section.prototype.toJS = function(){
     const shape = top.shapeCache.get(this.exp)
+    if(shape && shape.length >= 3 && this.slice_pair_list.length === 1){ //matrixs是矩阵数组,访问matrixs[0]的情况
+        return `${this.exp.toJS()}[${this.slice_pair_list[0].start.toJS()}]`
+    }
     if(shape && shape.join('') > '11' || this.slice_pair_list.length > 1){
         // 若为S.x[i,j]获取指定位置元素
         if(this.slice_pair_list.every(p => p.op !== ':')){

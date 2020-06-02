@@ -1,5 +1,5 @@
 import { SymbolTable, Variable, symbolTableList} from "./symbol";
-import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode, sequentialNode, layerNode, fileReaderNode} from "../ast/node";
+import { declareNode, compositeNode, function_definition, expNode, blockNode, whileNode, forNode, unaryNode, ternaryNode, parenNode, castNode, constantNode, doNode, splitjoinNode, pipelineNode, compositeCallNode, strdclNode, binopNode,operatorNode, inOutdeclNode, callNode, selection_statement,addNode,operNode, sequentialNode, layerNode, fileReaderNode, matrix_constant} from "../ast/node";
 import { deepCloneWithoutCircle, error } from "../utils";
 import { matrix_section } from "../ast/node";
 import { BUILTIN_FUNCTIONS, BUILTIN_MATRIX_FUNCTIONS, BUILTIN_FUNCTIONS_ARG, getMostNearName } from "./built-in-function";
@@ -56,7 +56,7 @@ function generateDeclareNode(/** @type{declareNode} */node){
 }
 
 let lastLoc = null
-const ignoreTypes = [ternaryNode, parenNode, castNode, constantNode, fileReaderNode, fileWriterNode]
+const ignoreTypes = [ternaryNode, parenNode, castNode, constantNode, fileReaderNode, fileWriterNode, matrix_constant]
 // 解析 语句
 function generateStmt(/** @type {Node} */stmt) {
     lastLoc = stmt instanceof Node ? stmt._loc : lastLoc //记录最近一次处理的节点的loc信息

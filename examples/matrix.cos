@@ -1,4 +1,4 @@
-
+// 该文件为矩阵扩展的接口能力展示
 import Matrix;
 
 Matrix matrixs[8] = { 
@@ -12,44 +12,51 @@ Matrix matrixs[8] = {
     [ [7,7], [7,7] ]
 };                
 
-composite B(output stream<Matrix x>Out,input stream<Matrix x>In)
-{
-    param
-        int size1,int size2;
-    Out = B(In)
-    {
-        work
-        {
-            Out[0].x = In[0].x;
-        }
-        window{
-            In  sliding(1,1);
-            Out tumbling(1);
-        }
-    };
-}
-
 composite Main(){
     stream<Matrix x>S,P;
     S=Source(){
         int i;
         init{ }
         work{
-            for(i = 0;i < 8;i++){
-                S[i].x = matrixs[i];
-            }
+            println("矩阵构造结果:全零矩阵\n",Matrix.zeros(2,2));
+            println("矩阵构造结果:全一矩阵\n",Matrix.ones(2,2));
+            println("矩阵构造结果:随机矩阵\n",Matrix.random(2,2));
+            //println("矩阵构造结果:常数矩阵\n",Matrix.constant(2,2,6));
+            println("矩阵构造结果:单位矩阵\n",Matrix.identity(2));
+            println("矩阵构造结果:矩阵常量\n",[[0,1],[1,0]]);
+
+            S[0].x = matrixs[1];
+            S[0].x[1,0] = 0;
+            Matrix A = S[0].x;
+            println("获取数据流上的矩阵A\n", S[0].x);
+
+            println("A的行数: ", S[0].x.rows());
+            println("A的列数: ", S[0].x.cols());
+            println("A的秩: ", S[0].x.rank());
+            println("A的迹: ", S[0].x.trace());
+            println("A的行列式值: ", S[0].x.det());
+
+            println("\n矩阵运算部分:");
+            println("A的逆矩阵:\n", A.inverse());
+            println("A+1的结果:\n", A+1);
+            println("A与其逆矩阵点乘的结果\n", A*A.inverse());
+
+            println("\n矩阵映射部分:");          
+            //println("A.transpose():\n", A.transpose());  
+            println("A.exp():\n", A.exp());  
+            println("A.sin():\n", A.sin());  
+            println("(A+1).pow():\n", (A+1).pow(2));  
         }
         window{
-            S tumbling(8);
+            S tumbling(1);
         }
     };
-    P = B(S)(88,99);
-    Sink(P){
+    Sink(S){
         work{
-            println(P[0].x);
+            // println(S[0].x);
         }
         window{
-            P sliding(1,1);
+            S sliding(1,1);
         }
     };
 }

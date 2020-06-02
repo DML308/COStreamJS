@@ -29,7 +29,7 @@ export const BUILTIN_MATRIX_STATIC_FUNCTIONS_ARG = {
     ones:       { length:2, hint: '全1矩阵(行数,列数)', returnShape: args=>[args[0],args[1]]},
     identity:   { length:1, hint: '单位矩阵的(行列数)', returnShape: args=>[args[0],args[0]] },
 }
-export const BUILTIN_MATRIX_FUNCTIONS = ['rank','trace','det','sum','rows','cols','shape','reshape','transpose','cwiseProduct','exp','pow','log','sin','cos']
+export const BUILTIN_MATRIX_FUNCTIONS = ['rank','trace','det','inverse','sum','rows','cols','shape','reshape','transpose','cwiseProduct','exp','pow','log','sin','cos']
 
 export const BUILTIN_MATRIX_FUNCTIONS_ARG = {
     rank:   { length:0, hint:'矩阵的秩', returnShape: [1,1] },
@@ -56,6 +56,13 @@ export const BUILTIN_MATRIX_FUNCTIONS_ARG = {
             return [lshape[1], lshape[0]]
         }
     },
+    inverse:{
+        length:0,
+        hint:'矩阵求逆',
+        returnShape: (lshape) =>{
+            return [lshape[1], lshape[0]]
+        }
+    },
     cwiseProduct:{
         length:1,
         hint:'矩阵各元素位置对应相乘',
@@ -68,9 +75,9 @@ export const BUILTIN_MATRIX_FUNCTIONS_ARG = {
     },
     exp:    { length: 'any', hint:'矩阵各元素以e为底数的指数映射' ,returnShape: (lshape)=> lshape },
     pow:    { length: 1, hint:'矩阵各元素以该元素为底数的指数映射' ,returnShape: (lshape)=> lshape },
-    log:    { length: 1, hint:'矩阵各元素以e为底数的对数映射' ,returnShape: (lshape)=> lshape },
-    sin:    { length: 1, hint:'矩阵各的正弦映射' ,returnShape: (lshape)=> lshape },
-    cos:    { length: 1, hint:'矩阵各的余弦映射' ,returnShape: (lshape)=> lshape }
+    log:    { length: 0, hint:'矩阵各元素以e为底数的对数映射' ,returnShape: (lshape)=> lshape },
+    sin:    { length: 0, hint:'矩阵各的正弦映射' ,returnShape: (lshape)=> lshape },
+    cos:    { length: 0, hint:'矩阵各的余弦映射' ,returnShape: (lshape)=> lshape }
 }
 
 
