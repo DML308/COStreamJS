@@ -1,4 +1,4 @@
-import { COStreamJS } from "../FrontEnd/global"
+import { COStreamJS, setTop } from "../FrontEnd/global"
 import { declareNode, function_definition, compositeNode, strdclNode, blockNode, fileReaderNode } from "../ast/node";
 import { getIOHandlerStrings } from "./IOHandler"
 import { FlatNode } from "../FrontEnd/FlatNode"
@@ -834,6 +834,7 @@ X86CodeGeneration.prototype.CGactorsInit = function(init){
  */
 X86CodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
     // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
+    setTop(work._symbol_table)
     var innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, '') 
     // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 B_1_Sink_2
     flat.contents.inputs.forEach((src, idx) => replace(src, inEdgeNames[idx]))

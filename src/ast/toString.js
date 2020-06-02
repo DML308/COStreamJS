@@ -1,5 +1,5 @@
 import { jump_statement, blockNode, idNode, ternaryNode, expNode, labeled_statement, forNode, declareNode, declarator, compositeNode, ComInOutNode, compBodyNode, inOutdeclNode, strdclNode, paramNode, binopNode, operatorNode, operBodyNode, constantNode, unaryNode, winStmtNode, callNode, compositeCallNode, selection_statement, castNode, parenNode, matrix_section, matrix_constant, matrix_slice_pair, lib_binopNode, whileNode, doNode, splitjoinNode, addNode, splitNode, joinNode } from "./node.js"
-import { COStreamJS } from "../FrontEnd/global"
+import { COStreamJS, top } from "../FrontEnd/global"
 import { error } from "../utils/color.js";
 
 export function ast2String(root) {
@@ -74,11 +74,18 @@ paramNode.prototype.toString = function () {
 const isNoSemi = node => ['blockNode', 'forNode', 'selection_statement'].includes(node.constructor.name)
 
 //将每一行 statement 的';'上提至 blockNode 处理
+let prefixString = '' //有些特殊的语句需要在前一行加入一个前缀行用于存储一些信息
 blockNode.prototype.toString = function () {
+    prefixString = ''
     if (!this.stmt_list || this.stmt_list.length == 0) return '{ }'
     var str = '{\n';
     this.stmt_list.forEach(x => {
-        str += x.toString()
+        const line = x.toString()
+        if(prefixString){ 
+            str += prefixString + '\n';
+            prefixString = ''
+        }
+        str += line
         str += isNoSemi(x) ? '\n' :';\n'
     })
     return str + '}\n'
@@ -96,6 +103,18 @@ labeled_statement.prototype.toString = function () {
 //expNode 的子类
 binopNode.prototype.toString = function () {
     // 强制执行 toString 来实现对 N 等标识符在符号表中的查询
+    if(this.op === '*'){
+        const lshape = top.shapeCache.get(this.left), rshape = top.shapeCache.get(this.right)
+        const lString = lshape && lshape != '1,1' ? this.left.toString()+'.matrix()' : this.left.toString()
+        const rString = rshape && rshape != '1,1' ? this.right.toString()+'.matrix()' : this.right.toString()
+        return lString + this.op + rString
+    }
+    if(['+','-','/'].includes(this.op)){
+        const lshape = top.shapeCache.get(this.left), rshape = top.shapeCache.get(this.right)
+        const lString = lshape && lshape != '1,1' ? this.left.toString()+'.array()' : this.left.toString()
+        const rString = rshape && rshape != '1,1' ? this.right.toString()+'.array()' : this.right.toString()
+        return lString + this.op + rString
+    }
     if(this.op !== '.'){
         return this.left.toString() + this.op + this.right.toString()
     }
@@ -203,6 +222,25 @@ callNode.prototype.toString = function () {
         return this.arg_list[0].source.slice(1,-1) //通过 slice 来移除左右两侧的引号
     } else if(this.name === "random" && platform === "X86"){
         return `rand()/(double)RAND_MAX`;
+    } else if(this.name instanceof lib_binopNode){
+        if(this.name.function_name === 'identity'){
+            return 'Matrix::Identity('+this.arg_list[0]+','+this.arg_list[0]+')'
+        }else{
+            return this.name + '(' + list2String(this.arg_list, ',') + ')'
+        }
+    } else if(this.name instanceof binopNode){
+        if(this.name.right === "det"){
+            return this.name.left+'.determinant()'
+        }else if(this.name.right === 'identity'){
+            return 'Matrix::Identity('+this.arg_list[0]+','+this.arg_list[0]+')'
+        }else if(['sin','cos','pow','exp'].includes(this.name.right)){
+            return this.name.left+'.array().'+this.name.right+ '(' + list2String(this.arg_list, ',') + ')'
+        }else if(this.name.right === 'rank'){
+            prefixString = `Eigen::FullPivLU<Matrix> luA(${this.name.left});`
+            return `luA.rank()`
+        }else {
+            return this.name + '(' + list2String(this.arg_list, ',') + ')'
+        }
     } else{
         return this.name + '(' + list2String(this.arg_list, ',') + ')'
     }
@@ -243,10 +281,18 @@ lib_binopNode.prototype.toString = function (){
         let maps = {
             'zeros': 'Zero',
             'random': 'Random',
-            'Constant': 'Constant'
+            'Constant': 'Constant',
+            'ones':'Ones'
         }
         return 'Matrix::' + maps[this.function_name]
     }else{
         throw new Error(error(this._loc,'暂不支持矩阵之外的库'))
     }
+}
+
+let m_count = 0;// 控制临时变量名的一个计数器
+matrix_constant.prototype.toString = function(){
+    var arrayName = 'm' + m_count
+    prefixString = `double ${arrayName}[] = {${this.rawData.join(',')}};`
+    return `Eigen::Map<Eigen::Matrix<double,${this.shape[0]},${this.shape[1]}>>(${arrayName})`
 }

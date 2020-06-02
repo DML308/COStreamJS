@@ -59,11 +59,12 @@ let lastLoc = null
 const ignoreTypes = [ternaryNode, parenNode, castNode, constantNode, fileReaderNode, fileWriterNode, matrix_constant]
 // 解析 语句
 function generateStmt(/** @type {Node} */stmt) {
+    if(!stmt) return
     lastLoc = stmt instanceof Node ? stmt._loc : lastLoc //记录最近一次处理的节点的loc信息
     switch (stmt.constructor) {
         case Number: break;
         case String: {
-            if (!top.searchName(stmt)){ throw new Error(error(lastLoc,`在当前符号表链中未找到${stmt}的定义`, top))}
+            if (/[_A-z][_A-z0-9]*/.test(stmt) && !top.searchName(stmt)){ throw new Error(error(lastLoc,`在当前符号表链中未找到${stmt}的定义`, top))}
             break;
         }
         case declareNode: {

@@ -121,11 +121,11 @@ constantNode.prototype.getValue = function(){
 }
 
 matrix_section.prototype.getValue = function(){
-    let values = top.LookupIdentifySymbol(this.exp).array.values
+    let values = top.LookupIdentifySymbol(this.exp).value
     debugger;
     if(this.slice_pair_list.length == 1){
         let index = this.slice_pair_list[0].start
-        return values[index].val
+        return values[index].value
     }else{
         throw new Error("FIXME 目前只处理了数组取地址, 未处理矩阵取址")
     }

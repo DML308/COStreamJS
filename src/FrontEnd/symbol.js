@@ -86,6 +86,7 @@ export class SymbolTable {
             return this.prev.LookupIdentifySymbol(name)
         }else{
             console.warn(`在符号表中查找不到该变量的值: ${name}`)
+            return new Variable('double',name,0)
         }
     }
     InsertCompositeSymbol(/** @type {compositeNode} */comp){
