@@ -15,8 +15,6 @@ Matrix matrixs[8] = {
 composite Main(){
     stream<Matrix x>S,P;
     S=Source(){
-        int i;
-        init{ }
         work{
             println("矩阵构造结果:全零矩阵\n",Matrix.zeros(2,2));
             println("矩阵构造结果:全一矩阵\n",Matrix.ones(2,2));
