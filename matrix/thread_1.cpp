@@ -12,28 +12,28 @@ extern int MAX_ITER;
 void thread_1_fun()
 {
   workerSync(1);
-  Sink Sink_2_obj(B_1_Sink_2,8,0);
-  char stage[3] = {
-    1,0,0
+  Sink Sink_1_obj(Source_0_Sink_1,1,0);
+  char stage[2] = {
+    1,0
   };
   
-  for(int _stageNum = 0; _stageNum < 3; _stageNum++){
-    if(2 == _stageNum){
-      Sink_2_obj.runInitScheduleWork();
+  for(int _stageNum = 0; _stageNum < 2; _stageNum++){
+    if(1 == _stageNum){
+      Sink_1_obj.runInitScheduleWork();
     }
     
     workerSync(1);
     
   }
   
-  for(int _stageNum = 3; _stageNum < 2*3+MAX_ITER-1; _stageNum++){
-    if(stage[2]){
-      Sink_2_obj.runSteadyScheduleWork();
+  for(int _stageNum = 2; _stageNum < 2*2+MAX_ITER-1; _stageNum++){
+    if(stage[1]){
+      Sink_1_obj.runSteadyScheduleWork();
     }
-    for(int index=2; index>=1; --index){
+    for(int index=1; index>=1; --index){
       stage[index] = stage[index-1];
     }
-    if(_stageNum == MAX_ITER - 1 + 3){
+    if(_stageNum == MAX_ITER - 1 + 2){
       stage[0] = 0;
     }
     

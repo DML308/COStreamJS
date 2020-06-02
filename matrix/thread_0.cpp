@@ -11,33 +11,33 @@
 extern int MAX_ITER;
 void thread_0_fun()
 {
-  masterSync(3);
-  B B_1_obj(B_1_Sink_2,Source_0_B_1,8,0,88,99);
-  char stage[3] = {
-    1,0,0
+  masterSync(2);
+  Source Source_0_obj(Source_0_Sink_1,1,0);
+  char stage[2] = {
+    1,0
   };
   
-  for(int _stageNum = 0; _stageNum < 3; _stageNum++){
-    if(1 == _stageNum){
-      B_1_obj.runInitScheduleWork();
+  for(int _stageNum = 0; _stageNum < 2; _stageNum++){
+    if(0 == _stageNum){
+      Source_0_obj.runInitScheduleWork();
     }
     
-    masterSync(3);
+    masterSync(2);
     
   }
   
-  for(int _stageNum = 3; _stageNum < 2*3+MAX_ITER-1; _stageNum++){
-    if(stage[1]){
-      B_1_obj.runSteadyScheduleWork();
+  for(int _stageNum = 2; _stageNum < 2*2+MAX_ITER-1; _stageNum++){
+    if(stage[0]){
+      Source_0_obj.runSteadyScheduleWork();
     }
-    for(int index=2; index>=1; --index){
+    for(int index=1; index>=1; --index){
       stage[index] = stage[index-1];
     }
-    if(_stageNum == MAX_ITER - 1 + 3){
+    if(_stageNum == MAX_ITER - 1 + 2){
       stage[0] = 0;
     }
     
-    masterSync(3);
+    masterSync(2);
     
   }
 }

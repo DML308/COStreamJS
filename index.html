@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/vue-material.min.css">
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
     <link rel="stylesheet" type="text/css" href="./main.css">
-    <title>COStreamJS-v0.10.2</title>
+    <title>COStreamJS-v0.10.3</title>
     <style> .md-snackbar{ max-height: none!important;} </style>
 </head>
 
@@ -77,7 +77,7 @@
                 <md-table-cell>{{flat.stageNum}}</md-table-cell>
             </md-table-row>
         </md-table>
-        <md-snackbar md-position="left" :md-active.sync="showSnackbar" md-persistent>
+        <md-snackbar md-position="left" :md-active.sync="showSnackbar" md-persistent :md-duration="10000">
             <span v-html="snackBarMessage"></span>
             <md-button class="md-primary" @click="showSnackbar = false">ㄨ</md-button>
         </md-snackbar>
@@ -130,56 +130,8 @@
     <script src="https://cdn.jsdelivr.net/npm/signature_pad@2.3.2/dist/signature_pad.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.4.0/Chart.min.js"></script>
     <script src="https://cdn.bootcdn.net/ajax/libs/numjs/0.16.0/numjs.min.js"></script>
-    <script>
-        // 改写numjs库的toString方法来适配网页显示效果
-        const old_numjs_toString = nj.NdArray.prototype.toString
-        nj.NdArray.prototype.toString = function(){
-            var nChars = formatNumber(this.max()).length;
-
-            var reg1 = /\]\,(\s*)\[/g;
-            var spacer1 = '],\n$1 [';
-            var reg3 = /\]\,(\s+)...\,(\s+)\[/g;
-            var spacer3 = '],\n$2 ...\n$2 [';
-            var reg2 = /\[\s+\[/g;
-            var spacer2 = '[[';
-
-            function formatNumber (v) {
-                return String(Number((v || 0).toFixed(nj.config.nFloatingValues)));
-            }
-            function formatArray(k, v) {
-                if (typeof v === 'string') { return v; }
-                if (Number.isFinite(v) || Number.isNaN(v)) {
-                    var s = formatNumber(v);
-                    return new Array(Math.max(0, nChars - s.length + 2)).join(' ') + s;
-                }
-                k = k || 0;
-                var arr;
-                var th = nj.config.printThreshold;
-                var hth = th / 2 | 0;
-                if (v.length > th) {
-                    arr = [].concat(v.slice(0, hth), [' ...'], v.slice(v.length - hth));
-                } else {
-                    arr = v;
-                }
-                return new Array(k + 1).join(' ') + '[' + arr.map(function (i, ii) {
-                    return formatArray(ii === 0 && k === 0 ? 1 : k + 1, i);
-                }).join(',') + ']';
-            }
-
-            var base = JSON
-                .stringify(this.tolist(), formatArray)
-                .replace(reg1, spacer1)
-                .replace(reg2, spacer2)
-                .replace(reg2, spacer2)
-                .replace(reg3, spacer3)
-                .slice(2, -1);
-            return '[' + base;
-        };
-        nj.NdArray.prototype.rows = function(){ return this.shape[0] }
-        nj.NdArray.prototype.cols = function(){ return this.shape[1] }
-        nj.constant = function(rows,cols,num){ return this.zeros([rows,cols]).assign(num) }
-
-    </script>
+    <!-- 下面一行是为 numjs 库进行功能扩展 -->
+    <script src="./numjs-extension.js"></script> 
 
     <script>
         window.renderDot = async function (str) {
@@ -212,9 +164,9 @@
             var url = 'https://raw.githubusercontent.com/DML308/COStreamJS/master/examples/' + fileName +'.cos'
             editor.session.setValue(`//...正在加载` + url);
             const hit = localStorage.getItem(fileName)
-            if(hit && hit != "[object Object]"){
+            if(0 && hit && hit != "[object Object]"){
                 const obj = JSON.parse(hit)
-                if((new Date() - new Date(obj.time)) < 1000*3600*24){
+                if((new Date() - new Date(obj.time)) < 0.1 || 1000*3600*24){
                     // 若缓存未过期24h
                     old_code = obj.content
                     showCode(old_code)
@@ -228,7 +180,7 @@
                         localStorage.setItem(fileName, JSON.stringify({ content: old_code, time: (new Date()).toGMTString()}))
                         resolve()
                 })
-                setTimeout(reject,3000)
+                setTimeout(reject,1000)
             }).catch(()=>{
                 editor.session.setValue(`//...github加载超时, 从其它服务器加载`+fileName+'.cos' );
                 axios.get('https://i.setsuna.wang/COStreamJS/examples/'+fileName+'.cos').then(res =>{
@@ -296,6 +248,9 @@
                         })
                         this.status = 1
                     } catch (err) {
+                        if(typeof err === 'object' && err.hash){
+                            error(err.hash.loc, err.message.split('\n')[3])
+                        }
                         console.warn(errors)
                         editor.renderer.setAnnotations(errors.map(x => ({
                             row: x.loc.first_line-1,

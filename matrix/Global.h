@@ -13,8 +13,7 @@ struct streamData{
   Matrix x;
 };
 
-extern Buffer<streamData>Source_0_B_1;
-extern Buffer<streamData>B_1_Sink_2;
+extern Buffer<streamData>Source_0_Sink_1;
 
 #endif
 

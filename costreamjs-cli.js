@@ -158,7 +158,7 @@ var COStreamJS = (function () {
     }
 
     function checkBraceMatching(str = ''){
-        let stack = [], line = 0;
+        let stack = [], line = 1;
         let symmetry = { '[':']', '(':')', '{':'}' };
         for(let s of str){
             if(s == '(' || s == '[' || s == '{'){
@@ -166,8 +166,7 @@ var COStreamJS = (function () {
             }else if( s == ')' || s == ']' || s == '}'){
                 let top = stack.pop();
                 if(symmetry[top] !== s){
-                    error$1({first_line:line}, `括号不匹配`);
-                    return false
+                    throw new Error(error$1({first_line:line}, `括号不匹配`))
                 }
             }else if( s == '\n'){
                 line++;
@@ -220,7 +219,7 @@ var COStreamJS = (function () {
         return result
     };
 
-    class Node {
+    class Node$1 {
         constructor(loc) {
             this._loc = loc;
             ['_loc'].forEach(key => {
@@ -231,14 +230,14 @@ var COStreamJS = (function () {
     /********************************************************/
     /*              1.1 declaration                         */
     /********************************************************/
-    class declareNode extends Node {
+    class declareNode extends Node$1 {
         constructor(loc, type, init_declarator_list) {
             super(loc);
             this.type = type;
             this.init_declarator_list = [].concat(init_declarator_list);
         }
     }
-    class idNode extends Node{
+    class idNode extends Node$1{
         constructor(loc, name, arg){
             super(loc);
             this.name = name;
@@ -249,7 +248,7 @@ var COStreamJS = (function () {
             } 
         }
     }
-    class declarator extends Node {
+    class declarator extends Node$1 {
         constructor(loc, identifier, initializer) {
             super(loc);
             this.identifier = identifier;
@@ -261,7 +260,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /*              1.2 function.definition 函数声明          */
     /********************************************************/
-    class function_definition extends Node {
+    class function_definition extends Node$1 {
         constructor(loc, type, declarator,param_list, compound) {
             super(loc);
             this.type = type;
@@ -275,7 +274,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /*        2. composite                                  */
     /********************************************************/
-    class compositeNode extends Node {
+    class compositeNode extends Node$1 {
         constructor(loc, head = {}, body = {}) {
             super(loc);
             Object.assign(this, {
@@ -286,25 +285,25 @@ var COStreamJS = (function () {
             });
         }
     }
-    class compHeadNode extends Node {
+    class compHeadNode extends Node$1 {
         constructor(loc, compName, inout) {
             super(loc);
             Object.assign(this, { op: 'composite', compName, inout });
         }
     }
-    class ComInOutNode extends Node {
+    class ComInOutNode extends Node$1 {
         constructor(loc, input_list = [], output_list = []) {
             super(loc);
             Object.assign(this, { op1: 'input', input_list, op2: 'output', output_list });
         }
     }
-    class inOutdeclNode extends Node {
+    class inOutdeclNode extends Node$1 {
         constructor(loc, strType, id) {
             super(loc);
             Object.assign(this, { strType, id });
         }
     }
-    class strdclNode extends Node {
+    class strdclNode extends Node$1 {
         constructor(loc, type, identifier) {
             super(loc);
             this.op = 'stream<';
@@ -324,7 +323,7 @@ var COStreamJS = (function () {
             return copy
         }
     }
-    class compBodyNode extends Node {
+    class compBodyNode extends Node$1 {
         constructor(loc, param, stmt_list) {
             super(loc);
             Object.assign(this, {
@@ -335,7 +334,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class paramNode extends Node {
+    class paramNode extends Node$1 {
         constructor(loc, param_list) {
             super(loc);
             if (param_list) {
@@ -344,7 +343,7 @@ var COStreamJS = (function () {
             this.param_list = param_list;
         }
     }
-    class operBodyNode extends Node {
+    class operBodyNode extends Node$1 {
         constructor(loc, stmt_list, init, work, win) {
             super(loc);
             Object.assign(this, {
@@ -355,7 +354,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class winStmtNode extends Node {
+    class winStmtNode extends Node$1 {
         constructor(loc, winName, options = {}) {
             super(loc);
             Object.assign(this, {
@@ -368,25 +367,25 @@ var COStreamJS = (function () {
     /********************************************************/
     /*        3. statement 花括号内以';'结尾的结构是statement   */
     /********************************************************/
-    class blockNode extends Node {
+    class blockNode extends Node$1 {
         constructor(loc, op1, stmt_list, op2) {
             super(loc);
             Object.assign(this, { op1, stmt_list, op2 });
         }
     }
-    class jump_statement extends Node {
+    class jump_statement extends Node$1 {
         constructor(loc, op1, op2) {
             super(loc);
             Object.assign(this, { op1, op2 });
         }
     }
-    class labeled_statement extends Node {
+    class labeled_statement extends Node$1 {
         constructor(loc, op1, op2, op3, statement) {
             super(loc);
             Object.assign(this, { op1, op2, op3, statement });
         }
     }
-    class selection_statement extends Node {
+    class selection_statement extends Node$1 {
         constructor(loc, op1, op2, exp, op3, statement, op4, else_statement) {
             super(loc);
             Object.assign(this, {
@@ -395,7 +394,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class whileNode extends Node {
+    class whileNode extends Node$1 {
         constructor(loc, exp, statement) {
             super(loc);
             Object.assign(this, {
@@ -407,7 +406,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class doNode extends Node {
+    class doNode extends Node$1 {
         constructor(loc, exp, statement) {
             super(loc);
             Object.assign(this, {
@@ -420,7 +419,7 @@ var COStreamJS = (function () {
             });
         }
     }
-    class forNode extends Node {
+    class forNode extends Node$1 {
         constructor(loc, init, cond, next, statement) {
             super(loc);
             Object.assign(this, {
@@ -436,7 +435,7 @@ var COStreamJS = (function () {
     /*        4. expression 计算表达式头节点                   */
     /********************************************************/
 
-    class expNode extends Node {
+    class expNode extends Node$1 {
         constructor(loc) {
             super(loc);
             //检查是否有常量传播插件提供的 getValue 函数
@@ -497,7 +496,7 @@ var COStreamJS = (function () {
     /********************************************************/
     /* operNode in expression's right                       */
     /********************************************************/
-    class operNode extends Node {
+    class operNode extends Node$1 {
         constructor(loc) {
             super(loc);
             this.outputs = [];
@@ -559,7 +558,7 @@ var COStreamJS = (function () {
             this.body_stmts = options.body_stmts;
         }
     }
-    class splitNode extends Node {
+    class splitNode extends Node$1 {
         constructor(loc, node = {}) {
             super(loc);
             this.name = "split";
@@ -569,7 +568,7 @@ var COStreamJS = (function () {
             }
         }
     }
-    class joinNode extends Node {
+    class joinNode extends Node$1 {
         constructor(loc, node = {}) {
             super(loc);
             this.name = "join";
@@ -579,19 +578,19 @@ var COStreamJS = (function () {
             }
         }
     }
-    class duplicateNode extends Node {
+    class duplicateNode extends Node$1 {
         constructor(loc, arg_list) {
             super(loc);
             this.arg_list = arg_list;
         }
     }
-    class roundrobinNode extends Node {
+    class roundrobinNode extends Node$1 {
         constructor(loc, arg_list) {
             super(loc);
             this.arg_list = arg_list;
         }
     }
-    class addNode extends Node {
+    class addNode extends Node$1 {
         constructor(loc, content) {
             super(loc);
             this.name = "add";
@@ -630,7 +629,7 @@ var COStreamJS = (function () {
        * [:5]  --- { start: _, op:':', end: 5 }
        * [:]   --- { start: _, op:':', end: _ }
        * [0]   --- { start: 0, op: _ , end: _ }   */
-    class matrix_slice_pair extends Node {
+    class matrix_slice_pair extends Node$1 {
         constructor(loc, start, op, end) {
             super(loc);
             this.start = start;
@@ -648,7 +647,7 @@ var COStreamJS = (function () {
         }
     }
 
-    class lib_binopNode extends Node{
+    class lib_binopNode extends Node$1{
         constructor(loc, lib_name,function_name){
             super(loc);
             this.lib_name = lib_name;
@@ -667,7 +666,7 @@ var COStreamJS = (function () {
           this.arg_list = options.arg_list;
           this.body_stmts = options.body_stmts;
         }
-    }class layerNode extends Node {
+    }class layerNode extends Node$1 {
         constructor(loc, layerName, arg_list) {
           super(loc);
           this.layerName = layerName;
@@ -794,7 +793,7 @@ var COStreamJS = (function () {
 
     var NodeTypes = /*#__PURE__*/Object.freeze({
         __proto__: null,
-        Node: Node,
+        Node: Node$1,
         declareNode: declareNode,
         idNode: idNode,
         declarator: declarator,
@@ -848,7 +847,7 @@ var COStreamJS = (function () {
         activationLayerNode: activationLayerNode
     });
 
-    var version = "0.10.2";
+    var version = "0.10.3";
 
     class FlatNode {
         constructor(/** @type {operatorNode} */ node, params = []) {
@@ -998,6 +997,7 @@ var COStreamJS = (function () {
                 return this.prev.LookupIdentifySymbol(name)
             }else {
                 console.warn(`在符号表中查找不到该变量的值: ${name}`);
+                return new Variable('double',name,0)
             }
         }
         InsertCompositeSymbol(/** @type {compositeNode} */comp){
@@ -1006,7 +1006,7 @@ var COStreamJS = (function () {
         InsertStreamSymbol(/** @type {inOutdeclNode} */ inOutNode){
             const name = inOutNode.id;
             if(this.streamTable[name]){
-                throw new Error(error(inOutNode._loc,`stream ${name} has been declared`))
+                error(inOutNode._loc,`数据流名 ${name} 重复定义, 已忽略该定义`);
             }else {
                 this.streamTable[name]= { strType: inOutNode.strType.copy() };
             }
@@ -1495,7 +1495,7 @@ var COStreamJS = (function () {
                   }else if(typeof $$[$0-2] == "string"){
                       $$[$0].outputs = [$$[$0-2]];
                   }else {
-                      error("只支持 S = oper()() 或 (S1,S2) = oper()() 两种方式",$$[$0-2],$$[$0]); 
+                      throw new Error(error($$[$0-2]._loc,"只支持 S = oper()() 或 (S1,S2) = oper()() 两种方式",$$[$0-2],$$[$0]))
                   }
               }
               this.$ = new binopNode(this._$,$$[$0-2],$$[$0-1],$$[$0]); 
@@ -2092,7 +2092,7 @@ var COStreamJS = (function () {
         ones:       { length:2, hint: '全1矩阵(行数,列数)', returnShape: args=>[args[0],args[1]]},
         identity:   { length:1, hint: '单位矩阵的(行列数)', returnShape: args=>[args[0],args[0]] },
     };
-    const BUILTIN_MATRIX_FUNCTIONS = ['rank','trace','det','sum','rows','cols','shape','reshape','transpose','cwiseProduct','exp','pow','log','sin','cos'];
+    const BUILTIN_MATRIX_FUNCTIONS = ['rank','trace','det','inverse','sum','rows','cols','shape','reshape','transpose','cwiseProduct','exp','pow','log','sin','cos'];
 
     const BUILTIN_MATRIX_FUNCTIONS_ARG = {
         rank:   { length:0, hint:'矩阵的秩', returnShape: [1,1] },
@@ -2109,12 +2109,19 @@ var COStreamJS = (function () {
                 if(args[0] * args[1] !== lshape[0] * lshape[1]){
                     throw new Error(error$1(_loc || lshape._loc, `不能将${lshape[0]}x${lshape[1]}的矩阵reshape为${args[0]}x${args[1]}`))
                 }
-                return [args[0],arg[1]]
+                return [args[0],args[1]]
             }
         },
         transpose:{
             length:0,
             hint:'矩阵转置',
+            returnShape: (lshape) =>{
+                return [lshape[1], lshape[0]]
+            }
+        },
+        inverse:{
+            length:0,
+            hint:'矩阵求逆',
             returnShape: (lshape) =>{
                 return [lshape[1], lshape[0]]
             }
@@ -2131,9 +2138,9 @@ var COStreamJS = (function () {
         },
         exp:    { length: 'any', hint:'矩阵各元素以e为底数的指数映射' ,returnShape: (lshape)=> lshape },
         pow:    { length: 1, hint:'矩阵各元素以该元素为底数的指数映射' ,returnShape: (lshape)=> lshape },
-        log:    { length: 1, hint:'矩阵各元素以e为底数的对数映射' ,returnShape: (lshape)=> lshape },
-        sin:    { length: 1, hint:'矩阵各的正弦映射' ,returnShape: (lshape)=> lshape },
-        cos:    { length: 1, hint:'矩阵各的余弦映射' ,returnShape: (lshape)=> lshape }
+        log:    { length: 0, hint:'矩阵各元素以e为底数的对数映射' ,returnShape: (lshape)=> lshape },
+        sin:    { length: 0, hint:'矩阵各的正弦映射' ,returnShape: (lshape)=> lshape },
+        cos:    { length: 0, hint:'矩阵各的余弦映射' ,returnShape: (lshape)=> lshape }
     };
 
 
@@ -2172,7 +2179,7 @@ var COStreamJS = (function () {
 
     /** 该文件的函数同时执行两项工作: 对被操作数据的 shape 进行校验, 并将计算后的结果的 shape 缓存下来 */
     function checkShape(/** @type {Node | string} */stmt, _loc){
-        lastLoc = _loc || stmt._loc;
+        lastLoc = _loc || stmt._loc || lastLoc;
         let returnShape;
         if(Array.isArray(stmt)){
             const itemShape = checkShape(stmt[0]);
@@ -2180,7 +2187,7 @@ var COStreamJS = (function () {
         }else if(stmt instanceof binopNode){
             returnShape = checkBinopShape(stmt);//二元节点
         }else if(stmt instanceof ternaryNode){
-            returnShape = checkTernaryNode();//三元节点
+            returnShape = checkTernaryNode(stmt);//三元节点
         }else {
             returnShape = checkUnaryShape(stmt); //一元节点
         }
@@ -2231,7 +2238,7 @@ var COStreamJS = (function () {
                 }
             }
             if(!result || result.type !== 'stream'){
-                error$1(stmt._loc,`在符号表中找不到流${stmt.left.exp}`);
+                throw new Error(error$1(stmt._loc,`在符号表中找不到流${stmt.left.exp}`))
             } 
             
         }
@@ -2246,6 +2253,7 @@ var COStreamJS = (function () {
         }else if(stmt instanceof matrix_constant){
             return stmt.shape
         }else if(typeof stmt === 'string'){
+            if(!/[_A-z0-9]+/.test(stmt)) return [1,1]//若非标识符,直接返回
             const result = top.searchName(stmt);
             if(!result) throw new Error(error$1(lastLoc,`找不到变量名${stmt}在符号表中的定义`))
             const { type, origin } = result;
@@ -2263,7 +2271,7 @@ var COStreamJS = (function () {
         }else if(stmt instanceof constantNode){
             return [1,1] //常数节点
         }else if(stmt instanceof unaryNode){
-            if(typeof stmt.first === 'string'){
+            if(['++','--','+','-','!','~'].includes(stmt.first)){
                 const rshape = checkShape(stmt.second);
                 const MatrixUnaryError = rshape.join('') !== '11' && stmt.first !== '+' && stmt.first !== '-';   // 矩阵变量使用+-以外的前缀均错误
                 const ConstantUnaryError = stmt.second instanceof constantNode && (stmt.first === '++' || stmt.first === '--'); // ++1 错误
@@ -2272,14 +2280,14 @@ var COStreamJS = (function () {
                 }
                 debugger;
                 return rshape
-            }else if(typeof stmt.second === 'string'){ 
+            }else if(['++','--'].includes(stmt.second)){ 
                 const lshape = checkShape(stmt.first);
                 const MatrixUnaryError = lshape.join('') !== '11'; // 该情况右侧只能为 ++ 或 --, 而矩阵变量不能这样做
                 const ConstantUnaryError = stmt.first instanceof constantNode; // 1++ 0-- 也不对
                 if(MatrixUnaryError || ConstantUnaryError){
-                    throw new Error(error$1(stmt._loc,`该变量${stmt.first}不能使用后缀操作符${stmt.second}`))
+                    throw new Error(error$1(stmt._loc,`不能对${stmt.first}使用后缀操作符${stmt.second}`))
                 }
-                return rshape
+                return lshape
             }
         }else {
             console.warn("返回了一个shape [1,1]", stmt);
@@ -2294,6 +2302,7 @@ var COStreamJS = (function () {
                     const hint = BUILTIN_FUNCTIONS_ARG[node.name].hint;
                     throw new Error(error$1(node._loc, `调用函数${node.name}传参数量错误,当前传参为${node.arg_list},期待传参为${hint}`)) 
                 }
+                node.arg_list.forEach(arg=>checkShape(arg,node._loc));
                 return [1,1] //全部检查通过, 因此该数学计算得到的值的结果是个数字, 返回数字的shape [1,1]
             }
             else {
@@ -2350,12 +2359,16 @@ var COStreamJS = (function () {
         for(i=0;i<slice_pair_list.length; i++){
             if(! slice_pair_list[i].op){
                 // 没有冒号:的情况, 即 S[0] 或 S[i,j], 直接降维
+                let start = (slice_pair_list[i].start || 0).value;
+                if(start < 0) throw new Error(error$1(matrix_s._loc,`切片操作第${i}维的坐标不能小于0`))
+                if(start >= shape[i]) throw new Error(error$1(matrix_s._loc,`切片操作的第${i}维坐标不能大于等于最大值${shape[i]},当前为${start}`))
                 resShape.push(1);
             }else {
                 // 有冒号的情况 , S[start:end]
                 let start = (slice_pair_list[i].start || 0).value;
                 let end = (slice_pair_list[i].end || shape[i]).value;
                 if(start < 0) throw new Error(error$1(matrix_s._loc,`切片操作第${i}维的起始坐标不能小于0`))
+                if(start >= shape[i]) throw new Error(error$1(matrix_s._loc,`切片操作的第${i}维起始坐标不能大于等于最大值${shape[i]},当前为${start}`))
                 if(end > shape[i]) throw new Error(error$1(matrix_s._loc,`切片操作的第${i}维终止坐标不能大于最大值${shape[i]},当前为${end}`))
                 resShape.push(end - start);
             }
@@ -2372,7 +2385,7 @@ var COStreamJS = (function () {
         return resShape
     }
     function checkTernaryNode(/** @type {ternaryNode} */stmt){
-
+        return checkEqualShape(checkShape(stmt.second), checkShape(stmt.third), stmt._loc)
     }
     function checkAssignmentShape(left,right){
         // x = 1 的情况
@@ -2599,11 +2612,11 @@ var COStreamJS = (function () {
     };
 
     matrix_section.prototype.getValue = function(){
-        let values = top.LookupIdentifySymbol(this.exp).array.values;
+        let values = top.LookupIdentifySymbol(this.exp).value;
         debugger;
         if(this.slice_pair_list.length == 1){
             let index = this.slice_pair_list[0].start;
-            return values[index].val
+            return values[index].value
         }else {
             throw new Error("FIXME 目前只处理了数组取地址, 未处理矩阵取址")
         }
@@ -2684,11 +2697,18 @@ var COStreamJS = (function () {
     const isNoSemi = node => ['blockNode', 'forNode', 'selection_statement'].includes(node.constructor.name);
 
     //将每一行 statement 的';'上提至 blockNode 处理
+    let prefixString = ''; //有些特殊的语句需要在前一行加入一个前缀行用于存储一些信息
     blockNode.prototype.toString = function () {
+        prefixString = '';
         if (!this.stmt_list || this.stmt_list.length == 0) return '{ }'
         var str = '{\n';
         this.stmt_list.forEach(x => {
-            str += x.toString();
+            const line = x.toString();
+            if(prefixString){ 
+                str += prefixString + '\n';
+                prefixString = '';
+            }
+            str += line;
             str += isNoSemi(x) ? '\n' :';\n';
         });
         return str + '}\n'
@@ -2706,6 +2726,18 @@ var COStreamJS = (function () {
     //expNode 的子类
     binopNode.prototype.toString = function () {
         // 强制执行 toString 来实现对 N 等标识符在符号表中的查询
+        if(this.op === '*'){
+            const lshape = top.shapeCache.get(this.left), rshape = top.shapeCache.get(this.right);
+            const lString = lshape && lshape != '1,1' ? this.left.toString()+'.matrix()' : this.left.toString();
+            const rString = rshape && rshape != '1,1' ? this.right.toString()+'.matrix()' : this.right.toString();
+            return lString + this.op + rString
+        }
+        if(['+','-','/'].includes(this.op)){
+            const lshape = top.shapeCache.get(this.left), rshape = top.shapeCache.get(this.right);
+            const lString = lshape && lshape != '1,1' ? this.left.toString()+'.array()' : this.left.toString();
+            const rString = rshape && rshape != '1,1' ? this.right.toString()+'.array()' : this.right.toString();
+            return lString + this.op + rString
+        }
         if(this.op !== '.'){
             return this.left.toString() + this.op + this.right.toString()
         }
@@ -2811,6 +2843,25 @@ var COStreamJS = (function () {
             return this.arg_list[0].source.slice(1,-1) //通过 slice 来移除左右两侧的引号
         } else if(this.name === "random" && platform === "X86"){
             return `rand()/(double)RAND_MAX`;
+        } else if(this.name instanceof lib_binopNode){
+            if(this.name.function_name === 'identity'){
+                return 'Matrix::Identity('+this.arg_list[0]+','+this.arg_list[0]+')'
+            }else {
+                return this.name + '(' + list2String(this.arg_list, ',') + ')'
+            }
+        } else if(this.name instanceof binopNode){
+            if(this.name.right === "det"){
+                return this.name.left+'.determinant()'
+            }else if(this.name.right === 'identity'){
+                return 'Matrix::Identity('+this.arg_list[0]+','+this.arg_list[0]+')'
+            }else if(['sin','cos','pow','exp'].includes(this.name.right)){
+                return this.name.left+'.array().'+this.name.right+ '(' + list2String(this.arg_list, ',') + ')'
+            }else if(this.name.right === 'rank'){
+                prefixString = `Eigen::FullPivLU<Matrix> luA(${this.name.left});`;
+                return `luA.rank()`
+            }else {
+                return this.name + '(' + list2String(this.arg_list, ',') + ')'
+            }
         } else {
             return this.name + '(' + list2String(this.arg_list, ',') + ')'
         }
@@ -2851,12 +2902,20 @@ var COStreamJS = (function () {
             let maps = {
                 'zeros': 'Zero',
                 'random': 'Random',
-                'Constant': 'Constant'
+                'Constant': 'Constant',
+                'ones':'Ones'
             };
             return 'Matrix::' + maps[this.function_name]
         }else {
-            error$1('暂不支持矩阵之外的库');
+            throw new Error(error$1(this._loc,'暂不支持矩阵之外的库'))
         }
+    };
+
+    let m_count = 0;// 控制临时变量名的一个计数器
+    matrix_constant.prototype.toString = function(){
+        var arrayName = 'm' + m_count;
+        prefixString = `double ${arrayName}[] = {${this.rawData.join(',')}};`;
+        return `Eigen::Map<Eigen::Matrix<double,${this.shape[0]},${this.shape[1]}>>(${arrayName})`
     };
 
     class SemCheck {
@@ -3014,6 +3073,7 @@ var COStreamJS = (function () {
     function generateDeclareNode(/** @type{declareNode} */node){
         node.init_declarator_list.forEach(init_node=>{
             const name = init_node.identifier.name;
+            generateStmt(init_node.initializer);
             const variable = new Variable(node.type,name,init_node.initializer,node._loc);
             if(node.type === "Matrix"){
                 variable.shape = checkShape(init_node.initializer, init_node._loc).map(x=>x.value);
@@ -3022,13 +3082,16 @@ var COStreamJS = (function () {
         });
     }
 
+    let lastLoc$1 = null;
+    const ignoreTypes = [ternaryNode, parenNode, castNode, constantNode, fileReaderNode, fileWriterNode, matrix_constant];
     // 解析 语句
-    const ignoreTypes = [unaryNode, ternaryNode, parenNode, castNode, constantNode, matrix_section, fileReaderNode, fileWriterNode];
     function generateStmt(/** @type {Node} */stmt) {
+        if(!stmt) return
+        lastLoc$1 = stmt instanceof Node ? stmt._loc : lastLoc$1; //记录最近一次处理的节点的loc信息
         switch (stmt.constructor) {
             case Number: break;
             case String: {
-                if (!top.searchName(stmt)){ throw new Error(error$1(stmt._loc,`在当前符号表链中未找到${stmt}的定义`, top))}
+                if (/[_A-z][_A-z0-9]*/.test(stmt) && !top.searchName(stmt)){ throw new Error(error$1(lastLoc$1,`在当前符号表链中未找到${stmt}的定义`, top))}
                 break;
             }
             case declareNode: {
@@ -3039,6 +3102,8 @@ var COStreamJS = (function () {
                 }
                 break;
             }
+            case matrix_section: if(isInOperator && COStreamJS.plugins.matrix) checkShape(stmt); break
+            case unaryNode: if(isInOperator && COStreamJS.plugins.matrix) checkShape(stmt); break
             case binopNode: {
                 /**
                  * 对赋值语句有两种上下文需要处理
@@ -3097,6 +3162,10 @@ var COStreamJS = (function () {
                 break;
             }
             case callNode: {
+                if(isInOperator && COStreamJS.plugins.matrix){
+                    checkShape(stmt);
+                    return
+                }
                 if(typeof stmt.name === "string"){
                     if(BUILTIN_FUNCTIONS.includes(stmt.name)){
                         const wanted_args = BUILTIN_FUNCTIONS_ARG[stmt.name].length;
@@ -3108,14 +3177,6 @@ var COStreamJS = (function () {
                     else {
                         const msg = `你是否想使用函数 ${getMostNearName(BUILTIN_FUNCTIONS,stmt.name)} ?`;
                         throw new Error(error$1(stmt._loc, `不支持的函数调用 ${stmt.name},${msg} `))
-                    }
-                } 
-                else if(stmt.name instanceof binopNode){
-                    { // FIXME:如果这里判断左边的类型是矩阵, 那么检查该调用是否合规
-                        if(BUILTIN_MATRIX_FUNCTIONS.includes(stmt.name.right));else {
-                            
-                            throw new Error(error$1(stmt._loc, "不支持的函数调用:",stmt.name.right))
-                        }
                     }
                 }
                 /**
@@ -3149,6 +3210,7 @@ var COStreamJS = (function () {
             let stream_dlc = new inOutdeclNode();
             stream_dlc.strType = decl.type;
             stream_dlc.id = identifier_name;
+            stream_dlc._loc = decl._loc;
             top.InsertStreamSymbol(stream_dlc);
         });
     }
@@ -5005,7 +5067,7 @@ var COStreamJS = (function () {
                 }else {
                     //若 down 节点已进行稳态调度，检查SDF图是否存在稳态调度系列，一般不存在的话表明程序有误
                     if(nPush * up.steadyCount !== nPop * down.steadyCount){
-                        error$1("调度算法出错, 请检查");
+                        throw new Error(error$1("调度算法出错, 请检查"))
                     }
                 }
                 flats.push(down);
@@ -6399,6 +6461,7 @@ class FileReader{
      */
     X86CodeGeneration.prototype.CGactorsWork = function (work, flat, inEdgeNames, outEdgeNames){
         // 将 work 的 toString 的头尾两个花括号去掉}, 例如 { cout << P[0].x << endl; } 变成 cout << P[0].x << endl; 
+        setTop(work._symbol_table);
         var innerWork = (work + '').replace(/^\s*{/, '').replace(/}\s*$/, ''); 
         // 替换流变量名 , 例如 P = B(S)(88,99);Sink(P){...} 则将 P 替换为 B_1_Sink_2
         flat.contents.inputs.forEach((src, idx) => replace(src, inEdgeNames[idx]));
@@ -6417,7 +6480,7 @@ class FileReader{
     };
 
     //对于未实现toJS函数的节点, 降级执行toString
-    Node.prototype.toJS = function(){
+    Node$1.prototype.toJS = function(){
         return this.toString()
     };
     Number.prototype.toJS = function(){ return this.toString() };
@@ -6549,9 +6612,9 @@ class FileReader{
     callNode.prototype.toJS = function(){
         if(this.name instanceof binopNode){
             if(this.name.right === 'cwiseProduct'){
-                return this.name.left.toJS() + '.multiply(' + list2String$1(this.arg_list) + ')'
+                return this.name.left.toJS() + '.multiply(' + list2String$1(this.arg_list,',') + ')'
             }else {
-                return this.name.left.toJS() + `.${this.name.right}(` + list2String$1(this.arg_list) + ')'
+                return this.name.left.toJS() + `.${this.name.right}(` + list2String$1(this.arg_list,',') + ')'
             }
         }else if(this.name instanceof lib_binopNode){
             if(this.name.function_name === 'constant'){
@@ -6587,6 +6650,9 @@ class FileReader{
     };
     matrix_section.prototype.toJS = function(){
         const shape = top.shapeCache.get(this.exp);
+        if(shape && shape.length >= 3 && this.slice_pair_list.length === 1){ //matrixs是矩阵数组,访问matrixs[0]的情况
+            return `${this.exp.toJS()}[${this.slice_pair_list[0].start.toJS()}]`
+        }
         if(shape && shape.join('') > '11' || this.slice_pair_list.length > 1){
             // 若为S.x[i,j]获取指定位置元素
             if(this.slice_pair_list.every(p => p.op !== ':')){
