@@ -42,7 +42,7 @@ function MyVisitNode(node,ssg,mp){
     str = str.replace(/PPP/,ppp)
 
     if(mp){
-        let id = mp.findPartitionNumForFlatNode(node)
+        let id = mp.findPartitionNumForFlatNode(node) || 0
         str = str.replace(/azure/,colors[id])
     }
 

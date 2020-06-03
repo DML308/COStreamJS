@@ -40,7 +40,7 @@ function checkBinopShape(/** @type {binopNode} */stmt){
     }else if(stmt.op === '*'){
         return checkMultiShape(stmt)
     }
-    return lshape
+    return [1,1]
 }
 function checkMultiShape(/** @type {binopNode} */stmt){
     const lshape = checkShape(stmt.left), rshape = checkShape(stmt.right)

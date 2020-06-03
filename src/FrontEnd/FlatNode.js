@@ -41,9 +41,9 @@ export class FlatNode {
         /** init调度次数 */
         this.initCount = 0
         /** 稳态调度次数 */
-        this.steadyCount = undefined
+        this.steadyCount = 0
         /** 阶段号 */
-        this.stageNum = undefined
+        this.stageNum = 0
     }
 
     AddOutEdges(/*FlatNode */ dest) {
