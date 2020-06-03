@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/vue-material.min.css">
     <link rel="stylesheet" href="https://unpkg.com/vue-material/dist/theme/default.css">
     <link rel="stylesheet" type="text/css" href="./main.css">
-    <title>COStreamJS-v0.10.3</title>
+    <title>COStreamJS-v0.10.4</title>
     <style> .md-snackbar{ max-height: none!important;} </style>
 </head>
 
@@ -166,7 +166,7 @@
             })
         }
         if (!window.str) {
-            LoadFileAsync('DCT')
+            LoadFileAsync('mnist')
         } else {
             showCode(str);
         }
@@ -193,12 +193,12 @@
             el: '#app',
             data() {
                 return {
-                    flats: [],
+                    flats: [], /** 成员有: {name,workEstimate,steadyCount,coreNum,stageNum>} */
                     isDOT: false,
                     showSnackbar: false,
                     snackBarMessage: '',
                     symbol_table: {},
-                    file: "DCT", // 默认的示例文件名,
+                    file: "mnist", // 默认的示例文件名,
                     core: 4, // 默认的划分核数
                     status: 0 // 0: 未编译, 1: 已打印语法树 2:已生成ssg 3: 已完成工作量估计 4: 已完成调度 5: 已划分 6: 已阶段赋值且代码生成,处于源码状态 7:查看目标代码状态 
                 }
@@ -209,10 +209,10 @@
                     old_code = str;
                     try {
                         window.COStreamJS.main(str, { platform: 'WEB', coreNum:this.core || 4 })
-                        this.flats = COStreamJS.ssg.flatNodes
-                        this.flats.forEach(flat => {
-                            Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat))
-                            Vue.set(flat, 'coreNum', COStreamJS.mp.FlatNode2PartitionNum.get(flat))
+                        this.flats = COStreamJS.ssg.flatNodes.map(({name,steadyCount,stageNum})=>({name,steadyCount,stageNum}))
+                        COStreamJS.ssg.flatNodes.forEach((flat,idx) => {
+                            this.flats[idx].workEstimate = COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat)
+                            this.flats[idx].coreNum = COStreamJS.mp.FlatNode2PartitionNum.get(flat)
                         })
                         this.status = 6
                     } catch (err) {
@@ -234,6 +234,9 @@
                     await window.renderDot(dotStr)
                 },
                 coreNum2Color(num) {
+                    if(num === undefined){
+                        return 'undefined'
+                    }
                     const colors = ["aliceblue", "antiquewhite", "yellowgreen", "aquamarine","azure", "magenta", "maroon", "mediumaquamarine", "mediumblue", "mediumorchid"]
                     return colors[num]
                 },
@@ -266,16 +269,17 @@
                                 COStreamJS.gMainComposite = COStreamJS.SemCheck.findMainComposite(COStreamJS.ast);
                                 // 4. 语法树转数据流图
                                 COStreamJS.ssg = COStreamJS.AST2FlatStaticStreamGraph(COStreamJS.gMainComposite, COStreamJS.unfold, COStreamJS.S);
-                                this.flats = COStreamJS.ssg.flatNodes
+                                this.flats = COStreamJS.ssg.flatNodes.map(flat=>({name: flat.name}))
                                 break;
                             }
                             case 2: 
                                 // 5. 工作量估计
                                 COStreamJS.WorkEstimate(COStreamJS.ssg); 
-                                this.flats.forEach(flat => Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat)));
+                                COStreamJS.ssg.flatNodes.forEach((flat,idx) => this.flats[idx].workEstimate = COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat));
                                 break;
                             case 3: 
                                 COStreamJS.ShedulingSSG(COStreamJS.ssg); // 6. 调度
+                                COStreamJS.ssg.flatNodes.forEach((flat,idx) => this.flats[idx].steadyCount = flat.steadyCount);
                                 break; 
                             case 4:{
                                 // 7. 划分
@@ -283,7 +287,7 @@
                                 COStreamJS.mp.setCpuCoreNum(this.core);
                                 COStreamJS.mp.SssgPartition(COStreamJS.ssg);
                                 COStreamJS.mp.computeCommunication();
-                                this.flats.forEach(flat => Vue.set(flat, 'coreNum', COStreamJS.mp.FlatNode2PartitionNum.get(flat)))
+                                COStreamJS.ssg.flatNodes.forEach((flat,idx) => this.flats[idx].coreNum = COStreamJS.mp.FlatNode2PartitionNum.get(flat))
                                 // 8. 输出统计信息
                                 let SI = COStreamJS.GetSpeedUpInfo(COStreamJS.ssg,COStreamJS.mp);
                                 debug(COStreamJS.PrintSpeedUpInfo(SI));
@@ -292,6 +296,7 @@
                             case 5:{
                                 // 9. 阶段赋值
                                 COStreamJS.MaxStageNum = COStreamJS.StageAssignment(COStreamJS.ssg,COStreamJS.mp);
+                                COStreamJS.ssg.flatNodes.forEach((flat,idx) => this.flats[idx].stageNum = flat.stageNum);
                                 // 10.目标代码生成
                                 COStreamJS.files = {};
                                 COStreamJS.codeGeneration(COStreamJS.mp.finalParts,COStreamJS.ssg,COStreamJS.mp);
@@ -346,6 +351,7 @@
                     this.status = 0
                 },
                 core: function (newCore){
+                    if(this.status == 7) this.onToggleTargetCode()
                     this.status = 0
                 }
             },

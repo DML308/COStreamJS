@@ -890,9 +890,9 @@ var COStreamJS = (function () {
             /** init调度次数 */
             this.initCount = 0;
             /** 稳态调度次数 */
-            this.steadyCount = undefined;
+            this.steadyCount = 0;
             /** 阶段号 */
-            this.stageNum = undefined;
+            this.stageNum = 0;
         }
 
         AddOutEdges(/*FlatNode */ dest) {
@@ -2208,7 +2208,7 @@ var COStreamJS = (function () {
         }else if(stmt.op === '*'){
             return checkMultiShape(stmt)
         }
-        return lshape
+        return [1,1]
     }
     function checkMultiShape(/** @type {binopNode} */stmt){
         const lshape = checkShape(stmt.left), rshape = checkShape(stmt.right);
@@ -5128,7 +5128,7 @@ var COStreamJS = (function () {
         str = str.replace(/PPP/,ppp);
 
         if(mp){
-            let id = mp.findPartitionNumForFlatNode(node);
+            let id = mp.findPartitionNumForFlatNode(node) || 0;
             str = str.replace(/azure/,colors[id]);
         }
 
