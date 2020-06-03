@@ -9,7 +9,7 @@ import { UnfoldComposite } from "./src/FrontEnd/unfoldComposite"
 import "./src/FrontEnd/unfoldSequential"
 import { COStreamJS } from "./src/FrontEnd/global"
 import { SymbolTable } from "./src/FrontEnd/symbol"
-import {generateSymbolTables} from "./src/FrontEnd/generateSymbolTables"
+import { generateSymbolTables } from "./src/FrontEnd/generateSymbolTables"
 import { WorkEstimate } from "./src/LifeCycle/workEstimate"
 import { ShedulingSSG } from "./src/LifeCycle/SchedulingSSG"
 import { DumpStreamGraph } from "./src/LifeCycle/DumpStreamGraph"
@@ -22,8 +22,11 @@ import handle_options from './src/LifeCycle/handle_options'
 Object.assign(COStreamJS.__proto__, {
     parser,
     AST2FlatStaticStreamGraph,
+    generateSymbolTables,
     unfold : new UnfoldComposite(),
     SemCheck,
+    WorkEstimate,
+    ShedulingSSG,
     DumpStreamGraph,
     GreedyPartition,
     GetSpeedUpInfo,

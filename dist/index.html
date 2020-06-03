@@ -41,17 +41,16 @@
                 <option value="7">7</option>
                 <option value="8">8</option>
             </select>
-            <md-button class="md-raised md-primary" @click="updateSVG">打印语法树</md-button>
-            <md-button class="md-raised md-primary" disabled>AST->SSG</md-button>
-            <md-button class="md-raised md-primary" disabled>工作量估计</md-button>
-            <md-button class="md-raised md-primary" disabled>调度</md-button>
-            <md-button class="md-raised md-primary" disabled>流图划分</md-button>
-            <md-button class="md-raised md-primary" disabled>打印加速比</md-button>
-            <md-button class="md-raised md-primary" disabled>阶段赋值</md-button>
-            <md-button class="md-raised md-primary" :disabled="status!=0" @click="onAll">一键编译</md-button>
-            <md-button class="md-raised md-primary" :disabled="status!=1" @click="updateSDF">画SDF图</md-button>
-            <md-button class="md-raised md-accent" :disabled="status==0" @click="onToggleTargetCode">{{status==1?'查看目标代码':'查看源码'}}</md-button>
-            <md-button class="md-raised md-accent" :disabled="status!=2" @click="onRunTargetCode">运行目标代码</md-button>
+            <md-button class="md-raised md-primary" :disabled="status!=0" @click="runStep">打印语法树</md-button>
+            <md-button class="md-raised md-primary" :disabled="status!=1" @click="runStep">AST->SSG</md-button>
+            <md-button class="md-raised md-primary" :disabled="status!=2" @click="runStep">工作量估计</md-button>
+            <md-button class="md-raised md-primary" :disabled="status!=3" @click="runStep">调度</md-button>
+            <md-button class="md-raised md-primary" :disabled="status!=4" @click="runStep">流图划分</md-button>
+            <md-button class="md-raised md-primary" :disabled="status!=5" @click="runStep">阶段赋值</md-button>
+            <md-button class="md-raised md-primary" :disabled="status==6||status==7" @click="onAll">一键编译</md-button>
+            <md-button class="md-raised md-primary" :disabled="status<2" @click="updateSDF">画SDF图</md-button>
+            <md-button class="md-raised md-accent" :disabled="status<6" @click="onToggleTargetCode">{{status==6?'查看目标代码':'查看源码'}}</md-button>
+            <md-button class="md-raised md-accent" :disabled="status!=7" @click="onRunTargetCode">运行目标代码</md-button>
             <transition>
                 <md-button class="md-raised md-primary" v-show="isDOT" @click="updateDOT">渲染dot</md-button>
             </transition>
@@ -81,31 +80,6 @@
             <span v-html="snackBarMessage"></span>
             <md-button class="md-primary" @click="showSnackbar = false">ㄨ</md-button>
         </md-snackbar>
-
-        <md-table md-card style="display:none;">
-            <md-table-toolbar>
-                <h1 class="md-title">当前作用域</h1>
-            </md-table-toolbar>
-            <md-table-row>
-                <md-table-head md-numeric>NAME</md-table-head>
-                <md-table-head>变量</md-table-head>
-            </md-table-row>
-            <md-table-row v-for="id in symbol_table.idTable" :key="id">
-                <md-table-cell md-numeric>{{id}}</md-table-cell>
-            </md-table-row>
-            <md-table-row v-for="id in symbol_table.compTable" :key="id">
-                <md-table-cell md-numeric>{{id}}</md-table-cell>
-            </md-table-row>
-        </md-table>
-
-        <md-table md-card style="display:none;">
-            <md-table-toolbar>
-                <h1 class="md-title">composite</h1>
-            </md-table-toolbar>
-            <md-table-row v-for="id in symbol_table.compTable" :key="id">
-                <md-table-cell md-numeric>{{id}}</md-table-cell>
-            </md-table-row>
-        </md-table>
     </div>
 
     <!-- 右边 dot 图部分 -->
@@ -139,6 +113,7 @@
             try {
                 var astSvg = await viz.renderSVGElement(str)
                 astSvg.id = "ast-svg"
+                document.querySelector("#container").style.display = 'block';
                 document.querySelector("#container").replaceChild(astSvg, document.getElementById("ast-svg"))
                 document.querySelector("#container svg polygon").setAttribute('fill', '#fafafa')
             } catch (error) {
@@ -201,17 +176,10 @@
         }
 
         editor.selection.on('changeCursor', function (e) {
-            if (window.app.status != 2 && editor.getValue() != old_code) {
+            if (window.app.status != 7 && editor.getValue() != old_code) {
                 window.app.status = 0;
                 editor.renderer.setAnnotations([]) // 清空报错的内容
             }
-            /* 符号表相关代码 */
-            /*
-            let current_line = editor.getCursorPosition().row + 1;
-            let symbol_table = window.COStreamJS.SymbolTable.FindRightSymbolTable(current_line, COStreamJS.S);
-            let print_table = symbol_table.printSymbol();
-            Vue.set(app._data.symbol_table, 'compTable', print_table.compTable);
-            Vue.set(app._data.symbol_table, 'idTable', print_table.idTable); */
         });
 
     </script>
@@ -232,7 +200,7 @@
                     symbol_table: {},
                     file: "DCT", // 默认的示例文件名,
                     core: 4, // 默认的划分核数
-                    status: 0 // 0: 未编译, 1: 已编译的源码状态 2:已编译的目标代码状态
+                    status: 0 // 0: 未编译, 1: 已打印语法树 2:已生成ssg 3: 已完成工作量估计 4: 已完成调度 5: 已划分 6: 已阶段赋值且代码生成,处于源码状态 7:查看目标代码状态 
                 }
             },
             methods: {
@@ -246,7 +214,7 @@
                             Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat))
                             Vue.set(flat, 'coreNum', COStreamJS.mp.FlatNode2PartitionNum.get(flat))
                         })
-                        this.status = 1
+                        this.status = 6
                     } catch (err) {
                         if(typeof err === 'object' && err.hash){
                             error(err.hash.loc, err.message.split('\n')[3])
@@ -269,31 +237,93 @@
                     const colors = ["aliceblue", "antiquewhite", "yellowgreen", "aquamarine","azure", "magenta", "maroon", "mediumaquamarine", "mediumblue", "mediumorchid"]
                     return colors[num]
                 },
-                async updateSVG() {
-                    try {
-                        str = editor.getValue()
-                        window.ast = COStreamJS.parser.parse(str)
-                        var dotStr = ast2dot(ast)
-                        await window.renderDot(dotStr)
-                    } catch (err) {
-                        console.warn(err)
+                async updateDOT() {
+                    await window.renderDot(editor.getValue())
+                },
+                // 分步执行编译过程
+                async runStep(){
+                    try{
+                        switch(this.status){
+                            case 0:{
+                                str = editor.getValue()
+                                // 1. 先检查括号是否匹配
+                                if(!checkBraceMatching(str)) throw new Error();
+                                // 2. 词语法分析构建语法树
+                                COStreamJS.ast = window.ast = COStreamJS.parser.parse(str)
+                                var dotStr = ast2dot(ast)
+                                await window.renderDot(dotStr)
+                                break;
+                            }
+                            case 1:{
+                                COStreamJS.plugins.matrix = false;
+                                COStreamJS.global.errors = errors;
+                                COStreamJS.global.errors.length = 0; // 清空错误统计列表
+                                COStreamJS.options.platform = 'WEB';
+                                // 3. 遍历语法树进行语义分析和构建符号表
+                                COStreamJS.symbolTableList = COStreamJS.generateSymbolTables(COStreamJS.ast);
+                                if(COStreamJS.global.errors.length) throw new Error();
+                                COStreamJS.S = COStreamJS.symbolTableList[0];
+                                COStreamJS.gMainComposite = COStreamJS.SemCheck.findMainComposite(COStreamJS.ast);
+                                // 4. 语法树转数据流图
+                                COStreamJS.ssg = COStreamJS.AST2FlatStaticStreamGraph(COStreamJS.gMainComposite, COStreamJS.unfold, COStreamJS.S);
+                                this.flats = COStreamJS.ssg.flatNodes
+                                break;
+                            }
+                            case 2: 
+                                // 5. 工作量估计
+                                COStreamJS.WorkEstimate(COStreamJS.ssg); 
+                                this.flats.forEach(flat => Vue.set(flat, 'workEstimate', COStreamJS.ssg.mapSteadyWork2FlatNode.get(flat)));
+                                break;
+                            case 3: 
+                                COStreamJS.ShedulingSSG(COStreamJS.ssg); // 6. 调度
+                                break; 
+                            case 4:{
+                                // 7. 划分
+                                COStreamJS.mp = new COStreamJS.GreedyPartition(COStreamJS.ssg);
+                                COStreamJS.mp.setCpuCoreNum(this.core);
+                                COStreamJS.mp.SssgPartition(COStreamJS.ssg);
+                                COStreamJS.mp.computeCommunication();
+                                this.flats.forEach(flat => Vue.set(flat, 'coreNum', COStreamJS.mp.FlatNode2PartitionNum.get(flat)))
+                                // 8. 输出统计信息
+                                let SI = COStreamJS.GetSpeedUpInfo(COStreamJS.ssg,COStreamJS.mp);
+                                debug(COStreamJS.PrintSpeedUpInfo(SI));
+                                break;
+                            }
+                            case 5:{
+                                // 9. 阶段赋值
+                                COStreamJS.MaxStageNum = COStreamJS.StageAssignment(COStreamJS.ssg,COStreamJS.mp);
+                                // 10.目标代码生成
+                                COStreamJS.files = {};
+                                COStreamJS.codeGeneration(COStreamJS.mp.finalParts,COStreamJS.ssg,COStreamJS.mp);
+                                break
+                            }
+                        }
+                        this.status++ //更新至下一状态
+                    }catch (err) {
+                        if(typeof err === 'object' && err.hash){
+                            error(err.hash.loc, err.message.split('\n')[3])
+                        }
+                        console.warn(errors)
+                        editor.renderer.setAnnotations(errors.map(x => ({
+                            row: x.loc.first_line-1,
+                            type:'error',
+                            text: x.msg
+                        })))
                         this.snackBarMessage = err
                         this.showSnackbar = true
                     }
                 },
-                async updateDOT() {
-                    await window.renderDot(editor.getValue())
-                },
                 onToggleTargetCode() {
-                    if (this.status == 1) {
+                    document.querySelector("#container").style.display = 'none';
+                    if (this.status == 6) {
                         if(/canvas/.test(old_code))document.querySelector(".canvas-container").style.display = "block";
                         showCode(COStreamJS.files["main.cpp"], "ace/mode/javascript");
                         editor.getSession().foldAll()
-                        this.status = 2
-                    } else if (this.status == 2) {
+                        this.status = 7
+                    } else if (this.status == 7) {
                         if(/canvas/.test(old_code))document.querySelector(".canvas-container").style.display = "none";
                         showCode(old_code)
-                        this.status = 1
+                        this.status = 6
                     }
                 },
                 onRunTargetCode() {

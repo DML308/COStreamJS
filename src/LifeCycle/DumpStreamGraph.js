@@ -30,10 +30,10 @@ const colors = ["aliceblue", "antiquewhite", "yellowgreen", "aquamarine",
 function MyVisitNode(node,ssg,mp){
     let str = `name[ label = "name \\n init Mult: initMult steady Mult: steadyMult \\n init work: initWork steady work:steadyWork \\n  PPP \\n" color="azure" style="filled"  ]\n\n`
     str = str.replace(/name/g,node.name)
-    str = str.replace(/initMult/,node.initCount)
-    str = str.replace(/steadyMult/, node.steadyCount)
-    str = str.replace(/initWork/, ssg.mapInitWork2FlatNode.get(node))
-    str = str.replace(/steadyWork/, ssg.mapSteadyWork2FlatNode.get(node))
+    str = str.replace(/initMult/,node.initCount || 0)
+    str = str.replace(/steadyMult/, node.steadyCount || 0)
+    str = str.replace(/initWork/, ssg.mapInitWork2FlatNode.get(node) || 0)
+    str = str.replace(/steadyWork/, ssg.mapSteadyWork2FlatNode.get(node) || 0)
 
     let peek = node.inPeekWeights.map(w => " peek: "+w)
     let pop  = node.inPopWeights.map(w => " pop: " + w)
