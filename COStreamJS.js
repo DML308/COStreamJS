@@ -889,9 +889,9 @@ var COStreamJS = (function () {
             /** init调度次数 */
             this.initCount = 0;
             /** 稳态调度次数 */
-            this.steadyCount = 0;
+            this.steadyCount = undefined;
             /** 阶段号 */
-            this.stageNum = 0;
+            this.stageNum = undefined;
         }
 
         AddOutEdges(/*FlatNode */ dest) {
@@ -5115,10 +5115,10 @@ var COStreamJS = (function () {
     function MyVisitNode(node,ssg,mp){
         let str = `name[ label = "name \\n init Mult: initMult steady Mult: steadyMult \\n init work: initWork steady work:steadyWork \\n  PPP \\n" color="azure" style="filled"  ]\n\n`;
         str = str.replace(/name/g,node.name);
-        str = str.replace(/initMult/,node.initCount);
-        str = str.replace(/steadyMult/, node.steadyCount);
-        str = str.replace(/initWork/, ssg.mapInitWork2FlatNode.get(node));
-        str = str.replace(/steadyWork/, ssg.mapSteadyWork2FlatNode.get(node));
+        str = str.replace(/initMult/,node.initCount || 0);
+        str = str.replace(/steadyMult/, node.steadyCount || 0);
+        str = str.replace(/initWork/, ssg.mapInitWork2FlatNode.get(node) || 0);
+        str = str.replace(/steadyWork/, ssg.mapSteadyWork2FlatNode.get(node) || 0);
 
         let peek = node.inPeekWeights.map(w => " peek: "+w);
         let pop  = node.inPopWeights.map(w => " pop: " + w);
@@ -7364,8 +7364,11 @@ class FileReader{
     Object.assign(COStreamJS.__proto__, {
         parser,
         AST2FlatStaticStreamGraph,
+        generateSymbolTables,
         unfold : new UnfoldComposite(),
         SemCheck,
+        WorkEstimate,
+        ShedulingSSG,
         DumpStreamGraph,
         GreedyPartition,
         GetSpeedUpInfo,
