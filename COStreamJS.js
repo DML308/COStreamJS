@@ -846,7 +846,7 @@ var COStreamJS = (function () {
         activationLayerNode: activationLayerNode
     });
 
-    var version = "0.10.3";
+    var version = "1.0.1";
 
     class FlatNode {
         constructor(/** @type {operatorNode} */ node, params = []) {
